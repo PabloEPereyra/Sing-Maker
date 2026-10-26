@@ -1,4 +1,5 @@
-// Tema "Cielo": un pájaro azul que vuela y junta estrellas sobre un fondo de nubes.
+// Tema "Cielo": un pájaro azul que vuela sobre un fondo de nubes.
+import type { CharacterId } from '$lib/settings.svelte';
 import type { CharacterState, Theme } from '../theme';
 
 interface SpriteMeta {
@@ -7,10 +8,22 @@ interface SpriteMeta {
 	frameHeight: number;
 }
 
-/** Orden de cuadros del aleteo: alas arriba → medio → horizontal → abajo → horizontal → medio. */
-const FLAP = [0, 3, 1, 2, 1, 3];
-/** Cuadro en reposo: alas plegadas. */
-const REST_FRAME = 2;
+interface CharacterDef {
+	sprite: string;
+	/** Orden de cuadros del aleteo. */
+	flap: number[];
+	/** Cuadro parado en el suelo. */
+	rest: number;
+	/** La celda del sprite incluye las alas abiertas: se agranda para que el cuerpo mida lo mismo. */
+	scale: number;
+}
+
+const CHARACTERS: Record<CharacterId, CharacterDef> = {
+	// 4 cuadros: alas arriba, horizontales, plegadas (parado) y a media altura.
+	bird: { sprite: 'character', flap: [0, 3, 1, 2, 1, 3], rest: 2, scale: 1 },
+	// 6 cuadros en orden de aleteo; ninguno está parado, en el suelo usa el de alas abajo.
+	bird2: { sprite: 'character2', flap: [0, 1, 2, 3, 4, 5], rest: 3, scale: 1.25 }
+};
 /** Velocidad del fondo respecto de las estrellas (paralaje). */
 const BACKGROUND_SPEED = 0.3;
 
@@ -23,31 +36,21 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 	});
 }
 
-export function createSkyTheme(): Theme {
+export function createSkyTheme(characterId: CharacterId = 'bird'): Theme {
+	const character = CHARACTERS[characterId];
 	let sprite: HTMLImageElement | null = null;
 	let background: HTMLImageElement | null = null;
 	let meta: SpriteMeta = { frames: 4, frameWidth: 144, frameHeight: 220 };
 
-	function star(g: CanvasRenderingContext2D, x: number, y: number, r: number, rot: number): void {
-		g.beginPath();
-		for (let i = 0; i < 10; i++) {
-			const a = rot + (i * Math.PI) / 5 - Math.PI / 2;
-			const rr = i % 2 === 0 ? r : r * 0.45;
-			g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-		}
-		g.closePath();
-	}
-
 	return {
-		id: 'sky',
+		id: `sky-${characterId}`,
 		name: 'Cielo',
-		collectibles: 'estrellas',
 
 		async load() {
 			const [img, bg, m] = await Promise.all([
-				loadImage('/themes/sky/character.png'),
+				loadImage(`/themes/sky/${character.sprite}.png`),
 				loadImage('/themes/sky/background.jpg'),
-				fetch('/themes/sky/character.json').then((r) => r.json() as Promise<SpriteMeta>)
+				fetch(`/themes/sky/${character.sprite}.json`).then((r) => r.json() as Promise<SpriteMeta>)
 			]);
 			sprite = img;
 			background = bg;
@@ -131,48 +134,15 @@ export function createSkyTheme(): Theme {
 				g.restore();
 				return;
 			}
-			// Solo el nombre de la nota bajo las estrellas.
-			g.globalAlpha = info.past ? 0.4 : 0.85;
-			g.fillStyle = 'rgba(25,45,90,0.8)';
-			g.font = '600 12px system-ui, sans-serif';
-			g.fillText(info.label, x + 2, y + 26);
-			g.restore();
-		},
-
-		drawCollectible(g, x, y, size, state, age, time) {
-			g.save();
-			if (state === 'collected') {
-				// Sube, gira y se desvanece con chispas.
-				const t = Math.min(1, age / 0.6);
-				g.globalAlpha = 1 - t;
-				const yy = y - t * 50;
-				g.fillStyle = '#ffe14d';
-				star(g, x, yy, size * (1 + t * 0.6), t * 3);
-				g.fill();
-				g.fillStyle = '#fff7b0';
-				for (let i = 0; i < 6; i++) {
-					const a = (i / 6) * Math.PI * 2;
-					g.beginPath();
-					g.arc(x + Math.cos(a) * t * 34, y + Math.sin(a) * t * 34, 3 * (1 - t), 0, Math.PI * 2);
-					g.fill();
-				}
-			} else if (state === 'missed') {
-				g.globalAlpha = Math.max(0.15, 0.45 - age);
-				g.fillStyle = '#c9d3e0';
-				star(g, x, y, size * 0.8, 0);
-				g.fill();
-			} else {
-				const pulse = 1 + 0.08 * Math.sin(time * 6 + x * 0.05);
-				g.shadowColor = 'rgba(255,220,60,0.8)';
-				g.shadowBlur = 12;
-				g.fillStyle = '#ffd23f';
-				star(g, x, y, size * pulse, Math.sin(time * 2 + x) * 0.15);
-				g.fill();
-				g.shadowBlur = 0;
-				g.strokeStyle = '#e09b00';
-				g.lineWidth = 1.5;
-				g.stroke();
-			}
+			// La percha es invisible: solo el nombre de la nota al comienzo, sobre los objetos.
+			g.globalAlpha = info.past ? 0.35 : 0.95;
+			g.font = '700 12px system-ui, sans-serif';
+			g.lineJoin = 'round';
+			g.lineWidth = 3;
+			g.strokeStyle = 'rgba(20,35,80,0.55)';
+			g.strokeText(info.label, x, y - 22);
+			g.fillStyle = '#ffffff';
+			g.fillText(info.label, x, y - 22);
 			g.restore();
 		},
 
@@ -180,8 +150,10 @@ export function createSkyTheme(): Theme {
 			if (!sprite) return;
 			// En el aire aletea siempre (más rápido cuando canta); en el suelo, alas plegadas.
 			const flapRate = state.onTarget ? 12 : state.singing ? 10 : 7;
-			const frame = state.flying ? FLAP[Math.floor(time * flapRate) % FLAP.length] : REST_FRAME;
-			const h = size;
+			const frame = state.flying
+				? character.flap[Math.floor(time * flapRate) % character.flap.length]
+				: character.rest;
+			const h = size * character.scale;
 			const w = (meta.frameWidth / meta.frameHeight) * h;
 			g.save();
 			if (state.flying) {

@@ -8,7 +8,9 @@ const ExerciseSchema = z.object({
 	name: z.string(),
 	category: z.string(),
 	level: z.string(),
-	code: z.string()
+	code: z.string(),
+	name_en: z.string(),
+	description_en: z.string()
 });
 
 export type Exercise = z.infer<typeof ExerciseSchema> & { parsed: ParseResult };
@@ -31,12 +33,14 @@ const CATEGORY_ORDER = [
 	'Modos'
 ];
 
-const CATEGORY_LABEL: Record<string, string> = {
-	'Tecnica y Sostenido': 'Técnica y sostenido'
-};
-
-export function categoryLabel(c: string): string {
-	return CATEGORY_LABEL[c] ?? c;
+/** Nombre y descripción en el idioma de la interfaz. */
+export function exerciseText(
+	e: Exercise,
+	lang: 'es' | 'en'
+): { name: string; description: string } {
+	return lang === 'en'
+		? { name: e.name_en, description: e.description_en }
+		: { name: e.name, description: e.parsed.meta.description };
 }
 
 export function byCategory(list: Exercise[] = exercises): [string, Exercise[]][] {

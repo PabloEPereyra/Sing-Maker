@@ -29,8 +29,94 @@ body {
 	height: 100%;
 }
 
-input[type='search'],
-select,
-button {
-	border-radius: 8px;
+@layer base {
+	input[type='search'],
+	select,
+	button {
+		border-radius: 8px;
+	}
+}
+
+/* Sliders con agarre (copiados de Voicexplorer, src/app.css): pista con relleno de acento a la
+   izquierda y handle rectangular con líneas de agarre. El relleno se controla con `--fill`. */
+.vx-slider {
+	-webkit-appearance: none;
+	appearance: none;
+	height: 6px;
+	border-radius: 9999px;
+	background: linear-gradient(
+		to right,
+		color-mix(in srgb, var(--color-accent) 60%, #2563eb) 0,
+		var(--color-accent) var(--fill, 50%),
+		var(--color-border) var(--fill, 50%),
+		var(--color-border) 100%
+	);
+	outline-offset: 4px;
+	cursor: pointer;
+}
+.vx-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 26px;
+	height: 15px;
+	border-radius: 4px;
+	background-color: #fff;
+	background-image: linear-gradient(
+		to right,
+		#cbd5e1 0 1px,
+		transparent 1px 4px,
+		#cbd5e1 4px 5px,
+		transparent 5px
+	);
+	background-size: 5px 7px;
+	background-position: center;
+	background-repeat: no-repeat;
+	border: 1px solid color-mix(in srgb, var(--color-accent) 45%, #94a3b8);
+	box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+	cursor: grab;
+}
+.vx-slider:active::-webkit-slider-thumb {
+	background-color: var(--color-accent);
+	background-image: linear-gradient(
+		to right,
+		rgb(255 255 255 / 0.9) 0 1px,
+		transparent 1px 4px,
+		rgb(255 255 255 / 0.9) 4px 5px,
+		transparent 5px
+	);
+	border-color: color-mix(in srgb, var(--color-accent) 65%, black);
+	cursor: grabbing;
+}
+.vx-slider::-moz-range-track {
+	height: 6px;
+	border-radius: 9999px;
+	background: var(--color-border);
+}
+.vx-slider::-moz-range-progress {
+	height: 6px;
+	border-radius: 9999px;
+	background: var(--color-accent);
+}
+.vx-slider::-moz-range-thumb {
+	width: 26px;
+	height: 15px;
+	border-radius: 4px;
+	background-color: #fff;
+	background-image: linear-gradient(
+		to right,
+		#cbd5e1 0 1px,
+		transparent 1px 4px,
+		#cbd5e1 4px 5px,
+		transparent 5px
+	);
+	background-size: 5px 7px;
+	background-position: center;
+	background-repeat: no-repeat;
+	border: 1px solid color-mix(in srgb, var(--color-accent) 45%, #94a3b8);
+	box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+	cursor: grab;
+}
+.vx-slider:active::-moz-range-thumb {
+	background-color: var(--color-accent);
+	cursor: grabbing;
 }

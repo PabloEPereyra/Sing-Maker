@@ -1,17 +1,21 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import GameStage from '$lib/components/GameStage.svelte';
-	import { byLevel, categoryLabel, exercises } from '$lib/exercises/catalog';
 	import RangePicker from '$lib/components/RangePicker.svelte';
+	import CustomizeDialog from '$lib/components/CustomizeDialog.svelte';
+	import Icon from '$lib/components/Icon.svelte';
+	import { byLevel, exercises, exerciseText } from '$lib/exercises/catalog';
 	import { generateSequence } from '$lib/music/generate';
-	import { midiToSolfege } from '$lib/music/notes';
 	import { getContext, loadPiano } from '$lib/audio/engine';
 	import { PitchDetector } from '$lib/audio/pitch';
-	import { autopilot, type GameOptions } from '$lib/game/game';
+	import { autopilot, type GameOptions, type Phase } from '$lib/game/game';
 	import { createSkyTheme } from '$lib/game/themes/sky';
+	import { loadSettings, noteLabel, saveSettings, settings } from '$lib/settings.svelte';
+	import { t, tDynamic } from '$lib/i18n';
 
 	const PREFS_KEY = 'singmaker-prefs';
-	const theme = createSkyTheme();
+	// Un tema por personaje, creado una sola vez.
+	const themes = { bird: createSkyTheme('bird'), bird2: createSkyTheme('bird2') };
 
 	let selectedId = $state(byLevel()[0].exercises[0].id);
 	let low = $state(45); // A2 (tenor)
@@ -20,15 +24,21 @@
 	let guide = $state(true);
 	let metronome = $state(false);
 	let tolerance = $state(0.6);
-	let demo = $state(false);
+	let demo = $state(true); // sin micrófono hasta que se active
 	let micError = $state('');
 	let micStatus = $state('');
 	let search = $state('');
+	let customizing = $state(false);
+	let loaded = $state(false);
+	let phase = $state<Phase>('idle');
 
 	let stage: GameStage;
 	let detector: PitchDetector | null = null;
 
+	const theme = $derived(themes[settings.character]);
+	const running = $derived(phase === 'countin' || phase === 'playing');
 	const exercise = $derived(exercises.find((e) => e.id === selectedId) ?? exercises[0]);
+	const text = $derived(exerciseText(exercise, settings.lang));
 	const bpm = $derived(Math.round(exercise.parsed.meta.bpm * tempo));
 	const sequence = $derived(
 		generateSequence(exercise.parsed.notes, {
@@ -50,30 +60,43 @@
 		byLevel(
 			query
 				? exercises.filter((e) =>
-						`${e.name} ${e.category} ${e.parsed.meta.description}`.toLowerCase().includes(query)
+						[e.name, e.name_en, e.category, e.parsed.meta.description, e.description_en]
+							.join(' ')
+							.toLowerCase()
+							.includes(query)
 					)
 				: exercises
 		)
 	);
 
 	onMount(() => {
+		loadSettings();
 		try {
 			const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
 			if (typeof p.low === 'number') low = p.low;
 			if (typeof p.high === 'number') high = p.high;
 			if (typeof p.guide === 'boolean') guide = p.guide;
+			if (typeof p.metronome === 'boolean') metronome = p.metronome;
 			if (typeof p.tolerance === 'number') tolerance = p.tolerance;
 			if (typeof p.demo === 'boolean') demo = p.demo;
 		} catch {}
+		loaded = true;
 		void loadPiano();
 		return () => detector?.stop();
 	});
 
 	$effect(() => {
-		const prefs = { low, high, guide, tolerance, demo };
+		const prefs = { low, high, guide, metronome, tolerance, demo };
+		if (!loaded) return;
 		try {
 			localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
 		} catch {}
+	});
+
+	$effect(() => {
+		const snapshot = { ...settings };
+		document.documentElement.lang = snapshot.lang;
+		if (loaded) saveSettings();
 	});
 
 	/** Abre el micrófono (una vez) y mide el ruido ambiente. */
@@ -86,13 +109,13 @@
 				forceCalibration = true;
 			}
 		} catch {
-			micError = 'No se pudo usar el micrófono. Revisá el permiso o probá el modo demo.';
+			micError = t('mic.error');
 			return null;
 		}
 		if (forceCalibration) {
-			micStatus = 'Calibrando: hacé silencio un momento…';
+			micStatus = t('mic.calibrating');
 			await detector.calibrate();
-			micStatus = `Micrófono calibrado (umbral ${(20 * Math.log10(detector.gate)).toFixed(0)} dB)`;
+			micStatus = t('mic.calibrated', { db: (20 * Math.log10(detector.gate)).toFixed(0) });
 		}
 		return detector;
 	}
@@ -110,8 +133,29 @@
 		stage.play(() => d.read().midi, d.latency);
 	}
 
+	/** Play/pausa: arranca, pausa o retoma sin volver a empezar. */
+	function togglePlay() {
+		if (running) stage.pause();
+		else if (phase === 'paused') stage.resume();
+		else void start();
+	}
+
 	function stop() {
 		stage.stop();
+	}
+
+	/** Botón de micrófono: encendido = cantar; apagado = modo demostración. */
+	async function toggleMic() {
+		stop();
+		if (demo) {
+			demo = false;
+			if (!(await ensureMic(true))) demo = true;
+		} else {
+			demo = true;
+			detector?.stop();
+			detector = null;
+			micStatus = '';
+		}
 	}
 
 	function next() {
@@ -120,31 +164,60 @@
 		const i = order.findIndex((e) => e.id === selectedId);
 		selectedId = order[(i + 1) % order.length].id;
 	}
+
+	/** Porcentaje de relleno de un slider (estilo Voicexplorer). */
+	function fill(value: number, min: number, max: number): string {
+		return `${((value - min) / (max - min)) * 100}%`;
+	}
 </script>
 
 <div class="flex h-dvh flex-col">
-	<header class="flex items-center justify-between gap-4 border-b border-border px-4 py-2.5">
+	<header class="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
 		<div class="flex items-center gap-3">
-			<img src="/favicon.svg" alt="" class="h-8 w-8" />
+			<img src="/logo.png" alt="" class="-my-1 h-11 w-11" />
 			<div>
 				<h1 class="text-lg leading-tight font-black">Sing Maker</h1>
-				<p class="text-xs text-muted">Ejercicios vocales a tu medida</p>
+				<p class="text-xs text-muted">{t('app.subtitle')}</p>
 			</div>
 		</div>
-		<div class="flex items-center gap-4 text-sm text-muted">
-			{#if !demo}
-				<button
-					class="rounded-lg border border-border px-3 py-1 hover:bg-surface-2"
-					title="Mide el ruido ambiente para ignorarlo. Usá auriculares para que el piano no entre al micrófono."
-					onclick={() => ensureMic(true)}
-				>
-					🎤 Calibrar micrófono
-				</button>
-			{/if}
-			<label class="flex cursor-pointer items-center gap-2">
-				<input type="checkbox" bind:checked={demo} class="accent-accent" />
-				Modo demo (sin micrófono)
-			</label>
+		<div class="flex flex-wrap items-center justify-end gap-2 text-sm text-muted">
+			<RangePicker bind:low bind:high getDetector={() => ensureMic()} />
+			<button
+				class="flex h-10 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 hover:bg-surface-2"
+				onclick={() => (customizing = true)}
+			>
+				<Icon name="palette" class="h-4 w-4 text-accent" />
+				{t('header.customize')}
+			</button>
+			<div
+				class="flex h-10 overflow-hidden rounded-lg border border-border bg-surface"
+				role="group"
+				aria-label={t('header.language')}
+			>
+				{#each ['es', 'en'] as const as lang (lang)}
+					<button
+						class="rounded-none px-2.5 text-xs font-bold uppercase transition {settings.lang ===
+						lang
+							? 'bg-accent text-white'
+							: 'hover:bg-surface-2'}"
+						aria-pressed={settings.lang === lang}
+						onclick={() => (settings.lang = lang)}
+					>
+						{lang}
+					</button>
+				{/each}
+			</div>
+			<button
+				class="grid h-10 w-10 place-items-center rounded-full border transition {demo
+					? 'border-border bg-surface text-muted hover:border-accent/50'
+					: 'border-accent bg-accent text-white'}"
+				aria-pressed={!demo}
+				aria-label={demo ? t('mic.off') : t('mic.on')}
+				title={demo ? t('mic.off') : t('mic.on')}
+				onclick={toggleMic}
+			>
+				<Icon name="mic" class="h-5 w-5" />
+			</button>
 		</div>
 	</header>
 
@@ -156,7 +229,7 @@
 			<div class="border-b border-border p-3">
 				<input
 					type="search"
-					placeholder="Buscar ejercicio…"
+					placeholder={t('catalog.search')}
 					bind:value={search}
 					class="w-full rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm outline-none focus:border-accent"
 				/>
@@ -171,11 +244,11 @@
 							class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 select-none hover:bg-surface-2"
 						>
 							<span
-								class="h-3 w-3 shrink-0 rounded-lg border border-black/20"
+								class="h-3 w-3 shrink-0 rounded-full border border-black/20"
 								style:background={lv.color}
 							></span>
-							<span class="font-bold">Nivel {lv.level}</span>
-							<span class="text-sm text-muted">· {lv.name}</span>
+							<span class="font-bold">{t('catalog.level')} {lv.level}</span>
+							<span class="text-sm text-muted">· {tDynamic(`level.${lv.level}`, lv.name)}</span>
 							<span class="ml-auto text-xs text-muted">{lv.exercises.length}</span>
 							<span class="text-muted transition group-open:rotate-90">›</span>
 						</summary>
@@ -184,7 +257,7 @@
 								<div
 									class="px-2 pt-2 pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase"
 								>
-									{categoryLabel(category)}
+									{tDynamic(`category.${category}`, category)}
 								</div>
 								{#each list as e (e.id)}
 									<button
@@ -197,7 +270,7 @@
 											selectedId = e.id;
 										}}
 									>
-										{e.name}
+										{exerciseText(e, settings.lang).name}
 									</button>
 								{/each}
 							{/each}
@@ -215,7 +288,9 @@
 					{theme}
 					{sequence}
 					{options}
-					title={exercise.name}
+					title={text.name}
+					{demo}
+					bind:phase
 					onStart={start}
 					onNext={next}
 				/>
@@ -223,53 +298,98 @@
 
 			<!-- Controles -->
 			<div
-				class="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-lg border border-border bg-surface p-3 text-sm"
+				class="grid grid-cols-[1fr_auto_1fr] items-center gap-x-4 gap-y-3 rounded-lg border border-border bg-surface p-3 text-sm"
 			>
-				<RangePicker bind:low bind:high getDetector={() => ensureMic()} />
-				<div>
-					<div class="mb-1 text-xs text-muted">Tempo · {bpm} bpm</div>
-					<input
-						type="range"
-						min="0.5"
-						max="1.5"
-						step="0.05"
-						bind:value={tempo}
-						class="accent-accent"
-					/>
+				<div class="flex flex-col gap-3">
+					<label class="block">
+						<span class="mb-1.5 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
+						<input
+							type="range"
+							min="0.5"
+							max="1.5"
+							step="0.05"
+							bind:value={tempo}
+							class="vx-slider w-full max-w-44"
+							style:--fill={fill(tempo, 0.5, 1.5)}
+						/>
+					</label>
+					<label class="block">
+						<span class="mb-1.5 block text-xs text-muted"
+							>{t('controls.tolerance')} · ±{tolerance.toFixed(1)} st</span
+						>
+						<input
+							type="range"
+							min="0.3"
+							max="1.5"
+							step="0.1"
+							bind:value={tolerance}
+							class="vx-slider w-full max-w-44"
+							style:--fill={fill(tolerance, 0.3, 1.5)}
+						/>
+					</label>
 				</div>
-				<div>
-					<div class="mb-1 text-xs text-muted">Tolerancia · ±{tolerance.toFixed(1)} st</div>
-					<input
-						type="range"
-						min="0.3"
-						max="1.5"
-						step="0.1"
-						bind:value={tolerance}
-						class="accent-accent"
-					/>
-				</div>
-				<label class="flex items-center gap-2 py-1.5">
-					<input type="checkbox" bind:checked={guide} class="accent-accent" /> Piano guía
-				</label>
-				<label class="flex items-center gap-2 py-1.5">
-					<input type="checkbox" bind:checked={metronome} class="accent-accent" /> Metrónomo
-				</label>
-				<div class="ml-auto flex gap-2">
+
+				<!-- Transporte, al centro -->
+				<div class="flex items-center gap-3">
 					<button
-						class="rounded-lg bg-surface-2 px-4 py-1.5 font-semibold hover:bg-border"
+						class="grid h-12 w-12 place-items-center rounded-full border border-border bg-surface-2 text-fg hover:bg-border"
+						aria-label={t('controls.stop')}
+						title={t('controls.stop')}
 						onclick={stop}
 					>
-						■ Parar
+						<Icon name="stop" class="h-5 w-5" />
 					</button>
-					<button class="rounded-lg bg-accent px-4 py-1.5 font-bold text-white" onclick={start}>
-						▶ Volar
+					<button
+						class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
+						aria-label={running
+							? t('controls.pause')
+							: phase === 'paused'
+								? t('controls.resume')
+								: t('controls.play')}
+						title={running
+							? t('controls.pause')
+							: phase === 'paused'
+								? t('controls.resume')
+								: t('controls.play')}
+						onclick={togglePlay}
+					>
+						{#if running}
+							<Icon name="pause" class="h-6 w-6" />
+						{:else}
+							<Icon name="play" class="ml-0.5 h-7 w-7" />
+						{/if}
 					</button>
 				</div>
-				<div class="basis-full text-xs text-muted">
-					{exercise.parsed.meta.description} · {sequence.reps.length} repeticiones ({sequence
-						.reps[0]
-						? midiToSolfege(sequence.reps[0].rootMidi)
-						: '—'} → {sequence.reps.at(-1) ? midiToSolfege(sequence.reps.at(-1)!.rootMidi) : '—'})
+
+				<div class="flex items-center justify-end gap-2">
+					<button
+						class="grid h-11 w-11 place-items-center rounded-full border transition {guide
+							? 'border-accent bg-accent text-white'
+							: 'border-border bg-surface text-muted hover:border-accent/50'}"
+						aria-pressed={guide}
+						aria-label={t('controls.guide')}
+						title={t('controls.guide')}
+						onclick={() => (guide = !guide)}
+					>
+						<Icon name="piano" class="h-5 w-5" />
+					</button>
+					<button
+						class="grid h-11 w-11 place-items-center rounded-full border transition {metronome
+							? 'border-accent bg-accent text-white'
+							: 'border-border bg-surface text-muted hover:border-accent/50'}"
+						aria-pressed={metronome}
+						aria-label={t('controls.metronome')}
+						title={t('controls.metronome')}
+						onclick={() => (metronome = !metronome)}
+					>
+						<Icon name="metronome" class="h-5 w-5" />
+					</button>
+				</div>
+
+				<div class="col-span-3 text-xs text-muted">
+					{text.description} · {t('controls.reps', { n: sequence.reps.length })} ({sequence.reps[0]
+						? noteLabel(sequence.reps[0].rootMidi)
+						: '—'} → {sequence.reps.at(-1) ? noteLabel(sequence.reps.at(-1)!.rootMidi) : '—'})
 					{#if micError}<span class="ml-2 text-red-600">{micError}</span>
 					{:else if micStatus && !demo}<span class="ml-2">· {micStatus}</span>{/if}
 				</div>
@@ -277,3 +397,7 @@
 		</main>
 	</div>
 </div>
+
+{#if customizing}
+	<CustomizeDialog onClose={() => (customizing = false)} />
+{/if}

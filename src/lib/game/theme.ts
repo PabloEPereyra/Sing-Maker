@@ -1,4 +1,5 @@
-// Un tema define el aspecto del juego: escenario, personaje, perchas (las notas) y coleccionables.
+// Un tema define el aspecto del juego: escenario, personaje y perchas (las notas). Los objetos
+// para recolectar son aparte (collectibles.ts) y se combinan con cualquier tema.
 // El motor (game.ts) solo calcula posiciones y estados; todo el dibujo pasa por aquí,
 // así se pueden sumar otros mundos (p. ej. un caminante que junta monedas) sin tocar el motor.
 
@@ -26,8 +27,6 @@ export interface PerchInfo {
 export interface Theme {
 	id: string;
 	name: string;
-	/** Nombre del coleccionable en plural, para la interfaz ("estrellas", "monedas"). */
-	collectibles: string;
 	load(): Promise<void>;
 	/** `scroll` = distancia recorrida en px; `progress` 0–1 del ejercicio. */
 	drawBackground(
@@ -45,16 +44,6 @@ export interface Theme {
 		y: number,
 		width: number,
 		info: PerchInfo
-	): void;
-	/** `age` = segundos desde que cambió de estado (para animar recolección). */
-	drawCollectible(
-		g: CanvasRenderingContext2D,
-		x: number,
-		y: number,
-		size: number,
-		state: CollectibleState,
-		age: number,
-		time: number
 	): void;
 	drawCharacter(
 		g: CanvasRenderingContext2D,

@@ -64,6 +64,12 @@ abajo, porque las notas pueden estar en cualquier altura. Ejemplo actual: `stati
 Color que contraste con el fondo (si el fondo es azul, amarillo o naranja). Sin sombra externa (el brillo lo
 agrega el código). El estado "perdido" lo hace el código en gris; el "recogido" usa el asset 7 si existe.
 
+Los coleccionables **no dependen del tema**: se eligen en «Personalizar» y se combinan con cualquier
+escenario (`src/lib/game/collectibles.ts`). Van en `assets/collectibles/<id>-sheet.png` como una fila de
+**variantes** del mismo objeto (por ejemplo, 4 colores); cada nota del ejercicio usa una variante, así los
+objetos de una misma nota comparten color. `npm run sprites` los deja en `static/collectibles/<id>.png`.
+Ejemplo: `assets/collectibles/notes-sheet.png` (4 notas musicales: roja, amarilla, verde y violeta).
+
 **4–5. Suelo.** El personaje se para sobre la superficie: la línea de pisada tiene que estar **a la misma
 altura en el tramo y en el borde**, a 1/4 del alto de la imagen. El tramo se repite hacia la izquierda.
 El borde termina en la derecha de forma clara (es desde donde despega o salta el personaje).

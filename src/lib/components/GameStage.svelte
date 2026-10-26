@@ -1,42 +1,65 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Game, type GameOptions, type GameStatus, type PitchSource } from '$lib/game/game';
+	import {
+		Game,
+		type GameOptions,
+		type GameStatus,
+		type Phase,
+		type PitchSource
+	} from '$lib/game/game';
 	import type { Theme } from '$lib/game/theme';
 	import type { Sequence } from '$lib/music/generate';
-	import { midiToSolfege } from '$lib/music/notes';
 	import { scoreByRep } from '$lib/game/scoring';
+	import { COLLECTIBLES } from '$lib/game/collectibles';
+	import { noteLabel, settings } from '$lib/settings.svelte';
+	import { t } from '$lib/i18n';
+	import Icon from './Icon.svelte';
 
 	interface Props {
 		theme: Theme;
 		sequence: Sequence;
 		options: GameOptions;
 		title: string;
+		/** Sin micrófono: muestra la leyenda de modo demostración. */
+		demo: boolean;
+		/** Fase del juego, para que la página muestre play o pausa. */
+		phase?: Phase;
 		onStart: () => void;
 		onNext: () => void;
 	}
 
-	let { theme, sequence, options, title, onStart, onNext }: Props = $props();
+	let {
+		theme,
+		sequence,
+		options,
+		title,
+		demo,
+		phase = $bindable('idle'),
+		onStart,
+		onNext
+	}: Props = $props();
 
 	let canvas: HTMLCanvasElement;
-	let game: Game | null = null;
-	let ready = $state(false);
+	let game = $state<Game | null>(null);
 	let status = $state<GameStatus | null>(null);
 	let repScores = $state<{ rep: number; collected: number; total: number }[]>([]);
 
 	onMount(() => {
 		let disposed = false;
+		let created: Game | null = null;
 		theme.load().then(() => {
 			if (disposed) return;
-			game = new Game(canvas, theme, (s) => {
+			created = new Game(canvas, theme, (s) => {
 				status = s;
-				if (s.phase === 'done' && game) repScores = scoreByRep(game.getStars());
+				phase = s.phase;
+				if (s.phase === 'done' && created) repScores = scoreByRep(created.getStars());
 			});
-			game.setSequence(sequence, options);
-			ready = true;
+			created.setSequence(sequence, options);
+			game = created;
 		});
 		return () => {
 			disposed = true;
-			game?.destroy();
+			created?.destroy();
 		};
 	});
 
@@ -44,27 +67,62 @@
 	$effect(() => {
 		const seq = sequence;
 		const opts = { ...options };
-		if (ready) game?.setSequence(seq, opts);
+		game?.setSequence(seq, opts);
+	});
+
+	// Personaje elegido en "Personalizar" (el tema trae su propio sprite).
+	$effect(() => {
+		const g = game;
+		const th = theme;
+		th.load().then(() => g?.setTheme(th));
+	});
+
+	// Objeto a recolectar elegido en "Personalizar".
+	$effect(() => {
+		const g = game;
+		const skin = COLLECTIBLES[settings.collectible];
+		skin.load().then(() => g?.setCollectible(skin));
 	});
 
 	export function play(source: PitchSource, latency: number): void {
 		game?.start(source, latency);
 	}
 
+	export function pause(): void {
+		game?.pause();
+	}
+
+	export function resume(): void {
+		game?.resume();
+	}
+
 	export function stop(): void {
 		game?.stop();
 	}
 
-	const playing = $derived(status?.phase === 'countin' || status?.phase === 'playing');
+	const playing = $derived(
+		status?.phase === 'countin' || status?.phase === 'playing' || status?.phase === 'paused'
+	);
 	const pct = $derived(
 		status && status.total ? Math.round((status.collected / status.total) * 100) : 0
 	);
+	const icon = $derived(settings.collectible === 'notes' ? '♪' : '★');
 </script>
 
 <div
-	class="relative h-full w-full overflow-hidden rounded-lg border border-border bg-sky shadow-2xl"
+	class="relative h-full w-full overflow-hidden rounded-lg border border-border bg-sky shadow-xl"
 >
 	<canvas bind:this={canvas} class="block h-full w-full"></canvas>
+
+	{#if demo}
+		<div class="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-3">
+			<div
+				class="rounded-lg bg-black/40 px-3 py-1.5 text-center text-sm font-semibold text-white backdrop-blur-sm"
+			>
+				{t('demo.legend')}
+			</div>
+		</div>
+	{/if}
 
 	{#if status}
 		<!-- HUD -->
@@ -75,15 +133,15 @@
 				<div class="text-xs tracking-wide uppercase opacity-80">{title}</div>
 				{#if status.reps}
 					<div class="text-sm">
-						Repetición {status.rep + 1}/{status.reps} · raíz
-						<b>{midiToSolfege(sequence.reps[status.rep]?.rootMidi ?? 60)}</b>
+						{t('stage.rep', { i: status.rep + 1, n: status.reps })}
+						<b>{noteLabel(sequence.reps[status.rep]?.rootMidi ?? 60)}</b>
 					</div>
 				{/if}
 			</div>
 			<div
 				class="flex items-center gap-2 rounded-lg bg-black/30 px-3 py-2 text-white backdrop-blur-sm"
 			>
-				<span class="text-2xl text-star">★</span>
+				<span class="text-2xl text-star">{icon}</span>
 				<span class="text-xl font-bold tabular-nums">{status.collected}</span>
 				<span class="text-sm opacity-70">/ {status.total}</span>
 			</div>
@@ -99,7 +157,7 @@
 			<div
 				class="pointer-events-none absolute right-3 bottom-4 rounded-lg bg-black/30 px-2 py-1 text-sm text-white"
 			>
-				{status.sungMidi === null ? '—' : midiToSolfege(status.sungMidi)}
+				{status.sungMidi === null ? '—' : noteLabel(status.sungMidi)}
 			</div>
 		{/if}
 
@@ -112,17 +170,19 @@
 		{/if}
 
 		{#if status.phase === 'idle'}
-			<div class="absolute inset-0 grid place-items-center bg-black/10">
+			<div class="absolute inset-0 grid place-items-center bg-black/5">
 				{#if sequence.notes.length}
 					<button
-						class="rounded-lg bg-accent px-8 py-4 text-xl font-bold text-white shadow-lg transition hover:scale-105"
+						class="grid h-20 w-20 place-items-center rounded-full bg-accent text-white shadow-lg transition hover:scale-105"
+						aria-label={t('controls.play')}
+						title={t('controls.play')}
 						onclick={onStart}
 					>
-						▶ Volar
+						<Icon name="play" class="ml-1 h-9 w-9" />
 					</button>
 				{:else}
 					<div class="max-w-sm rounded-lg bg-black/50 p-4 text-center text-white">
-						Este ejercicio no entra en el rango elegido. Ampliá el rango de voz.
+						{t('stage.outOfRange')}
 					</div>
 				{/if}
 			</div>
@@ -131,33 +191,39 @@
 		{#if status.phase === 'done'}
 			<div class="absolute inset-0 grid place-items-center bg-black/35 p-4 backdrop-blur-[2px]">
 				<div class="w-full max-w-md rounded-lg bg-surface/95 p-6 text-center shadow-2xl">
-					<div class="text-sm text-muted uppercase">¡Llegaste!</div>
+					<div class="text-sm text-muted uppercase">{t('stage.done')}</div>
 					<div class="my-2 text-5xl font-black">
-						<span class="text-star">★</span>
+						<span class="text-star">{icon}</span>
 						{status.collected}<span class="text-2xl text-muted">/{status.total}</span>
 					</div>
-					<div class="mb-4 text-muted">{pct}% de las {theme.collectibles}</div>
+					<div class="mb-4 text-muted">
+						{t('stage.percent', {
+							p: pct,
+							c: t(settings.collectible === 'notes' ? 'collectible.notes' : 'collectible.stars')
+						})}
+					</div>
 					<div class="mb-5 flex h-16 items-end gap-1">
 						{#each repScores as r (r.rep)}
 							<div
-								class="flex-1 rounded-t-lg bg-sky"
+								class="flex-1 rounded-t-lg bg-accent/70"
 								style:height="{Math.max(6, (r.collected / r.total) * 100)}%"
-								title="Repetición {r.rep + 1}: {r.collected}/{r.total}"
+								title={t('stage.repTitle', { i: r.rep + 1, c: r.collected, t: r.total })}
 							></div>
 						{/each}
 					</div>
 					<div class="flex justify-center gap-3">
 						<button
-							class="rounded-lg bg-surface-2 px-5 py-2 font-semibold hover:bg-border"
+							class="flex items-center gap-1.5 rounded-lg bg-surface-2 px-5 py-2 font-semibold hover:bg-border"
 							onclick={onStart}
 						>
-							↻ Repetir
+							<Icon name="retry" class="h-4 w-4" />
+							{t('stage.retry')}
 						</button>
 						<button
 							class="rounded-lg bg-accent px-5 py-2 font-bold text-white hover:brightness-105"
 							onclick={onNext}
 						>
-							Siguiente →
+							{t('stage.next')} →
 						</button>
 					</div>
 				</div>

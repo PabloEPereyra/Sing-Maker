@@ -12,7 +12,8 @@
 		"format": "prettier --write .",
 		"test": "vitest run",
 		"sprites": "node scripts/process-sprites.mjs",
-		"validate": "npm run check && npm run lint && npm run test && npm run build"
+		"validate": "npm run check && npm run lint && npm run test && npm run build",
+		"logo": "node scripts/process-logo.mjs"
 	},
 	"dependencies": {
 		"zod": "^4.4.3"

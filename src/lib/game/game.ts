@@ -2,11 +2,15 @@
 // El tiempo maestro es el reloj del AudioContext, así el piano y lo que se ve no se desfasan.
 import { getContext, playNote, stopAll, tick } from '$lib/audio/engine';
 import type { Sequence, TimedNote } from '$lib/music/generate';
-import { midiToSolfege } from '$lib/music/notes';
+import { midiToNote } from '$lib/music/notes';
+import { COLLECTIBLES, type CollectibleSkin } from './collectibles';
 import { buildStars, HIT_WINDOW_SEC, isHit, type PitchSample, type Star } from './scoring';
 import type { Theme } from './theme';
 
-export type Phase = 'idle' | 'countin' | 'playing' | 'done';
+export type Phase = 'idle' | 'countin' | 'playing' | 'paused' | 'done';
+
+/** Al reanudar se retrocede este tiempo para retomar con contexto. */
+const RESUME_PREROLL_SEC = 1;
 
 export interface GameOptions {
 	bpm: number;
@@ -64,6 +68,7 @@ export class Game {
 	private source: PitchSource | null = null;
 	private nextNoteToSchedule = 0;
 	private nextBeatToSchedule = 0;
+	private pausedAt = 0;
 
 	private birdMidi = 60;
 	private birdVy = 0;
@@ -73,6 +78,7 @@ export class Game {
 	private camCenter = 60;
 	private camSpan = 14;
 	private lastStatusKey = '';
+	private collectible: CollectibleSkin = COLLECTIBLES.stars;
 
 	constructor(
 		private canvas: HTMLCanvasElement,
@@ -94,6 +100,10 @@ export class Game {
 
 	setTheme(theme: Theme): void {
 		this.theme = theme;
+	}
+
+	setCollectible(skin: CollectibleSkin): void {
+		this.collectible = skin;
 	}
 
 	setSequence(seq: Sequence, opts: GameOptions): void {
@@ -131,8 +141,32 @@ export class Game {
 		this.emitStatus(true);
 	}
 
+	/** Congela el ejercicio donde está (se retoma con resume). */
+	pause(): void {
+		if (this.phase !== 'countin' && this.phase !== 'playing') return;
+		this.pausedAt = getContext().currentTime - this.t0;
+		this.phase = 'paused';
+		stopAll();
+		this.emitStatus(true, this.pausedAt - this.latency);
+	}
+
+	resume(): void {
+		if (this.phase !== 'paused') return;
+		const from = this.pausedAt - RESUME_PREROLL_SEC;
+		this.t0 = getContext().currentTime - from;
+		const notes = this.seq.notes;
+		this.nextNoteToSchedule = notes.findIndex((n) => n.start >= from);
+		if (this.nextNoteToSchedule < 0) this.nextNoteToSchedule = notes.length;
+		this.nextBeatToSchedule = Math.ceil(from / (60 / this.opts.bpm));
+		const visible = from - this.latency;
+		this.history = this.history.filter((h) => h.time <= visible);
+		this.phase = from < 0 ? 'countin' : 'playing';
+		this.emitStatus(true, visible);
+	}
+
 	stop(): void {
-		if (this.phase === 'countin' || this.phase === 'playing') this.phase = 'idle';
+		if (this.phase === 'countin' || this.phase === 'playing' || this.phase === 'paused')
+			this.phase = 'idle';
 		this.source = null;
 		if (this.phase === 'idle') this.grounded = true;
 		stopAll();
@@ -159,6 +193,10 @@ export class Game {
 			this.updatePitch(time, dt);
 			this.judgeStars(time);
 			if (time > this.seq.duration + 0.6) this.finish();
+		} else if (this.phase === 'paused') {
+			time = this.pausedAt - this.latency;
+			this.sung = null;
+			this.updateBird(dt);
 		} else if (this.phase === 'done') {
 			time = this.seq.duration + 0.6;
 			this.sung = null;
@@ -263,6 +301,9 @@ export class Game {
 	// ---------- cámara y coordenadas ----------
 
 	private focusCamera(time: number, snap: boolean, dt = 0): void {
+		// Antes de la primera nota (vista previa, cuenta) se encuadran las notas que vienen.
+		const first = this.seq.notes.find((n) => !n.isRest);
+		if (first && time < first.start) time = first.start;
 		let lo = Infinity;
 		let hi = -Infinity;
 		for (const n of this.seq.notes) {
@@ -326,7 +367,6 @@ export class Game {
 		const progress = this.seq.duration ? Math.max(0, Math.min(1, time / this.seq.duration)) : 0;
 		const scroll = Math.max(0, time - this.previewTime) * this.pps;
 		this.theme.drawBackground(g, w, h, scroll, progress);
-		this.drawPitchLines();
 		const groundEnd = this.x(this.previewTime + GROUND_AHEAD_SEC, time);
 		if (groundEnd > 0) this.theme.drawGround(g, groundEnd, this.groundTop, h);
 		this.drawPerches(time);
@@ -347,35 +387,6 @@ export class Game {
 		});
 	}
 
-	private drawPitchLines(): void {
-		const { g, w } = this;
-		const lo = Math.floor(this.camCenter - this.camSpan / 2);
-		const hi = Math.ceil(this.camCenter + this.camSpan / 2);
-		g.save();
-		g.font = '600 11px system-ui, sans-serif';
-		for (let m = lo; m <= hi; m++) {
-			const y = this.y(m);
-			const pc = ((m % 12) + 12) % 12;
-			const natural = [0, 2, 4, 5, 7, 9, 11].includes(pc);
-			g.strokeStyle =
-				pc === 0
-					? 'rgba(255,255,255,0.45)'
-					: natural
-						? 'rgba(255,255,255,0.18)'
-						: 'rgba(255,255,255,0.07)';
-			g.lineWidth = 1;
-			g.beginPath();
-			g.moveTo(0, y);
-			g.lineTo(w, y);
-			g.stroke();
-			if (natural) {
-				g.fillStyle = 'rgba(20,40,80,0.55)';
-				g.fillText(midiToSolfege(m), 6, y - 3);
-			}
-		}
-		g.restore();
-	}
-
 	private drawPerches(time: number): void {
 		for (const n of this.seq.notes) {
 			if (n.isRest) continue;
@@ -387,7 +398,7 @@ export class Game {
 			this.theme.drawPerch(this.g, x0 + gap, this.y(n.midi), Math.max(4, x1 - x0 - gap * 2), {
 				hint: n.isHint,
 				past: n.start + n.duration < time,
-				label: n.syllable ? `${midiToSolfege(n.midi)} · ${n.syllable}` : midiToSolfege(n.midi)
+				label: n.syllable ? `${midiToNote(n.midi)} · ${n.syllable}` : midiToNote(n.midi)
 			});
 		}
 	}
@@ -430,7 +441,7 @@ export class Game {
 			}
 			const age = s.state === 'idle' ? 0 : time - s.changedAt;
 			if (s.state === 'collected' && age > 0.6) continue;
-			this.theme.drawCollectible(this.g, sx, y, size, s.state, age, anim);
+			this.collectible.draw(this.g, sx, y, size, s.state, age, anim, s.noteId);
 		}
 	}
 
