@@ -1,0 +1,98 @@
+// Expande un ejercicio relativo sobre el rango de la voz: una repetición por cada raíz.
+// Basado en generateFromCode de vocalizator/src/scripts/exercises.ts.
+import { midiToFreq, midiToNote } from './notes';
+import type { Direction, ParsedNote } from './parser';
+
+export interface TimedNote {
+	id: number;
+	midi: number;
+	freq: number;
+	/** Segundos desde el inicio del ejercicio. */
+	start: number;
+	duration: number;
+	isRest: boolean;
+	isHint: boolean;
+	legato: boolean;
+	staccato: boolean;
+	/** Índice de la repetición (raíz) a la que pertenece. */
+	rep: number;
+	syllable?: string;
+}
+
+export interface Repetition {
+	rootMidi: number;
+	root: string;
+	start: number;
+	end: number;
+}
+
+export interface Sequence {
+	notes: TimedNote[];
+	reps: Repetition[];
+	duration: number;
+}
+
+export interface GenerateOptions {
+	/** Rango cómodo de la voz (MIDI). */
+	low: number;
+	high: number;
+	direction: Direction;
+	bpm: number;
+	/** Pausa entre repeticiones, en tiempos. */
+	gapBeats?: number;
+	/** Tope de repeticiones (para ejercicios largos). */
+	maxReps?: number;
+}
+
+/** Raíces en las que el patrón entero cabe en el rango. */
+export function rootsInRange(
+	notes: ParsedNote[],
+	low: number,
+	high: number,
+	direction: Direction
+): number[] {
+	const offsets = notes.filter((n) => !n.isRest).map((n) => n.semitones);
+	const minOffset = Math.min(0, ...offsets);
+	const maxOffset = Math.max(0, ...offsets);
+	const roots: number[] = [];
+	for (let root = low - minOffset; root + maxOffset <= high; root++) roots.push(root);
+	return direction === 'desc' ? roots.reverse() : roots;
+}
+
+export function generateSequence(notes: ParsedNote[], opts: GenerateOptions): Sequence {
+	const beat = 60 / opts.bpm;
+	const gap = (opts.gapBeats ?? 1) * beat;
+	let roots = rootsInRange(notes, opts.low, opts.high, opts.direction);
+	if (opts.maxReps && roots.length > opts.maxReps) roots = roots.slice(0, opts.maxReps);
+
+	const out: TimedNote[] = [];
+	const reps: Repetition[] = [];
+	let time = 0;
+	let id = 0;
+
+	roots.forEach((rootMidi, rep) => {
+		const repStart = time;
+		for (const n of notes) {
+			const duration = n.duration * beat;
+			const midi = n.isRest ? 0 : rootMidi + n.semitones;
+			out.push({
+				id: id++,
+				midi,
+				freq: n.isRest ? 0 : midiToFreq(midi),
+				start: time,
+				duration,
+				isRest: n.isRest,
+				isHint: n.isHint,
+				legato: n.legato,
+				staccato: n.staccato,
+				rep,
+				syllable: n.syllable
+			});
+			time += duration;
+		}
+		reps.push({ rootMidi, root: midiToNote(rootMidi), start: repStart, end: time });
+		time += gap;
+	});
+
+	return { notes: out, reps, duration: Math.max(0, time - gap) };
+}
