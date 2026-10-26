@@ -4,18 +4,31 @@
 	import RangePicker from '$lib/components/RangePicker.svelte';
 	import CustomizeDialog from '$lib/components/CustomizeDialog.svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import PopoverButton from '$lib/components/PopoverButton.svelte';
+	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
 	import { byLevel, exercises, exerciseText } from '$lib/exercises/catalog';
 	import { generateSequence } from '$lib/music/generate';
 	import { getContext, loadPiano } from '$lib/audio/engine';
 	import { PitchDetector } from '$lib/audio/pitch';
 	import { autopilot, type GameOptions, type Phase } from '$lib/game/game';
 	import { createSkyTheme } from '$lib/game/themes/sky';
-	import { loadSettings, noteLabel, saveSettings, settings } from '$lib/settings.svelte';
+	import {
+		loadSettings,
+		saveSettings,
+		settings,
+		type CharacterId,
+		type StartId
+	} from '$lib/settings.svelte';
+	import type { Theme } from '$lib/game/theme';
 	import { t, tDynamic } from '$lib/i18n';
 
 	const PREFS_KEY = 'singmaker-prefs';
-	// Un tema por personaje, creado una sola vez.
-	const themes = { bird: createSkyTheme('bird'), bird2: createSkyTheme('bird2') };
+	// Un tema por combinación de personaje y punto de partida, creado una sola vez.
+	const themes: Record<string, Theme> = {};
+	function themeFor(character: CharacterId, start: StartId): Theme {
+		const key = `${character}-${start}`;
+		return (themes[key] ??= createSkyTheme(character, start));
+	}
 
 	let selectedId = $state(byLevel()[0].exercises[0].id);
 	let low = $state(45); // A2 (tenor)
@@ -26,7 +39,6 @@
 	let tolerance = $state(0.6);
 	let demo = $state(true); // sin micrófono hasta que se active
 	let micError = $state('');
-	let micStatus = $state('');
 	let search = $state('');
 	let customizing = $state(false);
 	let loaded = $state(false);
@@ -35,7 +47,7 @@
 	let stage: GameStage;
 	let detector: PitchDetector | null = null;
 
-	const theme = $derived(themes[settings.character]);
+	const theme = $derived(themeFor(settings.character, settings.start));
 	const running = $derived(phase === 'countin' || phase === 'playing');
 	const exercise = $derived(exercises.find((e) => e.id === selectedId) ?? exercises[0]);
 	const text = $derived(exerciseText(exercise, settings.lang));
@@ -45,7 +57,8 @@
 			low,
 			high,
 			direction: exercise.parsed.meta.direction,
-			bpm
+			bpm,
+			beatsPerMeasure: exercise.parsed.meta.beatsPerMeasure
 		})
 	);
 	const options: GameOptions = $derived({
@@ -113,9 +126,7 @@
 			return null;
 		}
 		if (forceCalibration) {
-			micStatus = t('mic.calibrating');
 			await detector.calibrate();
-			micStatus = t('mic.calibrated', { db: (20 * Math.log10(detector.gate)).toFixed(0) });
 		}
 		return detector;
 	}
@@ -145,6 +156,17 @@
 	}
 
 	/** Botón de micrófono: encendido = cantar; apagado = modo demostración. */
+	/** La calibración necesita el micrófono: sale del modo demostración si hacía falta. */
+	async function micForCalibration(): Promise<PitchDetector | null> {
+		if (demo) {
+			stop();
+			demo = false;
+		}
+		const d = await ensureMic();
+		if (!d) demo = true;
+		return d;
+	}
+
 	async function toggleMic() {
 		stop();
 		if (demo) {
@@ -154,7 +176,6 @@
 			demo = true;
 			detector?.stop();
 			detector = null;
-			micStatus = '';
 		}
 	}
 
@@ -218,8 +239,18 @@
 			>
 				<Icon name="mic" class="h-5 w-5" />
 			</button>
+			<ProfileMenu getDetector={micForCalibration} />
 		</div>
 	</header>
+
+	{#if micError}
+		<div
+			role="alert"
+			class="mx-3 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+		>
+			{micError}
+		</div>
+	{/if}
 
 	<div class="flex min-h-0 flex-1 flex-col gap-3 p-3 lg:flex-row">
 		<!-- Catálogo -->
@@ -296,25 +327,27 @@
 				/>
 			</div>
 
-			<!-- Controles -->
+			<!-- Controles: todos centrados; tempo y tolerancia a la izquierda, piano y metrónomo a la derecha -->
 			<div
-				class="grid grid-cols-[1fr_auto_1fr] items-center gap-x-4 gap-y-3 rounded-lg border border-border bg-surface p-3 text-sm"
+				class="flex items-center justify-center gap-2 rounded-lg border border-border bg-surface p-3 text-sm sm:gap-3"
 			>
-				<div class="flex flex-col gap-3">
+				<PopoverButton icon="gauge" label="{t('controls.tempo')} · {bpm} bpm">
 					<label class="block">
-						<span class="mb-1.5 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
+						<span class="mb-2 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
 						<input
 							type="range"
 							min="0.5"
 							max="1.5"
 							step="0.05"
 							bind:value={tempo}
-							class="vx-slider w-full max-w-44"
+							class="vx-slider w-full"
 							style:--fill={fill(tempo, 0.5, 1.5)}
 						/>
 					</label>
+				</PopoverButton>
+				<PopoverButton icon="ruler" label="{t('controls.tolerance')} · ±{tolerance.toFixed(1)} st">
 					<label class="block">
-						<span class="mb-1.5 block text-xs text-muted"
+						<span class="mb-2 block text-xs text-muted"
 							>{t('controls.tolerance')} · ±{tolerance.toFixed(1)} st</span
 						>
 						<input
@@ -323,76 +356,63 @@
 							max="1.5"
 							step="0.1"
 							bind:value={tolerance}
-							class="vx-slider w-full max-w-44"
+							class="vx-slider w-full"
 							style:--fill={fill(tolerance, 0.3, 1.5)}
 						/>
 					</label>
-				</div>
+				</PopoverButton>
 
-				<!-- Transporte, al centro -->
-				<div class="flex items-center gap-3">
-					<button
-						class="grid h-12 w-12 place-items-center rounded-full border border-border bg-surface-2 text-fg hover:bg-border"
-						aria-label={t('controls.stop')}
-						title={t('controls.stop')}
-						onclick={stop}
-					>
-						<Icon name="stop" class="h-5 w-5" />
-					</button>
-					<button
-						class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
-						aria-label={running
-							? t('controls.pause')
-							: phase === 'paused'
-								? t('controls.resume')
-								: t('controls.play')}
-						title={running
-							? t('controls.pause')
-							: phase === 'paused'
-								? t('controls.resume')
-								: t('controls.play')}
-						onclick={togglePlay}
-					>
-						{#if running}
-							<Icon name="pause" class="h-6 w-6" />
-						{:else}
-							<Icon name="play" class="ml-0.5 h-7 w-7" />
-						{/if}
-					</button>
-				</div>
+				<button
+					class="grid h-12 w-12 place-items-center rounded-full border border-border bg-surface-2 text-fg hover:bg-border"
+					aria-label={t('controls.stop')}
+					title={t('controls.stop')}
+					onclick={stop}
+				>
+					<Icon name="stop" class="h-5 w-5" />
+				</button>
+				<button
+					class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
+					aria-label={running
+						? t('controls.pause')
+						: phase === 'paused'
+							? t('controls.resume')
+							: t('controls.play')}
+					title={running
+						? t('controls.pause')
+						: phase === 'paused'
+							? t('controls.resume')
+							: t('controls.play')}
+					onclick={togglePlay}
+				>
+					{#if running}
+						<Icon name="pause" class="h-6 w-6" />
+					{:else}
+						<Icon name="play" class="ml-0.5 h-7 w-7" />
+					{/if}
+				</button>
 
-				<div class="flex items-center justify-end gap-2">
-					<button
-						class="grid h-11 w-11 place-items-center rounded-full border transition {guide
-							? 'border-accent bg-accent text-white'
-							: 'border-border bg-surface text-muted hover:border-accent/50'}"
-						aria-pressed={guide}
-						aria-label={t('controls.guide')}
-						title={t('controls.guide')}
-						onclick={() => (guide = !guide)}
-					>
-						<Icon name="piano" class="h-5 w-5" />
-					</button>
-					<button
-						class="grid h-11 w-11 place-items-center rounded-full border transition {metronome
-							? 'border-accent bg-accent text-white'
-							: 'border-border bg-surface text-muted hover:border-accent/50'}"
-						aria-pressed={metronome}
-						aria-label={t('controls.metronome')}
-						title={t('controls.metronome')}
-						onclick={() => (metronome = !metronome)}
-					>
-						<Icon name="metronome" class="h-5 w-5" />
-					</button>
-				</div>
-
-				<div class="col-span-3 text-xs text-muted">
-					{text.description} · {t('controls.reps', { n: sequence.reps.length })} ({sequence.reps[0]
-						? noteLabel(sequence.reps[0].rootMidi)
-						: '—'} → {sequence.reps.at(-1) ? noteLabel(sequence.reps.at(-1)!.rootMidi) : '—'})
-					{#if micError}<span class="ml-2 text-red-600">{micError}</span>
-					{:else if micStatus && !demo}<span class="ml-2">· {micStatus}</span>{/if}
-				</div>
+				<button
+					class="grid h-11 w-11 place-items-center rounded-full border transition {guide
+						? 'border-accent bg-accent text-white'
+						: 'border-border bg-surface text-muted hover:border-accent/50'}"
+					aria-pressed={guide}
+					aria-label={t('controls.guide')}
+					title={t('controls.guide')}
+					onclick={() => (guide = !guide)}
+				>
+					<Icon name="piano" class="h-5 w-5" />
+				</button>
+				<button
+					class="grid h-11 w-11 place-items-center rounded-full border transition {metronome
+						? 'border-accent bg-accent text-white'
+						: 'border-border bg-surface text-muted hover:border-accent/50'}"
+					aria-pressed={metronome}
+					aria-label={t('controls.metronome')}
+					title={t('controls.metronome')}
+					onclick={() => (metronome = !metronome)}
+				>
+					<Icon name="metronome" class="h-5 w-5" />
+				</button>
 			</div>
 		</main>
 	</div>

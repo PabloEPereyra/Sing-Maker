@@ -49,7 +49,7 @@ tests.
 
 ## Recursos
 
-- Tema "Cielo": `assets/sky/character-sheet.png` (pájaro, 4 cuadros), `assets/sky/character2-sheet.png` (pájaro, 6 cuadros) y `static/themes/sky/background.jpg` (fondo), generados por el autor con Meta AI; el sprite se recorta y escala a `static/themes/sky/character.png`
+- Tema "Cielo": `assets/sky/character-sheet.png` (pájaro parado, primer cuadro), `assets/sky/character2-sheet.png` (pájaro volando, 6 cuadros) y `static/themes/sky/background.jpg` (fondo) y `assets/sky/tree1.png`/`tree2.png` (árboles de partida), generados por el autor con Meta AI; los sprites se recortan y escalan a `static/themes/sky/bird-rest.png` y `bird-fly.png`
   con `npm run sprites`.
 - Logo y favicons: `assets/logo/logo.png` (pájaro guiñando, generado por el autor con Meta AI), con `npm run logo`.
 - Muestras de piano: CDN propio del autor (`singapp.b-cdn.net`).

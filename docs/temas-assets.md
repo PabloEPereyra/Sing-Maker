@@ -74,6 +74,11 @@ Ejemplo: `assets/collectibles/notes-sheet.png` (4 notas musicales: roja, amarill
 altura en el tramo y en el borde**, a 1/4 del alto de la imagen. El tramo se repite hacia la izquierda.
 El borde termina en la derecha de forma clara (es desde donde despega o salta el personaje).
 
+**Alternativa usada hoy en "Cielo": un objeto de partida único** en lugar del suelo. Es una sola imagen PNG
+(vertical, base abajo, ~1000 px de alto) sobre la que el personaje espera: hoy, dos árboles elegibles en
+«Personalizar» (`tree1`, `tree2`). Se dibuja al 62 % del alto del canvas, con la base al pie, y el personaje
+se apoya en la parte de arriba (la copa). El tema lo define con `startSurface()` y `drawStart()`.
+
 ## 4. El personaje según cómo se mueve
 
 ### 4.1 Volador (actual: pájaro)
@@ -90,6 +95,13 @@ Se mueve libre en vertical; la altura sigue al tono cantado.
 Ciclo de aleteo: 0 → 3 → 1 → 2 → 1 → 3, a 7 cuadros/s sin voz, 10 cantando y 12 afinado. El cuerpo, la cabeza
 y los ojos deben estar **en el mismo lugar en los 4 cuadros**. Otros voladores posibles: abeja, murciélago,
 dragón bebé, globo aerostático, avioncito de papel, pez (escenario submarino).
+
+**Cómo está hecho hoy el pájaro:** la pose parada y el vuelo vienen de **dos hojas distintas**, que es lo que
+mejor resultó: `bird-rest` (primer cuadro de `volando.png`, parado) y `bird-fly` (6 cuadros de
+`volando2.png`, en orden de aleteo). Si la IA no deja los cuadros parejos, `split: 'auto'` del script los
+separa por figura y los alinea por el pico; el tamaño del cuerpo se iguala entre hojas con el ancho del pico
+(`beakWidth` en el `.json`). Para pedir un vuelo nuevo conviene pedir 6 cuadros de un ciclo completo de
+aleteo, con las patas recogidas.
 
 ### 4.2 Saltador (estilo plataformas)
 

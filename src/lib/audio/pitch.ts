@@ -15,6 +15,15 @@ const MIN_CLARITY = 0.25;
 const SMOOTHING = 0.5;
 const DROPOUT_HOLD_MS = 250;
 const DEFAULT_GATE_RMS = 0.006;
+export const INPUT_GAIN_MIN = 0.25;
+export const INPUT_GAIN_MAX = 4;
+const GAIN_KEY = 'singmaker-mic-gain';
+
+export interface InputLevel {
+	/** Pico de la ventana en dBFS (−60 = silencio, 0 = máximo). */
+	peakDb: number;
+	clipping: boolean;
+}
 
 export interface PitchResult {
 	frequency: number;
@@ -32,6 +41,8 @@ export class PitchDetector {
 	private stream: MediaStream | null = null;
 	private source: MediaStreamAudioSourceNode | null = null;
 	private analyser: AnalyserNode | null = null;
+	private gainNode: GainNode | null = null;
+	private inputGain = loadGain();
 	private buffer = new Float32Array(FFT_SIZE);
 	private gateRms = DEFAULT_GATE_RMS;
 	private stabilizer = new PitchStabilizer();
@@ -43,6 +54,31 @@ export class PitchDetector {
 	}
 
 	/** Puerta de volumen calibrada (RMS). */
+	get gain(): number {
+		return this.inputGain;
+	}
+
+	setGain(value: number): void {
+		const next = Math.max(INPUT_GAIN_MIN, Math.min(INPUT_GAIN_MAX, value));
+		// La puerta de ruido se midió con la ganancia anterior: se escala igual.
+		this.gateRms *= next / this.inputGain;
+		this.inputGain = next;
+		if (this.gainNode)
+			this.gainNode.gain.setTargetAtTime(this.inputGain, this.ctx.currentTime, 0.02);
+		try {
+			localStorage.setItem(GAIN_KEY, String(this.inputGain));
+		} catch {}
+	}
+
+	/** Nivel de entrada para el medidor de calibración. */
+	level(): InputLevel {
+		if (!this.analyser) return { peakDb: -60, clipping: false };
+		this.analyser.getFloatTimeDomainData(this.buffer);
+		let peak = 0;
+		for (let i = 0; i < this.buffer.length; i++) peak = Math.max(peak, Math.abs(this.buffer[i]));
+		return { peakDb: 20 * Math.log10(Math.max(peak, 1e-6)), clipping: peak >= 0.98 };
+	}
+
 	get gate(): number {
 		return this.gateRms;
 	}
@@ -69,7 +105,11 @@ export class PitchDetector {
 		this.analyser = this.ctx.createAnalyser();
 		this.analyser.fftSize = FFT_SIZE;
 		this.analyser.smoothingTimeConstant = 0.08;
-		this.source.connect(highPass);
+		// Ganancia de entrada ajustable (calibración), antes del filtro y del análisis.
+		this.gainNode = this.ctx.createGain();
+		this.gainNode.gain.value = this.inputGain;
+		this.source.connect(this.gainNode);
+		this.gainNode.connect(highPass);
 		highPass.connect(this.analyser);
 		this.stabilizer.reset();
 	}
@@ -77,6 +117,8 @@ export class PitchDetector {
 	stop(): void {
 		this.stream?.getTracks().forEach((t) => t.stop());
 		this.source?.disconnect();
+		this.gainNode?.disconnect();
+		this.gainNode = null;
 		this.stream = null;
 		this.source = null;
 		this.analyser = null;
@@ -198,6 +240,14 @@ export class PitchStabilizer {
 		if (this.suspectCount >= frames) return this.accept(midi);
 		return this.lastStable!;
 	}
+}
+
+function loadGain(): number {
+	try {
+		const v = Number(localStorage.getItem(GAIN_KEY));
+		if (v >= INPUT_GAIN_MIN && v <= INPUT_GAIN_MAX) return v;
+	} catch {}
+	return 1;
 }
 
 export function rmsOf(buffer: Float32Array): number {

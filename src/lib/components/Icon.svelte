@@ -1,15 +1,52 @@
 <script lang="ts">
-	// Iconos de la interfaz. Piano y metrónomo son copias de los de vocalizator (src/lib/icons/).
+	// Iconos de la interfaz. Piano y metrónomo son copias de los de vocalizator (src/lib/icons/);
+	// gauge y ruler son los trazos de Lucide (circle-gauge, ruler-dimension-line).
 	import piano from '$lib/icons/piano.svg?raw';
 	import metronome from '$lib/icons/metronome.svg?raw';
 
-	type Name = 'play' | 'pause' | 'stop' | 'piano' | 'metronome' | 'palette' | 'retry' | 'mic';
+	type Name =
+		| 'play'
+		| 'pause'
+		| 'stop'
+		| 'piano'
+		| 'metronome'
+		| 'palette'
+		| 'retry'
+		| 'mic'
+		| 'gauge'
+		| 'ruler';
 	let { name, class: cls = 'h-5 w-5' }: { name: Name; class?: string } = $props();
 
 	const RAW: Partial<Record<Name, string>> = { piano, metronome };
 </script>
 
-{#if RAW[name]}
+{#if name === 'gauge' || name === 'ruler'}
+	<svg
+		class={cls}
+		viewBox="0 0 24 24"
+		fill="none"
+		stroke="currentColor"
+		stroke-width="2"
+		stroke-linecap="round"
+		stroke-linejoin="round"
+		aria-hidden="true"
+	>
+		{#if name === 'gauge'}
+			<path d="M15.6 2.7a10 10 0 1 0 5.7 5.7" />
+			<circle cx="12" cy="12" r="2" />
+			<path d="M13.4 10.6 19 5" />
+		{:else}
+			<path d="M10 15v-3" />
+			<path d="M14 15v-3" />
+			<path d="M18 15v-3" />
+			<path d="M2 8V4" />
+			<path d="M22 6H2" />
+			<path d="M22 8V4" />
+			<path d="M6 15v-3" />
+			<rect x="2" y="12" width="20" height="8" rx="2" />
+		{/if}
+	</svg>
+{:else if RAW[name]}
 	<span class="inline-block {cls} [&>svg]:h-full [&>svg]:w-full" aria-hidden="true">
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -- SVG propio del repo -->
 		{@html RAW[name]}

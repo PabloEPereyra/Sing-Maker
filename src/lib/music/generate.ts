@@ -38,8 +38,8 @@ export interface GenerateOptions {
 	high: number;
 	direction: Direction;
 	bpm: number;
-	/** Pausa entre repeticiones, en tiempos. */
-	gapBeats?: number;
+	/** Tiempos por compás: cada repetición empieza al comienzo de un compás (default 4). */
+	beatsPerMeasure?: number;
 	/** Tope de repeticiones (para ejercicios largos). */
 	maxReps?: number;
 }
@@ -59,28 +59,38 @@ export function rootsInRange(
 	return direction === 'desc' ? roots.reverse() : roots;
 }
 
+/** Tiempos de silencio que faltan para que la repetición complete el compás. */
+export function measurePadding(notes: ParsedNote[], beatsPerMeasure: number): number {
+	const beats = notes.reduce((sum, n) => sum + n.duration, 0);
+	const rest = beats % beatsPerMeasure;
+	return rest < 1e-6 || beatsPerMeasure - rest < 1e-6 ? 0 : beatsPerMeasure - rest;
+}
+
 export function generateSequence(notes: ParsedNote[], opts: GenerateOptions): Sequence {
 	const beat = 60 / opts.bpm;
-	const gap = (opts.gapBeats ?? 1) * beat;
+	// Como en vocalizator, las repeticiones van pegadas; solo se completa el compás si el patrón
+	// no lo llena, así el acento del metrónomo cae siempre en el comienzo de cada repetición.
+	const padBeats = measurePadding(notes, opts.beatsPerMeasure ?? 4);
 	let roots = rootsInRange(notes, opts.low, opts.high, opts.direction);
 	if (opts.maxReps && roots.length > opts.maxReps) roots = roots.slice(0, opts.maxReps);
 
 	const out: TimedNote[] = [];
 	const reps: Repetition[] = [];
-	let time = 0;
+	// Se acumulan tiempos (beats) y se convierte a segundos al final de cada suma, para que
+	// no se acumule error de redondeo a lo largo de muchas repeticiones.
+	let beats = 0;
 	let id = 0;
 
 	roots.forEach((rootMidi, rep) => {
-		const repStart = time;
+		const repStart = beats * beat;
 		for (const n of notes) {
-			const duration = n.duration * beat;
 			const midi = n.isRest ? 0 : rootMidi + n.semitones;
 			out.push({
 				id: id++,
 				midi,
 				freq: n.isRest ? 0 : midiToFreq(midi),
-				start: time,
-				duration,
+				start: beats * beat,
+				duration: n.duration * beat,
 				isRest: n.isRest,
 				isHint: n.isHint,
 				legato: n.legato,
@@ -88,11 +98,11 @@ export function generateSequence(notes: ParsedNote[], opts: GenerateOptions): Se
 				rep,
 				syllable: n.syllable
 			});
-			time += duration;
+			beats += n.duration;
 		}
-		reps.push({ rootMidi, root: midiToNote(rootMidi), start: repStart, end: time });
-		time += gap;
+		reps.push({ rootMidi, root: midiToNote(rootMidi), start: repStart, end: beats * beat });
+		beats += padBeats;
 	});
 
-	return { notes: out, reps, duration: Math.max(0, time - gap) };
+	return { notes: out, reps, duration: Math.max(0, (beats - padBeats) * beat) };
 }

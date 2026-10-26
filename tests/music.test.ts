@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parse, validate } from '../src/lib/music/parser';
-import { generateSequence, rootsInRange } from '../src/lib/music/generate';
+import { generateSequence, measurePadding, rootsInRange } from '../src/lib/music/generate';
 import { midiToNote, noteToMidi } from '../src/lib/music/notes';
 import { buildStars, isHit } from '../src/lib/game/scoring';
 import raw from '../src/lib/data/exercises.json';
@@ -64,9 +64,37 @@ describe('generateSequence', () => {
 		const seq = generateSequence(notes, { low: 48, high: 60, direction: 'asc', bpm: 60 });
 		expect(seq.reps).toHaveLength(6);
 		expect(Math.max(...seq.notes.map((n) => n.midi))).toBe(60);
-		// 4 tiempos por repetición + 1 de pausa, a 60 bpm
-		expect(seq.reps[1].start).toBe(5);
-		expect(seq.duration).toBe(6 * 5 - 1);
+		// 4 tiempos por repetición = 1 compás de 4/4: van pegadas, a 60 bpm
+		expect(seq.reps[1].start).toBe(4);
+		expect(seq.duration).toBe(6 * 4);
+	});
+
+	it('completa el compás si el patrón no lo llena', () => {
+		const { notes } = parse('1 =\n1 +2\n1 =');
+		expect(measurePadding(notes, 4)).toBe(1);
+		expect(measurePadding(notes, 3)).toBe(0);
+		const seq = generateSequence(notes, { low: 60, high: 64, direction: 'asc', bpm: 60 });
+		expect(seq.reps.map((r) => r.start)).toEqual([0, 4, 8]);
+	});
+
+	it('en todo el catálogo cada repetición empieza en un compás (acento del metrónomo)', () => {
+		for (const e of raw) {
+			const { meta, notes } = parse(e.code);
+			const seq = generateSequence(notes, {
+				low: 48,
+				high: 72,
+				direction: meta.direction,
+				bpm: 60,
+				beatsPerMeasure: meta.beatsPerMeasure
+			});
+			for (const r of seq.reps) {
+				const beats = r.start; // a 60 bpm, 1 s = 1 tiempo
+				expect(
+					Math.abs(beats / meta.beatsPerMeasure - Math.round(beats / meta.beatsPerMeasure)),
+					e.name
+				).toBeLessThan(1e-9);
+			}
+		}
 	});
 
 	it('desciende si el ejercicio lo pide', () => {

@@ -1,7 +1,12 @@
 <script lang="ts">
 	// "Personalizar": personaje y objeto que se recolecta. Más adelante: escenarios y elementos
 	// creados por el usuario.
-	import { settings, type CharacterId, type CollectibleId } from '$lib/settings.svelte';
+	import {
+		settings,
+		type CharacterId,
+		type CollectibleId,
+		type StartId
+	} from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
 
 	let { onClose }: { onClose: () => void } = $props();
@@ -14,7 +19,7 @@
 
 	const CHARACTERS: {
 		id: CharacterId;
-		label: 'character.bird' | 'character.bird2';
+		label: 'character.bird';
 		sprite: string;
 		frames: number;
 		frame: number;
@@ -23,19 +28,16 @@
 		{
 			id: 'bird',
 			label: 'character.bird',
-			sprite: 'character',
-			frames: 4,
+			sprite: 'bird-rest',
+			frames: 1,
 			frame: 0,
-			aspect: 144 / 220
-		},
-		{
-			id: 'bird2',
-			label: 'character.bird2',
-			sprite: 'character2',
-			frames: 6,
-			frame: 0,
-			aspect: 178 / 220
+			aspect: 140 / 220
 		}
+	];
+
+	const STARTS: { id: StartId; label: 'start.tree1' | 'start.tree2' }[] = [
+		{ id: 'tree1', label: 'start.tree1' },
+		{ id: 'tree2', label: 'start.tree2' }
 	];
 
 	function onKey(e: KeyboardEvent) {
@@ -85,10 +87,31 @@
 							style:aspect-ratio={c.aspect}
 							style:background-image="url(/themes/sky/{c.sprite}.png)"
 							style:background-size="{c.frames * 100}% 100%"
-							style:background-position="{(c.frame / (c.frames - 1)) * 100}% 0"
+							style:background-position="{c.frames > 1 ? (c.frame / (c.frames - 1)) * 100 : 0}% 0"
 						></span>
 					</div>
 					<span class="text-sm font-semibold">{t(c.label)}</span>
+				</button>
+			{/each}
+		</div>
+
+		<h4 class="mt-5 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
+			{t('customize.start')}
+		</h4>
+		<div class="grid grid-cols-2 gap-3">
+			{#each STARTS as o (o.id)}
+				<button
+					class="flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition {settings.start ===
+					o.id
+						? 'border-accent bg-accent/10'
+						: 'border-border hover:border-accent/50'}"
+					aria-pressed={settings.start === o.id}
+					onclick={() => (settings.start = o.id)}
+				>
+					<div class="grid h-20 w-full place-items-center rounded-lg bg-sky/60">
+						<img src="/themes/sky/{o.id}.png" alt="" class="h-[72px] w-auto" />
+					</div>
+					<span class="text-sm font-semibold">{t(o.label)}</span>
 				</button>
 			{/each}
 		</div>

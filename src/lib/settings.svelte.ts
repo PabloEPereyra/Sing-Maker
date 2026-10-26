@@ -4,7 +4,8 @@ import { midiToNote, midiToSolfege } from '$lib/music/notes';
 export type Lang = 'es' | 'en';
 export type Notation = 'solfege' | 'american';
 export type CollectibleId = 'stars' | 'notes';
-export type CharacterId = 'bird' | 'bird2';
+export type CharacterId = 'bird';
+export type StartId = 'tree1' | 'tree2';
 
 const KEY = 'singmaker-settings';
 
@@ -18,11 +19,13 @@ export const settings = $state<{
 	notation: Notation;
 	collectible: CollectibleId;
 	character: CharacterId;
+	start: StartId;
 }>({
 	lang: 'es',
 	notation: 'solfege',
 	collectible: 'stars',
-	character: 'bird'
+	character: 'bird',
+	start: 'tree1'
 });
 
 export function loadSettings(): void {
@@ -34,7 +37,8 @@ export function loadSettings(): void {
 		if (s.notation === 'solfege' || s.notation === 'american') settings.notation = s.notation;
 		if (s.collectible === 'stars' || s.collectible === 'notes')
 			settings.collectible = s.collectible;
-		if (s.character === 'bird' || s.character === 'bird2') settings.character = s.character;
+		if (s.character === 'bird') settings.character = s.character;
+		if (s.start === 'tree1' || s.start === 'tree2') settings.start = s.start;
 	} catch {}
 }
 

@@ -1,28 +1,27 @@
 // Tema "Cielo": un pájaro azul que vuela sobre un fondo de nubes.
-import type { CharacterId } from '$lib/settings.svelte';
+import type { CharacterId, StartId } from '$lib/settings.svelte';
 import type { CharacterState, Theme } from '../theme';
 
 interface SpriteMeta {
 	frames: number;
 	frameWidth: number;
 	frameHeight: number;
+	/** Ancho del pico en px del sprite: sirve para igualar el tamaño del cuerpo entre hojas. */
+	beakWidth?: number;
 }
 
 interface CharacterDef {
-	sprite: string;
+	/** Hoja con el personaje parado (un cuadro, con los pies al borde inferior). */
+	rest: string;
+	/** Hoja con el ciclo de vuelo. */
+	fly: string;
 	/** Orden de cuadros del aleteo. */
 	flap: number[];
-	/** Cuadro parado en el suelo. */
-	rest: number;
-	/** La celda del sprite incluye las alas abiertas: se agranda para que el cuerpo mida lo mismo. */
-	scale: number;
 }
 
 const CHARACTERS: Record<CharacterId, CharacterDef> = {
-	// 4 cuadros: alas arriba, horizontales, plegadas (parado) y a media altura.
-	bird: { sprite: 'character', flap: [0, 3, 1, 2, 1, 3], rest: 2, scale: 1 },
-	// 6 cuadros en orden de aleteo; ninguno está parado, en el suelo usa el de alas abajo.
-	bird2: { sprite: 'character2', flap: [0, 1, 2, 3, 4, 5], rest: 3, scale: 1.25 }
+	// Parado: primer cuadro de volando.png; volando: los 6 cuadros de volando2.png.
+	bird: { rest: 'bird-rest', fly: 'bird-fly', flap: [0, 1, 2, 3, 4, 5] }
 };
 /** Velocidad del fondo respecto de las estrellas (paralaje). */
 const BACKGROUND_SPEED = 0.3;
@@ -36,25 +35,66 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 	});
 }
 
-export function createSkyTheme(characterId: CharacterId = 'bird'): Theme {
+/**
+ * Árbol de partida: se dibuja el doble de alto que lo visible para que solo asome la mitad
+ * superior (la copa), como si el tronco viniera de más abajo. TREE_VISIBLE es la parte del alto del
+ * canvas que ocupa lo que se ve; TREE_SINK, cuánto se hunde el personaje entre las hojas.
+ */
+const TREE_VISIBLE = 0.5;
+const TREE_SINK = 0.06;
+
+export function createSkyTheme(
+	characterId: CharacterId = 'bird',
+	startId: StartId = 'tree1'
+): Theme {
 	const character = CHARACTERS[characterId];
-	let sprite: HTMLImageElement | null = null;
+	let tree: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
+	let rest: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
+	let fly: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
 	let background: HTMLImageElement | null = null;
-	let meta: SpriteMeta = { frames: 4, frameWidth: 144, frameHeight: 220 };
+
+	const loadSheet = async (name: string) => {
+		const [img, meta] = await Promise.all([
+			loadImage(`/themes/sky/${name}.png`),
+			fetch(`/themes/sky/${name}.json`).then((r) => r.json() as Promise<SpriteMeta>)
+		]);
+		return { img, meta };
+	};
+
+	function blit(
+		g: CanvasRenderingContext2D,
+		sheet: { img: HTMLImageElement; meta: SpriteMeta },
+		frame: number,
+		x: number,
+		y: number,
+		h: number
+	): void {
+		const { meta } = sheet;
+		const w = (meta.frameWidth / meta.frameHeight) * h;
+		g.drawImage(
+			sheet.img,
+			frame * meta.frameWidth,
+			0,
+			meta.frameWidth,
+			meta.frameHeight,
+			x - w * 0.55,
+			y,
+			w,
+			h
+		);
+	}
 
 	return {
-		id: `sky-${characterId}`,
+		id: `sky-${characterId}-${startId}`,
 		name: 'Cielo',
 
 		async load() {
-			const [img, bg, m] = await Promise.all([
-				loadImage(`/themes/sky/${character.sprite}.png`),
-				loadImage('/themes/sky/background.jpg'),
-				fetch(`/themes/sky/${character.sprite}.json`).then((r) => r.json() as Promise<SpriteMeta>)
+			[rest, fly, background] = await Promise.all([
+				loadSheet(character.rest),
+				loadSheet(character.fly),
+				loadImage('/themes/sky/background.jpg')
 			]);
-			sprite = img;
-			background = bg;
-			meta = m;
+			tree = await loadSheet(startId);
 		},
 
 		drawBackground(g, w, h, scroll, progress) {
@@ -86,33 +126,19 @@ export function createSkyTheme(characterId: CharacterId = 'bird'): Theme {
 			}
 		},
 
-		drawGround(g, right, top, h) {
-			// Isla de pasto de la que despega el pájaro; termina en un borde redondeado.
-			const r = Math.min(28, (h - top) * 0.6);
-			g.save();
-			g.fillStyle = '#9a6b3f';
-			g.beginPath();
-			g.moveTo(-10, top + 8);
-			g.lineTo(right - r, top + 8);
-			g.quadraticCurveTo(right, top + 8, right, top + 8 + r);
-			g.lineTo(right - r * 0.6, h + 10);
-			g.lineTo(-10, h + 10);
-			g.closePath();
-			g.fill();
-			g.fillStyle = '#5fbf4a';
-			g.beginPath();
-			g.moveTo(-10, top + 16);
-			for (let x = -10; x < right - 6; x += 14) {
-				g.quadraticCurveTo(x + 7, top + 22, x + 14, top + 16);
-			}
-			g.quadraticCurveTo(right + 4, top + 14, right - 2, top + 2);
-			g.quadraticCurveTo(right - 6, top - 4, right - 18, top - 4);
-			g.lineTo(-10, top - 4);
-			g.closePath();
-			g.fill();
-			g.fillStyle = 'rgba(255,255,255,0.25)';
-			g.fillRect(-10, top - 4, Math.max(0, right - 14), 4);
-			g.restore();
+		startSurface(h) {
+			// La copa del árbol: el pájaro se apoya un poco hundido entre las hojas.
+			const treeH = (h * TREE_VISIBLE) / 0.5;
+			return h - h * TREE_VISIBLE + treeH * TREE_SINK;
+		},
+
+		drawStart(g, x, _w, h) {
+			// Copa bajo el pájaro; la mitad inferior del árbol queda fuera del canvas.
+			if (!tree) return;
+			const treeH = (h * TREE_VISIBLE) / 0.5;
+			const treeW = (tree.meta.frameWidth / tree.meta.frameHeight) * treeH;
+			if (x + treeW / 2 < 0) return;
+			g.drawImage(tree.img, x - treeW / 2, h - h * TREE_VISIBLE, treeW, treeH);
 		},
 
 		drawPerch(g, x, y, width, info) {
@@ -147,37 +173,33 @@ export function createSkyTheme(characterId: CharacterId = 'bird'): Theme {
 		},
 
 		drawCharacter(g, x, y, size, time, state: CharacterState) {
-			if (!sprite) return;
-			// En el aire aletea siempre (más rápido cuando canta); en el suelo, alas plegadas.
-			const flapRate = state.onTarget ? 12 : state.singing ? 10 : 7;
-			const frame = state.flying
-				? character.flap[Math.floor(time * flapRate) % character.flap.length]
-				: character.rest;
-			const h = size * character.scale;
-			const w = (meta.frameWidth / meta.frameHeight) * h;
+			if (!rest || !fly) return;
 			g.save();
-			if (state.flying) {
-				// Sin voz flota en el lugar con un leve vaivén.
-				g.translate(x, y + (state.singing ? 0 : Math.sin(time * 3) * 3));
-				g.rotate(Math.max(-0.35, Math.min(0.35, state.vy / 900)));
-			} else {
-				g.translate(x, y + Math.sin(time * 2.2) * 1.5);
-			}
 			if (state.onTarget) {
 				g.shadowColor = 'rgba(255,230,120,0.9)';
 				g.shadowBlur = 22;
 			}
-			g.drawImage(
-				sprite,
-				frame * meta.frameWidth,
-				0,
-				meta.frameWidth,
-				meta.frameHeight,
-				-w * 0.55,
-				-h * 0.5,
-				w,
-				h
-			);
+			if (!state.flying) {
+				// Parado: los pies apoyados en el suelo (el motor pasa el centro a 0,42 del tamaño).
+				const bob = Math.sin(time * 2.2) * 1.2;
+				blit(g, rest, 0, x, y + size * 0.44 - size + bob, size);
+			} else {
+				// En el aire aletea siempre (más rápido cuando canta). El alto se ajusta para que el
+				// cuerpo mida lo mismo que parado (misma relación pico/alto).
+				const k =
+					rest.meta.beakWidth && fly.meta.beakWidth
+						? rest.meta.beakWidth /
+							rest.meta.frameHeight /
+							(fly.meta.beakWidth / fly.meta.frameHeight)
+						: 1;
+				const h = size * k;
+				const flapRate = state.onTarget ? 12 : state.singing ? 10 : 7;
+				const frame = character.flap[Math.floor(time * flapRate) % character.flap.length];
+				// Sin voz flota en el lugar con un leve vaivén.
+				g.translate(x, y + (state.singing ? 0 : Math.sin(time * 3) * 3));
+				g.rotate(Math.max(-0.35, Math.min(0.35, state.vy / 900)));
+				blit(g, fly, frame, 0, -h * 0.5, h);
+			}
 			g.restore();
 		}
 	};

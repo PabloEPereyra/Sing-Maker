@@ -39,8 +39,8 @@ export interface GameStatus {
 /** Devuelve el tono cantado (MIDI, fraccionario) o null. Recibe el tiempo del ejercicio. */
 export type PitchSource = (time: number) => number | null;
 
-/** El suelo de partida termina este tiempo por delante del personaje en la vista previa. */
-const GROUND_AHEAD_SEC = 1;
+/** Duración (s) de la estela de viento detrás del personaje. */
+const TRAIL_SEC = 1.6;
 const LOOKAHEAD_SEC = 0.35;
 
 export class Game {
@@ -325,8 +325,9 @@ export class Game {
 		return this.camCenter + (this.h / 2 - y) / (this.h / this.camSpan);
 	}
 
+	/** Altura donde se para el personaje antes de empezar (la define el tema: copa del árbol, suelo…). */
 	private get groundTop(): number {
-		return this.h * 0.86;
+		return this.theme.startSurface(this.h);
 	}
 
 	private get birdSize(): number {
@@ -367,8 +368,8 @@ export class Game {
 		const progress = this.seq.duration ? Math.max(0, Math.min(1, time / this.seq.duration)) : 0;
 		const scroll = Math.max(0, time - this.previewTime) * this.pps;
 		this.theme.drawBackground(g, w, h, scroll, progress);
-		const groundEnd = this.x(this.previewTime + GROUND_AHEAD_SEC, time);
-		if (groundEnd > 0) this.theme.drawGround(g, groundEnd, this.groundTop, h);
+		// Punto de partida (árbol): queda donde esperaba el personaje y se aleja al despegar.
+		this.theme.drawStart(g, this.x(this.previewTime, time), w, h);
 		this.drawPerches(time);
 		this.drawTrail(time);
 		this.drawStars(time, anim);
@@ -403,28 +404,62 @@ export class Game {
 		}
 	}
 
+	/**
+	 * Estela de viento detrás del personaje: tres cintas que siguen el tono cantado, se abren con
+	 * la distancia y se afinan hacia la cola. Cada cinta es un solo polígono con degradé (sin
+	 * filtros ni sombras difuminadas, que son caros por cuadro).
+	 */
 	private drawTrail(time: number): void {
 		const { g } = this;
-		g.save();
-		g.lineWidth = 4;
-		g.lineCap = 'round';
-		g.lineJoin = 'round';
-		let drawing = false;
-		g.beginPath();
-		for (const s of this.history) {
+		const points: { x: number; y: number; age: number }[] = [];
+		for (let i = this.history.length - 1; i >= 0; i--) {
+			const s = this.history[i];
+			const age = time - s.time;
+			if (age > TRAIL_SEC) break;
 			if (s.midi === null) {
-				drawing = false;
+				if (points.length) break; // la estela se corta en el silencio
 				continue;
 			}
-			const x = this.x(s.time, time) - 18;
-			const y = this.y(s.midi);
-			if (!drawing) g.moveTo(x, y);
-			else g.lineTo(x, y);
-			drawing = true;
+			points.push({ x: this.x(s.time, time) - 22, y: this.y(s.midi), age });
 		}
-		g.strokeStyle = 'rgba(255,255,255,0.6)';
-		g.stroke();
-		g.restore();
+		if (points.length < 2) return;
+
+		const ribbon = (offset: number, width: number, length: number, color: string, dy = 0) => {
+			const pts = points.filter((p) => p.age < length);
+			if (pts.length < 2) return;
+			const top: [number, number][] = [];
+			const bottom: [number, number][] = [];
+			for (const p of pts) {
+				const t = p.age / length;
+				// Las cintas se separan con la distancia y ondulan apenas, como ráfagas.
+				const y =
+					p.y + dy + offset * (6 + p.age * 26) + Math.sin(p.age * 8 + offset * 2) * p.age * 5;
+				const half = (width / 2) * Math.pow(1 - t, 0.8);
+				top.push([p.x, y - half]);
+				bottom.push([p.x, y + half]);
+			}
+			const head = pts[0].x;
+			const tail = pts[pts.length - 1].x;
+			const grad = g.createLinearGradient(head, 0, Math.min(tail, head - 1), 0);
+			grad.addColorStop(0, color);
+			grad.addColorStop(1, color.replace(/[\d.]+\)$/, '0)'));
+			g.fillStyle = grad;
+			g.beginPath();
+			g.moveTo(top[0][0], top[0][1]);
+			for (const [x, y] of top) g.lineTo(x, y);
+			for (let i = bottom.length - 1; i >= 0; i--) g.lineTo(bottom[i][0], bottom[i][1]);
+			g.closePath();
+			g.fill();
+		};
+		// Primero una copia azulada corrida 2 px (se lee sobre las nubes blancas), después el blanco.
+		for (const [color, dy] of [
+			['rgba(50,100,180,0.12)', 1.5],
+			['rgba(255,255,255,0.28)', 0]
+		] as const) {
+			ribbon(-1, 4, TRAIL_SEC * 0.75, color, dy);
+			ribbon(1, 4, TRAIL_SEC * 0.75, color, dy);
+			ribbon(0, 6.5, TRAIL_SEC, color, dy);
+		}
 	}
 
 	private drawStars(time: number, anim: number): void {

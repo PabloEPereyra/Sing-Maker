@@ -7,26 +7,53 @@
 //   split: 'auto'  -> cada figura es un grupo de píxeles conectados; se toman las N más grandes
 //                     (de izquierda a derecha) y los pedacitos sueltos se suman a la más cercana.
 //                     Sirve cuando las alas de un cuadro invaden el ancho del vecino.
+// `erode` achica el borde N píxeles (halos de recorte) y `dropSpecks` descarta motas sueltas.
+// `pick` elige qué cuadros salen (por índice). Con `beak: true` el .json incluye `beakWidth` (ancho del
+// pico naranja en px de salida) para igualar el tamaño del cuerpo entre hojas distintas.
 // En 'auto' cada cuadro se alinea por un ancla, para que el cuerpo no "salte" entre cuadros:
 //   anchor: 'mass' -> centro de masa;  anchor: 'beak' -> pico naranja (mitad superior de la figura).
 import sharp from 'sharp';
 import { writeFileSync } from 'node:fs';
 
 const SHEETS = [
+	// Pájaro parado: solo el primer cuadro de volando.png (separado por figura, sin restos del vecino).
 	{
 		src: 'assets/sky/character-sheet.png',
-		out: 'static/themes/sky/character',
+		out: 'static/themes/sky/bird-rest',
 		frames: 4,
+		pick: [0],
 		height: 220,
-		split: 'grid'
+		split: 'auto',
+		beak: true
 	},
+	// Pájaro volando: los 6 cuadros de volando2.png, alineados por el pico.
 	{
 		src: 'assets/sky/character2-sheet.png',
-		out: 'static/themes/sky/character2',
+		out: 'static/themes/sky/bird-fly',
 		frames: 6,
 		height: 220,
 		split: 'auto',
-		anchor: 'beak'
+		anchor: 'beak',
+		beak: true
+	},
+	// Árboles de partida (el pájaro espera parado en la copa). Un cuadro cada uno.
+	{
+		src: 'assets/sky/tree1.png',
+		out: 'static/themes/sky/tree1',
+		frames: 1,
+		height: 560,
+		split: 'auto',
+		dropSpecks: true,
+		erode: 1
+	},
+	{
+		src: 'assets/sky/tree2.png',
+		out: 'static/themes/sky/tree2',
+		frames: 1,
+		height: 560,
+		split: 'auto',
+		dropSpecks: true,
+		erode: 3
 	},
 	{
 		src: 'assets/collectibles/notes-sheet.png',
@@ -39,7 +66,7 @@ const SHEETS = [
 
 const ALPHA_MIN = 20;
 
-async function loadClean(src) {
+async function loadClean(src, erode = 0) {
 	const { data, info } = await sharp(src).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
 	for (let i = 0; i < data.length; i += 4) {
 		const a = data[i + 3];
@@ -51,6 +78,18 @@ async function loadClean(src) {
 			data[i] = r - m * 0.8;
 			data[i + 2] = b - m * 0.8;
 		}
+	}
+	// Erosión del alfa (mínimo 3×3): quita bordes de recorte de color (halo verde o magenta).
+	for (let pass = 0; pass < erode; pass++) {
+		const a = new Uint8Array(info.width * info.height);
+		for (let i = 0; i < a.length; i++) a[i] = data[i * 4 + 3];
+		for (let y = 1; y < info.height - 1; y++)
+			for (let x = 1; x < info.width - 1; x++) {
+				let m = 255;
+				for (let dy = -1; dy <= 1; dy++)
+					for (let dx = -1; dx <= 1; dx++) m = Math.min(m, a[(y + dy) * info.width + x + dx]);
+				data[(y * info.width + x) * 4 + 3] = m;
+			}
 	}
 	return { data, width: info.width, height: info.height };
 }
@@ -86,7 +125,7 @@ function gridFrames(img, n) {
 }
 
 /** Componentes conectados (sobre una máscara reducida 1/4 para que sea rápido). */
-function autoFrames(img, n, anchor = 'mass') {
+function autoFrames(img, n, anchor = 'mass', dropSpecks = false) {
 	const { data, width: W, height: H } = img;
 	const S = 4,
 		w = Math.ceil(W / S),
@@ -138,7 +177,13 @@ function autoFrames(img, n, anchor = 'mass') {
 	if (main.length < n) throw new Error(`Se esperaban ${n} figuras y hay ${main.length}`);
 	// Cada componente (también los pedacitos) se asigna a la figura principal más cercana.
 	const owner = new Int32Array(comps.length);
+	const biggest = main.reduce((a, b) => Math.max(a, b.n), 0);
 	for (const c of comps) {
+		// Motas sueltas (restos de recorte) se descartan si se pidió.
+		if (dropSpecks && c.n < biggest * 0.01 && !main.includes(c)) {
+			owner[c.id] = -1;
+			continue;
+		}
 		const cx = c.sx / c.n,
 			cy = c.sy / c.n;
 		let best = 0,
@@ -215,14 +260,37 @@ function cutFrame(img, f) {
 	return out;
 }
 
+/** Ancho (px de origen) de los píxeles naranjas en la mitad superior de la figura: el pico. */
+function beakWidth(img, f) {
+	const { data, width: W } = img;
+	let x0 = Infinity,
+		x1 = -Infinity,
+		n = 0;
+	for (let y = 0; y < f.height * 0.6; y++)
+		for (let x = 0; x < f.width; x++) {
+			if (f.mask && !f.mask[y * f.width + x]) continue;
+			const i = ((y + f.top) * W + x + f.left) * 4;
+			const r = data[i],
+				g = data[i + 1],
+				b = data[i + 2];
+			if (data[i + 3] > 200 && r > 200 && g > 110 && g < 210 && b < 90) {
+				x0 = Math.min(x0, x);
+				x1 = Math.max(x1, x);
+				n++;
+			}
+		}
+	return n > 50 ? x1 - x0 + 1 : 0;
+}
+
 const EMPTY = { r: 0, g: 0, b: 0, alpha: 0 };
 
 for (const sheet of SHEETS) {
-	const img = await loadClean(sheet.src);
-	const frames =
+	const img = await loadClean(sheet.src, sheet.erode ?? 0);
+	const all =
 		sheet.split === 'auto'
-			? autoFrames(img, sheet.frames, sheet.anchor)
+			? autoFrames(img, sheet.frames, sheet.anchor, sheet.dropSpecks)
 			: gridFrames(img, sheet.frames);
+	const frames = sheet.pick ? sheet.pick.map((i) => all[i]) : all;
 	// Celda común: todos los cuadros con su centro de masa en el mismo punto.
 	const left = Math.max(...frames.map((f) => f.cx));
 	const right = Math.max(...frames.map((f) => f.width - f.cx));
@@ -259,7 +327,12 @@ for (const sheet of SHEETS) {
 		.composite(tiles)
 		.png({ compressionLevel: 9 })
 		.toFile(`${sheet.out}.png`);
+	const beaks = sheet.beak ? frames.map((f) => beakWidth(img, f)).filter((b) => b > 0) : [];
 	const meta = { frames: frames.length, frameWidth: outW, frameHeight: outH };
+	if (beaks.length)
+		meta.beakWidth = +((beaks.reduce((a, b) => a + b, 0) / beaks.length) * (outH / cellH)).toFixed(
+			2
+		);
 	writeFileSync(`${sheet.out}.json`, JSON.stringify(meta, null, '\t') + '\n');
 	console.log(sheet.out, meta);
 }

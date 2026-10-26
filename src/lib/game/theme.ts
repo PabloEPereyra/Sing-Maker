@@ -36,8 +36,10 @@ export interface Theme {
 		scroll: number,
 		progress: number
 	): void;
-	/** Suelo de partida desde el borde izquierdo hasta `right`, con la superficie en `top`. */
-	drawGround(g: CanvasRenderingContext2D, right: number, top: number, h: number): void;
+	/** Altura (px) donde se para el personaje antes de empezar, para un canvas de alto `h`. */
+	startSurface(h: number): number;
+	/** Punto de partida (árbol, suelo…) centrado en `x`, la posición del personaje en la espera. */
+	drawStart(g: CanvasRenderingContext2D, x: number, w: number, h: number): void;
 	drawPerch(
 		g: CanvasRenderingContext2D,
 		x: number,
