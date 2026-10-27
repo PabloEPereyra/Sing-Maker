@@ -28,6 +28,28 @@ Sin micrófono se puede probar con **Modo demo** (un piloto automático canta la
 - **Temas**: el motor (`src/lib/game/game.ts`) solo calcula tiempos, cámara y puntuación; el dibujo lo hace un
   `Theme` (`src/lib/game/themes/sky.ts`). Otros mundos (caminante con monedas, etc.) se suman con otro tema.
 
+## Crear ejercicios con IA
+
+El botón **«Crear con IA»** manda una descripción en texto a `/api/generate` (Cloudflare Pages Function en
+`functions/api/generate.ts`). El servidor arma el prompt con ejemplos del catálogo, pide al modelo un JSON
+estructurado, lo valida con `zod` y reglas musicales (duraciones, saltos, rango de la persona) y, si falla,
+le devuelve los errores para que corrija (hasta 3 intentos). El resultado se guarda en «Mis ejercicios».
+La clave del modelo vive solo en el servidor.
+
+Proveedor configurable (API compatible con OpenAI), en `.dev.vars` para desarrollo (ver `.dev.vars.example`)
+o como variables del proyecto en Cloudflare:
+
+| Variable               | Pruebas (hoy)                       | Hackathon                                   |
+| ---------------------- | ----------------------------------- | ------------------------------------------- |
+| `LLM_API_KEY`          | clave de OpenRouter                 | clave de la Meta Model API                  |
+| `LLM_BASE_URL`         | `https://openrouter.ai/api/v1`      | URL de la Meta Model API                    |
+| `LLM_MODEL`            | `nvidia/nemotron-3.5-super-vl:free` | modelo Muse (p. ej. Muse Spark)             |
+| `LLM_JSON_MODE`        | `schema` (por defecto)              | `schema`, u `object`/`none` si no lo admite |
+| `LLM_REASONING_EFFORT` | `none` (por defecto en OpenRouter)  | sin valor (no se envía)                     |
+
+> El modelo de NVIDIA por OpenRouter es solo para desarrollar mientras llegan los créditos: la entrega
+> del hackathon usa los modelos de Meta.
+
 ## Origen del código (regla "new work only")
 
 El proyecto se comenzó desde cero el 26/27 oct 2026. Se reutilizaron, adaptadas, piezas de proyectos previos

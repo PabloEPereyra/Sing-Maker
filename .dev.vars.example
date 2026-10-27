@@ -1,0 +1,19 @@
+# Copiá este archivo como .dev.vars (está en .gitignore) y completá la clave.
+# En Cloudflare Pages se cargan como variables/secretos del proyecto.
+
+# Pruebas: OpenRouter, modelo gratis de NVIDIA
+LLM_API_KEY=sk-or-...
+LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
+
+# Hackathon: Meta Model API (Muse). Completar con la URL y el modelo de la documentación de Meta.
+# LLM_API_KEY=...
+# LLM_BASE_URL=...
+# LLM_MODEL=...
+# Si el proveedor no acepta json_schema, probar LLM_JSON_MODE=object (o none).
+# LLM_JSON_MODE=schema
+
+# Opcionales. Tope de tokens de la respuesta (por defecto 8000) y esfuerzo de razonamiento
+# (none/low/medium/high; en OpenRouter por defecto none, en otros proveedores no se envía).
+# LLM_MAX_TOKENS=8000
+# LLM_REASONING_EFFORT=none

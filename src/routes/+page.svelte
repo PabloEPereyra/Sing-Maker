@@ -3,6 +3,8 @@
 	import GameStage from '$lib/components/GameStage.svelte';
 	import RangePicker from '$lib/components/RangePicker.svelte';
 	import CustomizeDialog from '$lib/components/CustomizeDialog.svelte';
+	import CreateExerciseDialog from '$lib/components/CreateExerciseDialog.svelte';
+	import { addMine, loadMine, mine, removeMine } from '$lib/exercises/mine.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import PopoverButton from '$lib/components/PopoverButton.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
@@ -41,6 +43,7 @@
 	let micError = $state('');
 	let search = $state('');
 	let customizing = $state(false);
+	let creating = $state(false);
 	let loaded = $state(false);
 	let phase = $state<Phase>('idle');
 
@@ -49,7 +52,11 @@
 
 	const theme = $derived(themeFor(settings.character, settings.start));
 	const running = $derived(phase === 'countin' || phase === 'playing');
-	const exercise = $derived(exercises.find((e) => e.id === selectedId) ?? exercises[0]);
+	const exercise = $derived(
+		mine.list.find((e) => e.id === selectedId) ??
+			exercises.find((e) => e.id === selectedId) ??
+			exercises[0]
+	);
 	const text = $derived(exerciseText(exercise, settings.lang));
 	const bpm = $derived(Math.round(exercise.parsed.meta.bpm * tempo));
 	const sequence = $derived(
@@ -84,6 +91,7 @@
 
 	onMount(() => {
 		loadSettings();
+		loadMine();
 		try {
 			const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
 			if (typeof p.low === 'number') low = p.low;
@@ -179,6 +187,13 @@
 		}
 	}
 
+	/** Guarda el ejercicio creado con IA y lo deja listo para practicar. */
+	function practiceCreated(code: string, prompt: string) {
+		stop();
+		selectedId = addMine(code, prompt).id;
+		creating = false;
+	}
+
 	function next() {
 		// Mismo orden que la lista: nivel → categoría.
 		const order = byLevel().flatMap((lv) => lv.categories.flatMap(([, list]) => list));
@@ -257,7 +272,13 @@
 		<aside
 			class="flex max-h-64 min-h-0 flex-col rounded-lg border border-border bg-surface lg:max-h-none lg:w-72"
 		>
-			<div class="border-b border-border p-3">
+			<div class="space-y-2 border-b border-border p-3">
+				<button
+					class="w-full rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-110"
+					onclick={() => (creating = true)}
+				>
+					✨ {t('create.button')}
+				</button>
 				<input
 					type="search"
 					placeholder={t('catalog.search')}
@@ -266,6 +287,43 @@
 				/>
 			</div>
 			<div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+				{#if mine.list.length && !query}
+					<details class="group rounded-lg bg-accent/10" open>
+						<summary
+							class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 select-none hover:bg-accent/15"
+						>
+							<span class="text-sm">✨</span>
+							<span class="font-bold">{t('create.mine')}</span>
+							<span class="ml-auto text-xs text-muted">{mine.list.length}</span>
+							<span class="text-muted transition group-open:rotate-90">›</span>
+						</summary>
+						<div class="px-1 pb-2">
+							{#each mine.list as e (e.id)}
+								<div class="group/item flex items-center gap-1">
+									<button
+										class="block min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm transition {e.id ===
+										selectedId
+											? 'bg-accent font-semibold text-white'
+											: 'hover:bg-surface-2'}"
+										title={e.parsed.meta.description}
+										onclick={() => {
+											stop();
+											selectedId = e.id;
+										}}
+									>
+										{e.name}
+									</button>
+									<button
+										class="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 group-hover/item:opacity-100 hover:bg-surface-2 hover:text-red-600"
+										aria-label={t('create.delete')}
+										title={t('create.delete')}
+										onclick={() => removeMine(e.id)}>✕</button
+									>
+								</div>
+							{/each}
+						</div>
+					</details>
+				{/if}
 				{#each levels as lv (lv.level)}
 					<details
 						class="group rounded-lg bg-surface-2/60"
@@ -417,6 +475,14 @@
 		</main>
 	</div>
 </div>
+
+{#if creating}
+	<CreateExerciseDialog
+		range={{ low, high }}
+		onPractice={practiceCreated}
+		onClose={() => (creating = false)}
+	/>
+{/if}
 
 {#if customizing}
 	<CustomizeDialog onClose={() => (customizing = false)} />
