@@ -11,6 +11,11 @@ export interface PitchFrame {
 	time: number;
 	/** Tono (MIDI fraccionario) o null si no hay voz. */
 	midi: number | null;
+	/**
+	 * Volumen (RMS). Sirve para separar notas repetidas: entre "do" y "do" el tono no cambia y el
+	 * detector sostiene la nota en los cortes breves, pero la consonante hace bajar el volumen.
+	 */
+	rms?: number;
 }
 
 export interface RawNote {
@@ -19,6 +24,8 @@ export interface RawNote {
 	end: number;
 	/** Tono redondeado al semitono (mediana de sus cuadros). */
 	midi: number;
+	/** Empezó con un ataque nuevo (consonante): no se une con la anterior aunque sea el mismo tono. */
+	attack?: boolean;
 }
 
 /** Cambio de tono (semitonos) que abre una nota nueva si se sostiene. */
@@ -29,6 +36,10 @@ const CHANGE_HOLD_SEC = 0.06;
 const GAP_SEC = 0.08;
 /** Notas más cortas que esto son ruido o deslizamientos (se descartan). */
 const MIN_NOTE_SEC = 0.09;
+/** Valle de volumen: por debajo de esta parte del pico de la nota. */
+const VALLEY = 0.5;
+/** Ataque nuevo: el volumen sube este factor desde el fondo del valle. */
+const RISE = 1.8;
 
 function median(values: number[]): number {
 	const s = [...values].sort((a, b) => a - b);
@@ -38,13 +49,21 @@ function median(values: number[]): number {
 /** Separa la grabación en notas: cambios de tono sostenidos o silencios abren una nota nueva. */
 export function segmentNotes(frames: PitchFrame[]): RawNote[] {
 	const notes: RawNote[] = [];
-	let cur: { start: number; end: number; values: number[] } | null = null;
+	let cur: { start: number; end: number; values: number[]; attack?: boolean } | null = null;
 	let pending: { start: number; values: number[] } | null = null;
 	let silenceSince: number | null = null;
+	// Volumen dentro de la nota actual: pico y valle (para detectar un ataque nuevo en el mismo tono).
+	let peak = 0;
+	let valleyMin: number | null = null;
 
 	const close = () => {
 		if (cur && cur.end - cur.start >= MIN_NOTE_SEC)
-			notes.push({ start: cur.start, end: cur.end, midi: Math.round(median(cur.values)) });
+			notes.push({
+				start: cur.start,
+				end: cur.end,
+				midi: Math.round(median(cur.values)),
+				attack: cur.attack
+			});
 		cur = null;
 		pending = null;
 	};
@@ -58,7 +77,22 @@ export function segmentNotes(frames: PitchFrame[]): RawNote[] {
 		silenceSince = null;
 		if (!cur) {
 			cur = { start: f.time, end: f.time, values: [f.midi] };
+			peak = f.rms ?? 0;
+			valleyMin = null;
 			continue;
+		}
+		if (f.rms !== undefined) {
+			if (f.rms < peak * VALLEY) valleyMin = Math.min(valleyMin ?? f.rms, f.rms);
+			else if (valleyMin !== null && f.rms > valleyMin * RISE) {
+				// Ataque nuevo (consonante y vocal): nota nueva aunque el tono sea el mismo.
+				cur.end = f.time;
+				close();
+				cur = { start: f.time, end: f.time, values: [f.midi], attack: true };
+				peak = f.rms;
+				valleyMin = null;
+				continue;
+			}
+			peak = Math.max(peak, f.rms);
 		}
 		const center = median(cur.values.slice(-12));
 		if (Math.abs(f.midi - center) >= CHANGE_SEMI) {
@@ -72,6 +106,8 @@ export function segmentNotes(frames: PitchFrame[]): RawNote[] {
 				cur.end = next.start;
 				close();
 				cur = { start: next.start, end: f.time, values: [f.midi] };
+				peak = f.rms ?? 0;
+				valleyMin = null;
 			}
 		} else {
 			pending = null;
@@ -88,7 +124,7 @@ function mergeRepeats(notes: RawNote[]): RawNote[] {
 	const out: RawNote[] = [];
 	for (const n of notes) {
 		const prev = out.at(-1);
-		if (prev && prev.midi === n.midi && n.start - prev.end < 0.05) prev.end = n.end;
+		if (prev && !n.attack && prev.midi === n.midi && n.start - prev.end < 0.05) prev.end = n.end;
 		else out.push({ ...n });
 	}
 	return out;
@@ -102,6 +138,8 @@ export interface QuantizeOptions {
 export interface Quantized {
 	bpm: number;
 	beatsPerMeasure: number;
+	/** Primera nota cantada (MIDI): la tonalidad en que se cantó. */
+	root: number;
 	/** Notas en tiempos, relativas a la primera nota cantada, con la guía al comienzo. */
 	notes: GeneratedNote[];
 }
@@ -116,10 +154,10 @@ export function estimateTempo(notes: RawNote[]): { bpm: number; beatSec: number 
 	const iois = notes.slice(0, -1).map((n, i) => notes[i + 1].start - n.start);
 	let beatSec = iois.length ? median(iois) : notes.length ? notes[0].end - notes[0].start : 0.75;
 	beatSec = Math.max(0.1, beatSec);
-	while (60 / beatSec > 140) beatSec *= 2;
-	while (60 / beatSec < 50) beatSec /= 2;
+	while (60 / beatSec > 150) beatSec *= 2;
+	while (60 / beatSec < 60) beatSec /= 2;
 	// Tempo redondeado a 5 y la duración del tiempo recalculada con ese valor.
-	const bpm = Math.max(50, Math.min(140, roundTo(60 / beatSec, 5)));
+	const bpm = Math.max(60, Math.min(150, roundTo(60 / beatSec, 5)));
 	return { bpm, beatSec: 60 / bpm };
 }
 
@@ -151,10 +189,8 @@ export function quantize(notes: RawNote[], opts: QuantizeOptions = {}): Quantize
 	});
 
 	const total = body.reduce((a, n) => a + n.d, 0);
-	// 4/4 salvo que cerrar el compás de 4 obligue a estirar mucho la última nota y en 3 entre justo.
-	const missing4 = (4 - (total % 4)) % 4;
-	const beatsPerMeasure =
-		opts.beatsPerMeasure ?? (!fits(total, 4) && missing4 > 2.5 && fits(total, 3) ? 3 : 4);
+	// Por ahora todo en 4/4 (los patrones de batería son 4/4 y 6/8).
+	const beatsPerMeasure = opts.beatsPerMeasure ?? 4;
 	// Completa el compás alargando la última nota (como en los ejercicios del catálogo), hasta 4 tiempos.
 	const missing = (beatsPerMeasure - (total % beatsPerMeasure)) % beatsPerMeasure;
 	const last = body[body.length - 1];
@@ -170,29 +206,30 @@ export function quantize(notes: RawNote[], opts: QuantizeOptions = {}): Quantize
 		split.push({ ...n, d: left });
 	}
 	const hint: GeneratedNote = { d: beatsPerMeasure === 3 ? 3 : 2, s: 0, hint: true };
-	return { bpm, beatsPerMeasure, notes: [hint, ...split] };
+	return { bpm, beatsPerMeasure, root, notes: [hint, ...split] };
 }
 
-function fits(total: number, beats: number): boolean {
-	const r = total % beats;
-	return r < 0.26 || beats - r < 0.26;
-}
-
-/** Atajo: de los cuadros de tono al ejercicio (o null si no hay al menos dos notas). */
+/**
+ * Atajo: de los cuadros de tono al ejercicio, con la nota en que se empezó a cantar (o null si no hay
+ * al menos dos notas).
+ */
 export function transcribe(
 	frames: PitchFrame[],
 	name: string,
 	description: string
-): GeneratedExercise | null {
+): { exercise: GeneratedExercise; root: number } | null {
 	const q = quantize(segmentNotes(frames));
 	if (!q) return null;
 	return {
-		name,
-		description,
-		bpm: q.bpm,
-		beatsPerMeasure: q.beatsPerMeasure,
-		direction: 'asc',
-		syllable: '',
-		notes: q.notes
+		root: q.root,
+		exercise: {
+			name,
+			description,
+			bpm: q.bpm,
+			beatsPerMeasure: q.beatsPerMeasure,
+			direction: 'asc',
+			syllable: '',
+			notes: q.notes
+		}
 	};
 }

@@ -6,14 +6,24 @@
 import { z } from 'zod';
 import { configFromEnv, generateExercise, GenerateError } from '../../src/lib/ai/generate';
 
-const RequestSchema = z.object({
-	prompt: z.string().min(1).max(1000),
-	lang: z.enum(['es', 'en']).default('es'),
-	range: z
-		.object({ low: z.number().int().min(24).max(108), high: z.number().int().min(24).max(108) })
-		.refine((r) => r.low < r.high)
-		.optional()
-});
+/** Imagen de partitura como data URL (PNG, JPEG o WebP), hasta ~5 MB. */
+const ImageSchema = z
+	.string()
+	.max(7_000_000)
+	.regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/);
+
+const RequestSchema = z
+	.object({
+		prompt: z.string().max(1000).default(''),
+		image: ImageSchema.optional(),
+		meter: z.enum(['4/4', '6/8']).optional(),
+		lang: z.enum(['es', 'en']).default('es'),
+		range: z
+			.object({ low: z.number().int().min(24).max(108), high: z.number().int().min(24).max(108) })
+			.refine((r) => r.low < r.high)
+			.optional()
+	})
+	.refine((r) => r.prompt.trim() || r.image, 'Empty request.');
 
 type Env = Record<string, string | undefined>;
 

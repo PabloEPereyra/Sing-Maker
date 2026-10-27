@@ -6,6 +6,7 @@
 // devuelven los errores para que corrija (hasta MAX_ATTEMPTS). Medir y validar lo hace el código;
 // componer lo hace el modelo.
 import {
+	applyNoteNames,
 	dropNulls,
 	extractJson,
 	GENERATED_EXERCISE_JSON_SCHEMA,
@@ -15,11 +16,16 @@ import {
 	type GeneratedExercise,
 	type VoiceRange
 } from './exercise';
-import { exampleMessages, systemPrompt } from './prompt';
+import { exampleMessages, NO_SCORE, scoreInstruction, systemPrompt } from './prompt';
 
 export interface LlmConfig {
 	baseUrl: string;
 	model: string;
+	/**
+	 * Modelo para leer imágenes de partituras. En las pruebas Muse Wonder leyó la clave de fa mucho
+	 * mejor que Spark; por defecto es el mismo `model`.
+	 */
+	visionModel: string;
 	apiKey: string;
 	/** Cómo pedir JSON: esquema estricto, objeto JSON libre o solo por instrucciones. */
 	jsonMode: 'schema' | 'object' | 'none';
@@ -34,6 +40,10 @@ export interface LlmConfig {
 
 export interface GenerateRequest {
 	prompt: string;
+	/** Foto o imagen de una partitura (data URL): se transcribe en vez de componer. */
+	image?: string;
+	/** Compás elegido (al componer): el resultado tiene que llenar compases enteros de ese compás. */
+	meter?: '4/4' | '6/8';
 	lang: 'es' | 'en';
 	range?: VoiceRange;
 }
@@ -74,6 +84,7 @@ export function configFromEnv(env: Record<string, string | undefined>): LlmConfi
 	return {
 		baseUrl,
 		model: env.LLM_MODEL || DEFAULT_MODEL,
+		visionModel: env.LLM_VISION_MODEL || env.LLM_MODEL || DEFAULT_MODEL,
 		apiKey: env.LLM_API_KEY || '',
 		jsonMode: jsonMode === 'object' || jsonMode === 'none' ? jsonMode : 'schema',
 		maxTokens: Number(env.LLM_MAX_TOKENS) || 8000,
@@ -83,7 +94,15 @@ export function configFromEnv(env: Record<string, string | undefined>): LlmConfi
 	};
 }
 
-type Message = { role: 'system' | 'user' | 'assistant'; content: string };
+type ContentPart =
+	{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+export type Message = { role: 'system' | 'user' | 'assistant'; content: string | ContentPart[] };
+
+/** Esquema de la salida estructurada que se le pide al modelo. */
+export interface ResponseFormat {
+	name: string;
+	schema: object;
+}
 
 export async function generateExercise(
 	req: GenerateRequest,
@@ -92,32 +111,49 @@ export async function generateExercise(
 ): Promise<GenerateResult> {
 	if (!config.apiKey) throw new GenerateError('Missing LLM_API_KEY on the server.', 500);
 	const prompt = req.prompt.trim().slice(0, 1000);
-	if (!prompt) throw new GenerateError('Empty request.', 400);
+	if (!prompt && !req.image) throw new GenerateError('Empty request.', 400);
 
 	const messages: Message[] = [
-		{ role: 'system', content: systemPrompt(req.lang, req.range) },
+		{
+			role: 'system',
+			content: systemPrompt(req.lang, req.range, req.image ? undefined : req.meter)
+		},
 		...exampleMessages(),
-		{ role: 'user', content: prompt }
+		{
+			role: 'user',
+			content: req.image
+				? [
+						{ type: 'text', text: scoreInstruction(prompt) },
+						{ type: 'image_url', image_url: { url: req.image } }
+					]
+				: prompt
+		}
 	];
 
+	const model = req.image ? config.visionModel : config.model;
 	let lastErrors: string[] = [];
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-		const content = await complete(messages, config, fetchImpl);
+		const content = await complete(messages, config, model, fetchImpl);
 		let errors: string[];
 		let exercise: GeneratedExercise | null = null;
 		try {
 			const parsed = GeneratedExerciseSchema.safeParse(dropNulls(extractJson(content)));
+			if (parsed.success && req.image && parsed.data.name === NO_SCORE) {
+				throw new GenerateError('No readable score was found in the image.', 422);
+			}
 			if (parsed.success) {
-				exercise = parsed.data;
-				errors = validateGenerated(exercise, req.range);
+				// Partitura: los semitonos salen de los nombres de nota que leyó el modelo.
+				exercise = req.image ? applyNoteNames(parsed.data) : parsed.data;
+				errors = validateGenerated(exercise, req.range, req.image ? undefined : req.meter);
 			} else {
 				errors = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
 			}
 		} catch (e) {
+			if (e instanceof GenerateError) throw e;
 			errors = [`Invalid JSON: ${(e as Error).message}`];
 		}
 		if (exercise && errors.length === 0) {
-			return { exercise, code: toCode(exercise), attempts: attempt, model: config.model };
+			return { exercise, code: toCode(exercise), attempts: attempt, model };
 		}
 		lastErrors = errors;
 		messages.push(
@@ -131,13 +167,15 @@ export async function generateExercise(
 	throw new GenerateError('The model could not produce a valid exercise.', 422, lastErrors);
 }
 
-async function complete(
+export async function complete(
 	messages: Message[],
 	config: LlmConfig,
-	fetchImpl: typeof fetch
+	model: string,
+	fetchImpl: typeof fetch,
+	format: ResponseFormat = { name: 'vocal_exercise', schema: GENERATED_EXERCISE_JSON_SCHEMA }
 ): Promise<string> {
 	const body: Record<string, unknown> = {
-		model: config.model,
+		model,
 		messages,
 		temperature: 0.7,
 		max_tokens: config.maxTokens
@@ -151,7 +189,7 @@ async function complete(
 	if (config.jsonMode === 'schema') {
 		body.response_format = {
 			type: 'json_schema',
-			json_schema: { name: 'vocal_exercise', strict: true, schema: GENERATED_EXERCISE_JSON_SCHEMA }
+			json_schema: { name: format.name, strict: true, schema: format.schema }
 		};
 	} else if (config.jsonMode === 'object') {
 		body.response_format = { type: 'json_object' };

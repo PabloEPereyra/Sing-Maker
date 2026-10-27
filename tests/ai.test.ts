@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+	applyNoteNames,
 	extractJson,
+	noteNameToMidi,
 	toCode,
 	validateGenerated,
 	type GeneratedExercise
@@ -78,6 +80,44 @@ function fakeModel(answers: string[]) {
 	}) as unknown as typeof fetch;
 	return { calls, fetchImpl };
 }
+
+describe('partituras: semitonos desde los nombres de nota', () => {
+	it('entiende nombres con alteraciones', () => {
+		expect(noteNameToMidi('C4')).toBe(60);
+		expect(noteNameToMidi('Bb3')).toBe(58);
+		expect(noteNameToMidi('F#3')).toBe(54);
+		expect(noteNameToMidi('B♭3')).toBe(58);
+		expect(noteNameToMidi('H2')).toBeNull();
+	});
+
+	it('recalcula s desde los nombres y los quita', () => {
+		const read = {
+			...VALID,
+			notes: [
+				{ d: 2, s: 5, hint: true },
+				{ d: 1.5, s: 0, n: 'F3' },
+				{ d: 0.5, s: 9, n: 'G3' }, // la cuenta del modelo estaba mal: vale el nombre
+				{ d: 1, s: 0, rest: true },
+				{ d: 1, s: 0, n: 'Bb3' },
+				{ d: 1, s: 0, n: 'C3' }
+			]
+		};
+		const fixed = applyNoteNames(read);
+		expect(fixed.notes.map((n) => n.s)).toEqual([0, 0, 2, 0, 5, -5]);
+		expect(fixed.notes.every((n) => !('n' in n))).toBe(true);
+	});
+
+	it('si falta algún nombre, deja los s del modelo', () => {
+		const partial = {
+			...VALID,
+			notes: [
+				{ d: 1, s: 0, n: 'F3' },
+				{ d: 1, s: 4 }
+			]
+		};
+		expect(applyNoteNames(partial).notes.map((n) => n.s)).toEqual([0, 4]);
+	});
+});
 
 describe('bucle de generación', () => {
 	const config = { ...configFromEnv({ LLM_API_KEY: 'test' }) };

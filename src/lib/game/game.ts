@@ -1,6 +1,8 @@
 // Motor del juego: tiempo, cámara, física del personaje, puntuación y dibujo vía Theme.
 // El tiempo maestro es el reloj del AudioContext, así el piano y lo que se ve no se desfasan.
-import { getContext, playNote, stopAll, tick } from '$lib/audio/engine';
+import { getContext, playDrum, playNote, stopAll, tick } from '$lib/audio/engine';
+import { hitsAt, type DrumPattern } from '$lib/audio/drums';
+import { measureBeats, tickBeats } from '$lib/music/meter';
 import type { Sequence, TimedNote } from '$lib/music/generate';
 import { midiToNote } from '$lib/music/notes';
 import { COLLECTIBLES, type CollectibleSkin } from './collectibles';
@@ -18,10 +20,16 @@ const RESUME_PREROLL_SEC = 1;
 
 export interface GameOptions {
 	bpm: number;
+	/** Pulsos del metrónomo por compás (4 en 4/4, 6 en 6/8). */
 	beatsPerMeasure: number;
+	/** Figura del pulso: 4 = negra, 8 = corchea (6/8). */
+	subdivision: number;
+	/** Patrón de batería que suena durante el ejercicio (la cuenta previa siempre es con clics). */
+	drums: DrumPattern | null;
+	/** La batería va a la mitad de velocidad: cada paso del patrón dura el doble. */
+	drumsHalf: boolean;
 	/** El piano toca las notas a cantar (las guías suenan siempre). */
 	guide: boolean;
-	metronome: boolean;
 	/** Tolerancia en semitonos para recoger una estrella. */
 	tolerance: number;
 }
@@ -43,8 +51,10 @@ export interface GameStatus {
 /** Devuelve el tono cantado (MIDI, fraccionario) o null. Recibe el tiempo del ejercicio. */
 export type PitchSource = (time: number) => number | null;
 
-/** Duración (s) de la estela de viento detrás del personaje. */
+/** Duración (s) de la estela de viento detrás del personaje, al tempo de referencia. */
 const TRAIL_SEC = 1.6;
+/** Tempo en que el avance y las animaciones van a velocidad 1; más rápido o lento escala. */
+const REF_BPM = 80;
 const LOOKAHEAD_SEC = 0.35;
 
 // Caminante (movement 'walk'), en semitonos y segundos.
@@ -77,8 +87,10 @@ export class Game {
 	private opts: GameOptions = {
 		bpm: 80,
 		beatsPerMeasure: 4,
+		subdivision: 4,
+		drums: null,
+		drumsHalf: false,
 		guide: true,
-		metronome: false,
 		tolerance: 0.6
 	};
 	private stars: Star[] = [];
@@ -89,6 +101,7 @@ export class Game {
 	private source: PitchSource | null = null;
 	private nextNoteToSchedule = 0;
 	private nextBeatToSchedule = 0;
+	private nextDrumStep = 0;
 	private pausedAt = 0;
 	/** Tiempo del AudioContext en que termina la escucha previa. */
 	private listenEnd = 0;
@@ -108,6 +121,8 @@ export class Game {
 	private camCenter = 60;
 	private camSpan = 14;
 	private lastStatusKey = '';
+	/** Reloj de las animaciones (s): corre más rápido cuanto más rápido es el tempo. */
+	private animClock = 0;
 	private collectible: CollectibleSkin = COLLECTIBLES.stars;
 
 	constructor(
@@ -153,7 +168,17 @@ export class Game {
 
 	/** Instante del ejercicio que se ve antes de empezar: el comienzo de la cuenta previa. */
 	private get previewTime(): number {
-		return -0.2 - (this.opts.beatsPerMeasure * 60) / this.opts.bpm;
+		return -0.2 - this.measureSec;
+	}
+
+	/** Duración de un pulso del metrónomo (negra en 4/4, corchea en 6/8), en segundos. */
+	private get tickSec(): number {
+		return (tickBeats(this.opts) * 60) / this.opts.bpm;
+	}
+
+	/** Duración de un compás en segundos (la cuenta previa dura uno). */
+	private get measureSec(): number {
+		return (measureBeats(this.opts) * 60) / this.opts.bpm;
 	}
 
 	start(source: PitchSource, latency: number): void {
@@ -164,28 +189,30 @@ export class Game {
 		this.source = source;
 		this.latency = latency;
 		const ctx = getContext();
-		const beat = 60 / this.opts.bpm;
-		// Escucha previa: la primera repetición entera (guía incluida) suena una vez.
+		// Escucha previa: suena una vez la primera repetición, sin la nota guía (esa queda para la
+		// práctica); arranca directo en la primera nota a cantar.
 		const first = this.seq.reps[0];
 		const from = ctx.currentTime + 0.15;
 		let listenSec = 0;
-		if (first) {
-			for (const n of this.seq.notes) {
-				if (n.rep !== 0) break;
+		const sung = this.seq.notes.filter((n) => n.rep === 0 && !n.isHint);
+		const firstSung = sung.find((n) => !n.isRest);
+		if (first && firstSung) {
+			for (const n of sung) {
 				if (n.isRest) continue;
 				playNote(
 					n.midi,
-					from + n.start - first.start,
+					from + n.start - firstSung.start,
 					n.staccato ? n.duration * 0.5 : n.duration,
-					n.isHint ? 0.9 : 0.7
+					0.7
 				);
 			}
-			listenSec = first.end - first.start + LISTEN_GAP_SEC;
+			listenSec = first.end - firstSung.start + LISTEN_GAP_SEC;
 		}
 		this.listenEnd = from + listenSec;
-		this.t0 = this.listenEnd + 0.05 + this.opts.beatsPerMeasure * beat;
+		this.t0 = this.listenEnd + 0.05 + this.measureSec;
 		this.nextNoteToSchedule = 0;
 		this.nextBeatToSchedule = -this.opts.beatsPerMeasure;
+		this.nextDrumStep = 0;
 		this.phase = listenSec ? 'listen' : 'countin';
 		this.grounded = this.phase === 'listen';
 		this.emitStatus(true);
@@ -213,9 +240,18 @@ export class Game {
 		const notes = this.seq.notes;
 		this.nextNoteToSchedule = notes.findIndex((n) => n.start >= from);
 		if (this.nextNoteToSchedule < 0) this.nextNoteToSchedule = notes.length;
-		this.nextBeatToSchedule = Math.ceil(from / (60 / this.opts.bpm));
+		this.nextBeatToSchedule = Math.ceil(from / this.tickSec);
+		this.nextDrumStep = Math.max(0, Math.ceil(from / this.drumStepSec));
 		const visible = from - this.latency;
 		this.history = this.history.filter((h) => h.time <= visible);
+		// Lo que se repite en el retroceso se vuelve a juzgar (si no, quedarían estrellas "recogidas"
+		// en el futuro, con edad negativa).
+		for (const s of this.stars) {
+			if (s.time > visible - HIT_WINDOW_SEC) {
+				s.state = 'idle';
+				s.changedAt = 0;
+			}
+		}
 		this.phase = from < 0 ? 'countin' : 'playing';
 		this.emitStatus(true, visible);
 	}
@@ -246,7 +282,8 @@ export class Game {
 		this.raf = requestAnimationFrame(this.frame);
 		const dt = Math.min(0.05, (ms - (this.lastFrame || ms)) / 1000);
 		this.lastFrame = ms;
-		const anim = ms / 1000;
+		this.animClock += dt * this.speed;
+		const anim = this.animClock;
 
 		let time = this.previewTime;
 		if (this.phase === 'listen') {
@@ -302,18 +339,28 @@ export class Game {
 				n.isHint ? 0.9 : 0.6
 			);
 		}
-		const beat = 60 / this.opts.bpm;
-		while (this.nextBeatToSchedule * beat < horizon) {
+		// Cuenta previa: siempre con clics.
+		const pulse = this.tickSec;
+		const per = this.opts.beatsPerMeasure;
+		while (this.nextBeatToSchedule < 0 && this.nextBeatToSchedule * pulse < horizon) {
 			const b = this.nextBeatToSchedule++;
-			const inCountIn = b < 0;
-			if (inCountIn || (this.opts.metronome && b * beat <= this.seq.duration)) {
-				const accent =
-					((b % this.opts.beatsPerMeasure) + this.opts.beatsPerMeasure) %
-						this.opts.beatsPerMeasure ===
-					0;
-				tick(this.t0 + b * beat, accent);
-			}
+			tick(this.t0 + b * pulse, ((b % per) + per) % per === 0);
 		}
+		// Batería: un paso del patrón cada `drumStepSec`; acentúa el primer paso de cada compás.
+		const drums = this.opts.drums;
+		if (!drums) return;
+		const step = this.drumStepSec;
+		const perMeasure = per * drums.stepsPerTick;
+		while (this.nextDrumStep * step < horizon && this.nextDrumStep * step <= this.seq.duration) {
+			const k = this.nextDrumStep++;
+			for (const part of hitsAt(drums, k)) playDrum(part, this.t0 + k * step, k % perMeasure === 0);
+		}
+	}
+
+	/** Duración de un paso del patrón de batería (el doble en medio tiempo), en segundos. */
+	private get drumStepSec(): number {
+		const steps = this.opts.drums?.stepsPerTick ?? 1;
+		return (this.tickSec / steps) * (this.opts.drumsHalf ? 2 : 1);
 	}
 
 	private updatePitch(time: number, dt: number): void {
@@ -420,7 +467,7 @@ export class Game {
 				from: this.birdMidi,
 				to: target,
 				t: 0,
-				dur: Math.min(0.42, 0.2 + d * 0.018),
+				dur: Math.min(0.42, 0.2 + d * 0.018) / this.speed,
 				peak: 0.7 + d * 0.12
 			};
 		}
@@ -477,7 +524,7 @@ export class Game {
 		let hi = -Infinity;
 		for (const n of this.seq.notes) {
 			if (n.start + n.duration < time - 0.3) continue;
-			if (n.start > time + 3) break;
+			if (n.start > time + 3 / this.speed) break;
 			if (n.isRest) continue;
 			lo = Math.min(lo, n.midi);
 			hi = Math.max(hi, n.midi);
@@ -516,8 +563,17 @@ export class Game {
 		return this.fieldH / 2 - (midi - this.camCenter) * (this.fieldH / this.camSpan);
 	}
 
+	/** Velocidad relativa al tempo de referencia (la usan el avance y las animaciones). */
+	private get speed(): number {
+		return Math.max(0.5, this.opts.bpm / REF_BPM);
+	}
+
+	/**
+	 * Píxeles por segundo. Crece con el tempo: cada tiempo ocupa siempre el mismo ancho (las perchas
+	 * no se achican) y lo que cambia es qué tan rápido pasan.
+	 */
 	private get pps(): number {
-		return Math.max(120, this.w / 6.5);
+		return Math.max(120, this.w / 6.5) * this.speed;
 	}
 
 	private get birdX(): number {
@@ -595,11 +651,13 @@ export class Game {
 	 */
 	private drawTrail(time: number): void {
 		const { g } = this;
+		// La longitud en pantalla se mantiene: a más tempo, menos segundos de estela.
+		const trailSec = TRAIL_SEC / this.speed;
 		const points: { x: number; y: number; age: number }[] = [];
 		for (let i = this.history.length - 1; i >= 0; i--) {
 			const s = this.history[i];
 			const age = time - s.time;
-			if (age > TRAIL_SEC) break;
+			if (age > trailSec) break;
 			if (s.midi === null) {
 				if (points.length) break; // la estela se corta en el silencio
 				continue;
@@ -640,9 +698,9 @@ export class Game {
 			['rgba(50,100,180,0.12)', 1.5],
 			['rgba(255,255,255,0.28)', 0]
 		] as const) {
-			ribbon(-1, 4, TRAIL_SEC * 0.75, color, dy);
-			ribbon(1, 4, TRAIL_SEC * 0.75, color, dy);
-			ribbon(0, 6.5, TRAIL_SEC, color, dy);
+			ribbon(-1, 4, trailSec * 0.75, color, dy);
+			ribbon(1, 4, trailSec * 0.75, color, dy);
+			ribbon(0, 6.5, trailSec, color, dy);
 		}
 	}
 
@@ -658,7 +716,7 @@ export class Game {
 				sx = this.birdX + (s.time - s.changedAt) * this.pps; // sigue al pájaro mientras desaparece
 				y = this.y(s.midi);
 			}
-			const age = s.state === 'idle' ? 0 : time - s.changedAt;
+			const age = s.state === 'idle' ? 0 : Math.max(0, time - s.changedAt);
 			if (s.state === 'collected' && age > 0.6) continue;
 			this.collectible.draw(this.g, sx, y, size, s.state, age, anim, s.noteId);
 		}
@@ -681,9 +739,10 @@ export class Game {
 			if (s.state === 'collected') collected++;
 			else if (s.state === 'missed') missed++;
 		}
-		const beat = 60 / this.opts.bpm;
 		const countIn =
-			this.phase === 'countin' ? Math.max(1, Math.ceil(-(time + this.latency) / beat)) : null;
+			this.phase === 'countin'
+				? Math.max(1, Math.ceil(-(time + this.latency) / this.tickSec))
+				: null;
 		let rep = 0;
 		for (let i = 0; i < this.seq.reps.length; i++) if (this.seq.reps[i].start <= time) rep = i;
 		const sungMidi = this.sung === null ? null : Math.round(this.sung);

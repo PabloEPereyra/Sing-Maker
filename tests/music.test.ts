@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parse, validate } from '../src/lib/music/parser';
 import { generateSequence, measurePadding, rootsInRange } from '../src/lib/music/generate';
+import { measureBeats, meterFamily, METERS, tickBeats } from '../src/lib/music/meter';
+import { DRUM_PATTERNS, hitsAt, patternSteps } from '../src/lib/audio/drums';
 import { midiToNote, noteToMidi } from '../src/lib/music/notes';
 import { buildStars, isHit } from '../src/lib/game/scoring';
 import raw from '../src/lib/data/exercises.json';
@@ -85,16 +87,39 @@ describe('generateSequence', () => {
 				high: 72,
 				direction: meta.direction,
 				bpm: 60,
-				beatsPerMeasure: meta.beatsPerMeasure
+				beatsPerMeasure: meta.beatsPerMeasure,
+				subdivision: meta.subdivision
 			});
+			// En 6/8 el compás dura 3 negras (6 corcheas), no 6.
+			const measure = measureBeats(meta);
 			for (const r of seq.reps) {
 				const beats = r.start; // a 60 bpm, 1 s = 1 tiempo
-				expect(
-					Math.abs(beats / meta.beatsPerMeasure - Math.round(beats / meta.beatsPerMeasure)),
-					e.name
-				).toBeLessThan(1e-9);
+				expect(Math.abs(beats / measure - Math.round(beats / measure)), e.name).toBeLessThan(1e-9);
 			}
 		}
+	});
+
+	it('compases: 4/4 dura 4 negras con pulso de negra; 6/8, 3 negras con pulso de corchea', () => {
+		expect(measureBeats(METERS['4/4'])).toBe(4);
+		expect(tickBeats(METERS['4/4'])).toBe(1);
+		expect(measureBeats(METERS['6/8'])).toBe(3);
+		expect(tickBeats(METERS['6/8'])).toBe(0.5);
+		expect(meterFamily({ beatsPerMeasure: 2, subdivision: 4 })).toBe('4/4');
+		expect(meterFamily({ beatsPerMeasure: 6, subdivision: 8 })).toBe('6/8');
+	});
+
+	it('los patrones de batería miden compases enteros de su compás', () => {
+		for (const pattern of DRUM_PATTERNS) {
+			const steps = patternSteps(pattern);
+			const perMeasure = METERS[pattern.meter].beatsPerMeasure * pattern.stepsPerTick;
+			expect(steps % perMeasure, pattern.name).toBe(0);
+			for (const track of Object.values(pattern.tracks)) expect(track!.length).toBe(steps);
+		}
+		// 6/8: bombo en el 1 y caja en la 4.ª corchea de cada compás.
+		const six = DRUM_PATTERNS.find((p) => p.id === 'basic-68')!;
+		expect(hitsAt(six, 0)).toContain('kick');
+		expect(hitsAt(six, 6)).toContain('snare');
+		expect(hitsAt(six, 18)).toContain('snare');
 	});
 
 	it('desciende si el ejercicio lo pide', () => {

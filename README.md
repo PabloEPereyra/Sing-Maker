@@ -29,6 +29,21 @@ Sin micrófono se puede probar con **Modo demo** (un piloto automático canta la
   `Theme`. Dos tipos de personaje: voladores (`themes/sky.ts`, el pájaro sigue la voz) y terrestres
   (`themes/path.ts`, la coneja salta entre plataformas y en silencio cae al sendero).
 
+## Compás y batería
+
+Las duraciones se escriben siempre en negras (`0.5` = corchea), como en vocalizator. En compases simples
+(`@beatsPerMeasure: 4`) el pulso es la negra; en 6/8 (`@beatsPerMeasure: 6`, `@subdivision: 8`) el pulso es la
+corchea y un compás dura 3 negras (`src/lib/music/meter.ts`). La cuenta previa dura un compás y cada repetición
+empieza en uno nuevo.
+
+El botón de **batería** acompaña con un patrón del compás del ejercicio (la cuenta previa va con clics; no hay
+metrónomo aparte) (`src/lib/audio/drums.ts`): Básico, Rock y Rock + fill en 4/4 (los de vocalizator) y Básico y Balada en 6/8
+(el 6/8 de vocalizator tenía el bombo cada dos corcheas, como un 3/4; acá va bombo en 1 y caja en 4). Usa la
+muestra de batería de vocalizator. El botón **/2** la pasa a la mitad de velocidad (cada paso dura el doble),
+para que en ritmos rápidos las negras de la melodía suenen como corcheas. La pestaña **«Batería»** de «Crear con
+IA» le pide al modelo un patrón nuevo (`/api/drums`: grilla de pasos por instrumento, validada) que se suma a la
+lista del compás elegido.
+
 ## Crear ejercicios con IA
 
 El botón **«Crear con IA»** manda una descripción en texto a `/api/generate` (Cloudflare Pages Function en
@@ -38,14 +53,31 @@ le devuelve los errores para que corrija (hasta 3 intentos). El resultado se gua
 La clave del modelo vive solo en el servidor. Antes de practicar se puede **escuchar** el resultado y
 **editar las notas** en un piano roll.
 
+**Dictado**: el micrófono dentro del cuadro de texto graba lo que decís, lo convierte a WAV de 16 kHz en el
+navegador y `/api/transcribe` lo pasa a texto con **Muse Voice Transcribe** (`POST /v1/asr/transcribe`); con
+ese texto se crea el ejercicio directamente. Si el pedido nombra el compás («seis por ocho»), se elige solo.
+
+**Compás**: al componer se elige 4/4 o 6/8. El modelo recibe las reglas de ese compás y el servidor verifica
+que el patrón (guía incluida) llene compases enteros; si no, le pide que corrija. Así la batería y el
+batería nunca se desfasan.
+
+**Desde una partitura**: en el mismo diálogo se sube una foto o imagen (también arrastrándola o pegándola con
+Ctrl+V; en el celular se puede sacar con la cámara). Se achica en el navegador y el modelo transcribe la melodía
+principal: escribe el nombre de cada nota tal como está escrita y la app calcula los intervalos (es más confiable
+que la cuenta del modelo). En las pruebas, Muse leyó perfecto la clave de sol; en clave de fa, Muse Wonder acierta
+el ritmo, el compás y el tempo, pero a veces equivoca alguna nota, que se corrige en el piano roll. Por eso las
+imágenes van al modelo de `LLM_VISION_MODEL` (Wonder).
+
 **«Con la voz»**: se graban unos segundos cantando o tarareando. La transcripción es local
 (`src/lib/music/transcribe.ts`, sin mandar audio a ningún lado): separa las notas por cambios de tono
-sostenidos y silencios (ignorando la entrada deslizada y el vibrato), estima el tempo con la mediana entre
+sostenidos, silencios y ataques de volumen (las consonantes de notas repetidas, como «do-do»), ignorando la
+entrada deslizada y el vibrato; estima el tempo con la mediana entre
 notas, cuantiza a corcheas o semicorcheas, completa el compás y agrega la nota guía. Después se revisa en el
-piano roll y, si se quiere, la IA lo acomoda en un patrón más prolijo y le pone nombre.
+piano roll (en la tonalidad en que se cantó) y, si se quiere, la IA lo acomoda en un patrón más prolijo y le
+pone nombre. Está en prueba: con voces reales todavía hay que ajustarlo.
 
 **Escucha previa**: al empezar cualquier ejercicio, el personaje mira de frente («Escucha los tonos») y
-suena una vez la primera repetición antes de la cuenta.
+suena una vez la primera repetición antes de la cuenta, sin la nota guía (que suena solo al practicar).
 
 Proveedor configurable (API compatible con OpenAI), en `.dev.vars` para desarrollo (ver `.dev.vars.example`)
 o como variables del proyecto en Cloudflare:
@@ -55,6 +87,8 @@ o como variables del proyecto en Cloudflare:
 | `LLM_API_KEY`          | clave de OpenRouter                 | clave de la Meta Model API                  |
 | `LLM_BASE_URL`         | `https://openrouter.ai/api/v1`      | `https://api.meta.ai/v1`                    |
 | `LLM_MODEL`            | `nvidia/nemotron-3.5-super-vl:free` | `muse-spark-1.3-contributor`                |
+| `LLM_VISION_MODEL`     | igual a `LLM_MODEL`                 | `muse-wonder-1.0` (lee partituras)          |
+| `LLM_TRANSCRIBE_MODEL` | — (el dictado necesita Meta)        | `muse-voice-transcribe-1.0`                 |
 | `LLM_JSON_MODE`        | `schema` (por defecto)              | `schema`, u `object`/`none` si no lo admite |
 | `LLM_REASONING_EFFORT` | `none` (por defecto en OpenRouter)  | `low` (por defecto en Meta)                 |
 
@@ -73,7 +107,7 @@ del autor:
 | `src/lib/music/generate.ts`     | `vocalizator/src/scripts/exercises.ts` (`generateFromCode`)  | reescrito: repeticiones, pausas, tiempos   |
 | `src/lib/audio/pitch.ts`        | `vocalizator/src/scripts/pitch.ts`                           | clase con lectura por cuadro               |
 | `src/lib/audio/engine.ts`       | `vocalizator/src/scripts/audio.ts`                           | reducido a piano muestreado + sintetizador |
-| `src/lib/data/exercises.json`   | `vocalizator/src/data/ejercicios.json` (77 ejercicios)       | campos reducidos                           |
+| `src/lib/data/exercises.json`   | `voicexplorer` /vocal-scales (30 ejercicios, 3 niveles)      | campos reducidos                           |
 | Configuración (svelte, eslint…) | `voicexplorer`                                               | simplificada                               |
 
 **Nuevo en el hackathon**: el juego (motor, cámara, física del personaje, puntuación por estrellas, tema

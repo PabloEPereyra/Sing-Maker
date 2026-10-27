@@ -113,6 +113,68 @@ export function playNote(midi: number, when: number, duration: number, velocity 
 	track(osc);
 }
 
+// ---------- batería ----------
+// Muestra única con todos los golpes (de vocalizator): cada instrumento en un tramo, con variantes.
+const DRUMS_URL = 'https://singapp.b-cdn.net/samples/drums/drumset.m4a';
+const DRUM_SLICES: Record<string, { offset: number; len: number }[]> = {
+	kick: [
+		{ offset: 0, len: 0.45 },
+		{ offset: 2, len: 0.45 }
+	],
+	snare: [
+		{ offset: 4, len: 0.45 },
+		{ offset: 6, len: 0.45 }
+	],
+	hihatClosed: [
+		{ offset: 8, len: 0.35 },
+		{ offset: 10, len: 0.35 }
+	],
+	hihatOpen: [
+		{ offset: 12, len: 0.8 },
+		{ offset: 14, len: 0.8 }
+	],
+	ride: [{ offset: 16, len: 0.8 }],
+	splash: [{ offset: 18, len: 1.4 }]
+};
+let drumsBuffer: AudioBuffer | null = null;
+let drumsLoading: Promise<void> | null = null;
+
+export function loadDrums(): Promise<void> {
+	if (drumsBuffer) return Promise.resolve();
+	drumsLoading ??= (async () => {
+		try {
+			const res = await fetch(DRUMS_URL, { mode: 'cors' });
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			drumsBuffer = await getContext().decodeAudioData(await res.arrayBuffer());
+		} catch (e) {
+			console.warn('Batería no disponible', e);
+			drumsLoading = null;
+		}
+	})();
+	return drumsLoading;
+}
+
+/** Golpe de batería en `when`; sin la muestra cargada, el bombo y la caja caen en un clic. */
+export function playDrum(part: string, when: number, accent = false): void {
+	const c = getContext();
+	const variants = DRUM_SLICES[part];
+	if (!drumsBuffer || !variants) {
+		if (part === 'kick' || part === 'snare') tick(when, accent);
+		return;
+	}
+	const v = variants[Math.floor(Math.random() * variants.length)];
+	const src = c.createBufferSource();
+	src.buffer = drumsBuffer;
+	const g = c.createGain();
+	g.gain.value =
+		(part === 'splash' ? 0.5 : part.startsWith('hihat') ? 0.55 : 0.75) * (accent ? 1.1 : 1);
+	src.connect(g);
+	g.connect(master!);
+	const t = Math.max(when, c.currentTime);
+	src.start(t, v.offset, v.len);
+	track(src);
+}
+
 /** Clic de metrónomo; `accent` para el primer tiempo. */
 export function tick(when: number, accent = false): void {
 	const c = getContext();

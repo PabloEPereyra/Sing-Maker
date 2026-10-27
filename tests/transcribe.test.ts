@@ -99,13 +99,48 @@ describe('de la voz al ejercicio', () => {
 				.concat([{ midi: 60, sec: 1.1 }]),
 			{ seed: 3 }
 		);
-		const ex = transcribe(frames, 'Mi melodía', 'Grabada')!;
+		const { exercise: ex, root } = transcribe(frames, 'Mi melodía', 'Grabada')!;
+		expect(root).toBe(60);
 		expect(validateGenerated(ex)).toEqual([]);
 		const { notes } = parse(toCode(ex));
 		expect(notes.filter((n) => !n.isHint).map((n) => n.semitones)).toEqual([
 			0, 2, 4, 5, 7, 5, 4, 2, 0
 		]);
 	});
+
+	it.each([1, 2, 3, 4, 5])(
+		'separa notas repetidas por el ataque de la consonante (do-do-sol-sol-la-la-sol, variante %i)',
+		(seed) => {
+			// Como el detector real: sostiene el tono en los cortes breves, así que entre "do" y "do"
+			// el tono no se corta; lo que marca la nota nueva es la caída de volumen de la consonante.
+			const rand = rng(seed);
+			const frames: PitchFrame[] = [];
+			let t = 0.3;
+			const melody = [60, 60, 67, 67, 69, 69, 67];
+			melody.forEach((midi, i) => {
+				const len = (i === melody.length - 1 ? 1.2 : 0.5) * (1 + rand() * 0.1);
+				for (let x = 0; x < len; x += 1 / 60) {
+					const consonant = x < 0.06; // "d", "s", "l": el volumen cae unos 60 ms
+					const rms = (consonant ? 0.012 : 0.08) * (1 + rand() * 0.15);
+					const prev = melody[i - 1] ?? midi;
+					const pitch = consonant && x < 0.03 ? prev : midi; // el detector arrastra la anterior
+					frames.push({
+						time: t + x,
+						midi: pitch + 0.2 * Math.sin(2 * Math.PI * 5.5 * (t + x)) + rand() * 0.1,
+						rms
+					});
+				}
+				t += len;
+			});
+			for (let i = 0; i < 12; i++) frames.push({ time: t + i / 60, midi: null, rms: 0.001 });
+
+			const result = transcribe(frames, 'x', '')!;
+			expect(result.root).toBe(60);
+			const sung = result.exercise.notes.filter((n) => !n.hint && !n.rest);
+			expect(sung.map((n) => n.s)).toEqual([0, 0, 7, 7, 9, 9, 7]);
+			expect(sung.slice(0, 6).every((n) => n.d === sung[0].d)).toBe(true);
+		}
+	);
 
 	it('con una sola nota no hay ejercicio', () => {
 		expect(transcribe(hum([{ midi: 60, sec: 1 }]), 'x', '')).toBeNull();

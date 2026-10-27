@@ -1,7 +1,9 @@
-// Catálogo de ejercicios prearmados (77 ejercicios de vocalizator/src/data/ejercicios.json).
+// Catálogo de ejercicios prearmados: 30 ejercicios en 3 niveles de 10, los de la página
+// /vocal-scales de voicexplorer. El resto del catálogo original quedó archivado fuera de git.
 import { z } from 'zod';
 import raw from '$lib/data/exercises.json';
 import { parse, type ParseResult } from '$lib/music/parser';
+import { meterLabel } from '$lib/music/meter';
 
 const ExerciseSchema = z.object({
 	id: z.string(),
@@ -38,9 +40,10 @@ export function exerciseText(
 	e: Exercise,
 	lang: 'es' | 'en'
 ): { name: string; description: string } {
+	const label = ` (${meterLabel(e.parsed.meta)})`;
 	return lang === 'en'
-		? { name: e.name_en, description: e.description_en }
-		: { name: e.name, description: e.parsed.meta.description };
+		? { name: e.name_en + label, description: e.description_en }
+		: { name: e.name + label, description: e.parsed.meta.description };
 }
 
 export function byCategory(list: Exercise[] = exercises): [string, Exercise[]][] {

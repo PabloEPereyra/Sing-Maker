@@ -16,3 +16,6 @@ desktop.ini
 # notas privadas del hackathon y config local
 /.docs/
 /.claude/
+
+# ejercicios archivados (para revisar más adelante)
+/.archive/

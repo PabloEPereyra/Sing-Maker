@@ -9,9 +9,14 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import PopoverButton from '$lib/components/PopoverButton.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
+	import DrumControl from '$lib/components/DrumControl.svelte';
 	import { byLevel, exercises, exerciseText } from '$lib/exercises/catalog';
 	import { generateSequence } from '$lib/music/generate';
-	import { getContext, loadPiano } from '$lib/audio/engine';
+	import { getContext, loadDrums, loadPiano } from '$lib/audio/engine';
+	import { patternsFor, type DrumPattern } from '$lib/audio/drums';
+	import { addMyDrum, loadMyDrums, myDrums, removeMyDrum } from '$lib/audio/mydrums.svelte';
+	import type { DrumResult } from '$lib/ai/drums';
+	import { meterFamily, type MeterId } from '$lib/music/meter';
 	import { PitchDetector } from '$lib/audio/pitch';
 	import { autopilot, type GameOptions, type Phase } from '$lib/game/game';
 	import { createSkyTheme } from '$lib/game/themes/sky';
@@ -39,9 +44,15 @@
 	let selectedId = $state(byLevel()[0].exercises[0].id);
 	let low = $state(45); // A2 (tenor)
 	let high = $state(72); // C5
-	let tempo = $state(1); // multiplicador sobre el bpm del ejercicio
+	/** Tempo elegido (bpm). Al cambiar de ejercicio vuelve al del ejercicio, redondeado de a 5. */
+	let bpm = $state(80);
+	const BPM_MIN = 60;
+	const BPM_MAX = 150;
 	let guide = $state(true);
-	let metronome = $state(false);
+	/** Batería, con un patrón elegido para cada familia de compás; `/2` la pasa a la mitad de velocidad. */
+	let drums = $state(false);
+	let drumsHalf = $state(false);
+	let drumPick = $state<Record<MeterId, string>>({ '4/4': 'basic-44', '6/8': 'basic-68' });
 	let tolerance = $state(0.6);
 	let demo = $state(true); // sin micrófono hasta que se active
 	let micError = $state('');
@@ -63,21 +74,36 @@
 			exercises[0]
 	);
 	const text = $derived(exerciseText(exercise, settings.lang));
-	const bpm = $derived(Math.round(exercise.parsed.meta.bpm * tempo));
+	$effect(() => {
+		const own = exercise.parsed.meta.bpm;
+		bpm = Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(own / 5) * 5));
+	});
 	const sequence = $derived(
 		generateSequence(exercise.parsed.notes, {
 			low,
 			high,
 			direction: exercise.parsed.meta.direction,
 			bpm,
-			beatsPerMeasure: exercise.parsed.meta.beatsPerMeasure
+			beatsPerMeasure: exercise.parsed.meta.beatsPerMeasure,
+			subdivision: exercise.parsed.meta.subdivision
 		})
 	);
+	/** Familia de compás del ejercicio (4/4 o 6/8): define qué patrones de batería se ofrecen. */
+	const meter = $derived(meterFamily(exercise.parsed.meta));
+	/** Patrones de fábrica y los creados con IA para este compás. */
+	const patterns = $derived<DrumPattern[]>([
+		...patternsFor(meter),
+		...myDrums.list.filter((p) => p.meter === meter)
+	]);
+	const customIds = $derived(new Set(myDrums.list.map((p) => p.id)));
+	const drumPattern = $derived(patterns.find((p) => p.id === drumPick[meter]) ?? patterns[0]);
 	const options: GameOptions = $derived({
 		bpm,
 		beatsPerMeasure: exercise.parsed.meta.beatsPerMeasure,
+		subdivision: exercise.parsed.meta.subdivision,
+		drums: drums ? drumPattern : null,
+		drumsHalf,
 		guide,
-		metronome,
 		tolerance
 	});
 	const query = $derived(search.trim().toLowerCase());
@@ -97,12 +123,16 @@
 	onMount(() => {
 		loadSettings();
 		loadMine();
+		loadMyDrums();
 		try {
 			const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
 			if (typeof p.low === 'number') low = p.low;
 			if (typeof p.high === 'number') high = p.high;
 			if (typeof p.guide === 'boolean') guide = p.guide;
-			if (typeof p.metronome === 'boolean') metronome = p.metronome;
+			if (typeof p.drumsHalf === 'boolean') drumsHalf = p.drumsHalf;
+			if (typeof p.drums === 'boolean') drums = p.drums;
+			if (p.drumPick && typeof p.drumPick === 'object') drumPick = { ...drumPick, ...p.drumPick };
+			if (drums) void loadDrums();
 			if (typeof p.tolerance === 'number') tolerance = p.tolerance;
 			if (typeof p.demo === 'boolean') demo = p.demo;
 		} catch {}
@@ -112,7 +142,7 @@
 	});
 
 	$effect(() => {
-		const prefs = { low, high, guide, metronome, tolerance, demo };
+		const prefs = { low, high, guide, drums, drumsHalf, drumPick, tolerance, demo };
 		if (!loaded) return;
 		try {
 			localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
@@ -198,6 +228,16 @@
 		selectedId = addMine(code, prompt).id;
 		creating = false;
 		creatingByVoice = false;
+	}
+
+	/** Guarda el patrón de batería creado con IA y lo deja sonando en el ejercicio. */
+	function practiceDrum(result: DrumResult, patternMeter: MeterId) {
+		stop();
+		const pattern = addMyDrum(result, patternMeter);
+		drumPick = { ...drumPick, [patternMeter]: pattern.id };
+		drums = true;
+		void loadDrums();
+		creating = false;
 	}
 
 	function next() {
@@ -328,7 +368,7 @@
 											selectedId = e.id;
 										}}
 									>
-										{e.name}
+										{exerciseText(e, settings.lang).name}
 									</button>
 									<button
 										class="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 group-hover/item:opacity-100 hover:bg-surface-2 hover:text-red-600"
@@ -411,12 +451,12 @@
 						<span class="mb-2 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
 						<input
 							type="range"
-							min="0.5"
-							max="1.5"
-							step="0.05"
-							bind:value={tempo}
+							min={BPM_MIN}
+							max={BPM_MAX}
+							step="5"
+							bind:value={bpm}
 							class="vx-slider w-full"
-							style:--fill={fill(tempo, 0.5, 1.5)}
+							style:--fill={fill(bpm, BPM_MIN, BPM_MAX)}
 						/>
 					</label>
 				</PopoverButton>
@@ -477,17 +517,25 @@
 				>
 					<Icon name="piano" class="h-5 w-5" />
 				</button>
-				<button
-					class="grid h-11 w-11 place-items-center rounded-full border transition {metronome
-						? 'border-accent bg-accent text-white'
-						: 'border-border bg-surface text-muted hover:border-accent/50'}"
-					aria-pressed={metronome}
-					aria-label={t('controls.metronome')}
-					title={t('controls.metronome')}
-					onclick={() => (metronome = !metronome)}
-				>
-					<Icon name="metronome" class="h-5 w-5" />
-				</button>
+				<!-- Batería y su patrón, según el compás del ejercicio; /2 = a la mitad de velocidad -->
+				<DrumControl
+					enabled={drums}
+					half={drumsHalf}
+					{patterns}
+					value={drumPattern.id}
+					custom={customIds}
+					onToggle={() => {
+						drums = !drums;
+						if (drums) void loadDrums();
+					}}
+					onPick={(id) => {
+						drumPick = { ...drumPick, [meter]: id };
+						drums = true;
+						void loadDrums();
+					}}
+					onHalf={() => (drumsHalf = !drumsHalf)}
+					onRemove={removeMyDrum}
+				/>
 			</div>
 		</main>
 	</div>
@@ -496,7 +544,9 @@
 {#if creating}
 	<CreateExerciseDialog
 		range={{ low, high }}
+		{meter}
 		onPractice={practiceCreated}
+		onDrum={practiceDrum}
 		onClose={() => (creating = false)}
 	/>
 {/if}

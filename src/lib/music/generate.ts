@@ -2,6 +2,7 @@
 // Basado en generateFromCode de vocalizator/src/scripts/exercises.ts.
 import { midiToFreq, midiToNote } from './notes';
 import type { Direction, ParsedNote } from './parser';
+import { measureBeats } from './meter';
 
 export interface TimedNote {
 	id: number;
@@ -38,8 +39,10 @@ export interface GenerateOptions {
 	high: number;
 	direction: Direction;
 	bpm: number;
-	/** Tiempos por compás: cada repetición empieza al comienzo de un compás (default 4). */
+	/** Pulsos por compás: cada repetición empieza al comienzo de un compás (default 4). */
 	beatsPerMeasure?: number;
+	/** Figura del pulso (4 negra, 8 corchea): en 6/8 un compás dura 3 negras. */
+	subdivision?: number;
 	/** Tope de repeticiones (para ejercicios largos). */
 	maxReps?: number;
 }
@@ -59,18 +62,21 @@ export function rootsInRange(
 	return direction === 'desc' ? roots.reverse() : roots;
 }
 
-/** Tiempos de silencio que faltan para que la repetición complete el compás. */
-export function measurePadding(notes: ParsedNote[], beatsPerMeasure: number): number {
+/** Tiempos (negras) de silencio que faltan para que la repetición complete el compás. */
+export function measurePadding(notes: ParsedNote[], measureLength: number): number {
 	const beats = notes.reduce((sum, n) => sum + n.duration, 0);
-	const rest = beats % beatsPerMeasure;
-	return rest < 1e-6 || beatsPerMeasure - rest < 1e-6 ? 0 : beatsPerMeasure - rest;
+	const rest = beats % measureLength;
+	return rest < 1e-6 || measureLength - rest < 1e-6 ? 0 : measureLength - rest;
 }
 
 export function generateSequence(notes: ParsedNote[], opts: GenerateOptions): Sequence {
 	const beat = 60 / opts.bpm;
 	// Como en vocalizator, las repeticiones van pegadas; solo se completa el compás si el patrón
 	// no lo llena, así el acento del metrónomo cae siempre en el comienzo de cada repetición.
-	const padBeats = measurePadding(notes, opts.beatsPerMeasure ?? 4);
+	const padBeats = measurePadding(
+		notes,
+		measureBeats({ beatsPerMeasure: opts.beatsPerMeasure ?? 4, subdivision: opts.subdivision ?? 4 })
+	);
 	let roots = rootsInRange(notes, opts.low, opts.high, opts.direction);
 	if (opts.maxReps && roots.length > opts.maxReps) roots = roots.slice(0, opts.maxReps);
 

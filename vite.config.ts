@@ -25,11 +25,14 @@ function devFunctions(): Plugin {
 		configureServer(server) {
 			server.middlewares.use(async (req, res, next) => {
 				const url = new URL(req.url ?? '/', 'http://localhost');
-				if (url.pathname !== '/api/generate' || req.method !== 'POST') return next();
+				// /api/<nombre> -> functions/api/<nombre>.ts (generate, transcribe…)
+				const name = url.pathname.match(/^\/api\/([a-z-]+)$/)?.[1];
+				if (!name || req.method !== 'POST' || !existsSync(`functions/api/${name}.ts`))
+					return next();
 				try {
 					const chunks: Buffer[] = [];
 					for await (const c of req) chunks.push(c as Buffer);
-					const mod = await server.ssrLoadModule('/functions/api/generate.ts');
+					const mod = await server.ssrLoadModule(`/functions/api/${name}.ts`);
 					const response: Response = await mod.onRequestPost({
 						request: new Request(url, {
 							method: 'POST',

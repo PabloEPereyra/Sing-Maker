@@ -3,7 +3,7 @@
 	// tempo, cuantiza y agrega la guía; después se revisa en el piano roll (y la IA lo puede acomodar).
 	import { onDestroy } from 'svelte';
 	import type { PitchDetector } from '$lib/audio/pitch';
-	import { playPattern, previewRoot, stopPreview } from '$lib/audio/preview';
+	import { playPattern, stopPreview } from '$lib/audio/preview';
 	import { toCode, validateGenerated, type GeneratedExercise } from '$lib/ai/exercise';
 	import { requestExercise } from '$lib/ai/client';
 	import { parse } from '$lib/music/parser';
@@ -33,12 +33,15 @@
 	let error = $state('');
 	let listening = $state(false);
 	let arranging = $state(false);
-	/** Raíz de referencia para los nombres del piano roll: fija mientras se edita. */
+	/**
+	 * Nota en que se empezó a cantar: el piano roll y la escucha usan esa tonalidad, para ver y oír
+	 * lo mismo que se cantó (al practicar, el ejercicio se transporta al rango como siempre).
+	 */
 	let root = $state(60);
 
-	function setExercise(next: GeneratedExercise) {
+	function setExercise(next: GeneratedExercise, sungRoot?: number) {
 		ex = next;
-		root = previewRoot(parse(toCode(next)).notes, range.low, range.high);
+		if (sungRoot !== undefined) root = sungRoot;
 	}
 	let raf = 0;
 
@@ -56,7 +59,8 @@
 		const t0 = performance.now();
 		const loop = (now: number) => {
 			const time = (now - t0) / 1000;
-			frames = [...frames, { time, midi: d.read(now).midi }];
+			const r = d.read(now);
+			frames = [...frames, { time, midi: r.midi, rms: r.rms }];
 			elapsed = time;
 			if (time >= MAX_SEC) finish();
 			else raf = requestAnimationFrame(loop);
@@ -72,7 +76,7 @@
 			step = 'idle';
 			return;
 		}
-		setExercise(result);
+		setExercise(result.exercise, result.root);
 		step = 'review';
 	}
 
@@ -110,7 +114,7 @@
 		}
 		const { meta, notes } = parse(toCode(ex));
 		listening = true;
-		await playPattern(notes, meta.bpm, previewRoot(notes, range.low, range.high));
+		await playPattern(notes, meta.bpm, root);
 		listening = false;
 	}
 
@@ -130,7 +134,7 @@
 			`Keep the same pitches in the same order (fix only obvious slips), make the rhythm even ` +
 			`and fill whole measures, start with the guide note and give it a short descriptive name.`;
 		try {
-			const res = await requestExercise(prompt, settings.lang, range);
+			const res = await requestExercise(prompt, settings.lang, range, undefined, '4/4');
 			setExercise(res.exercise);
 		} catch (e) {
 			error = e instanceof Error ? e.message : t('create.error');
@@ -220,7 +224,7 @@
 				</label>
 				<label class="flex w-44 flex-col gap-1 text-xs text-muted">
 					{t('voice.tempo')} · {ex.bpm} bpm
-					<input type="range" min="40" max="160" step="5" bind:value={ex.bpm} />
+					<input type="range" min="60" max="150" step="5" bind:value={ex.bpm} />
 				</label>
 			</div>
 			<p class="mt-3 mb-1.5 text-xs text-muted">{t('voice.review')}</p>
@@ -229,6 +233,23 @@
 				<ul class="mt-2 list-disc pl-5 text-xs text-red-600">
 					{#each errors as e, i (i)}<li>{e}</li>{/each}
 				</ul>
+			{/if}
+			{#if import.meta.env.DEV}
+				<!-- Solo en desarrollo: los cuadros de tono y volumen, para analizar una grabación que salió mal -->
+				<button
+					class="mt-1 block text-xs text-muted underline"
+					onclick={() => {
+						const a = document.createElement('a');
+						a.download = 'singmaker-grabacion.json';
+						a.href = URL.createObjectURL(
+							new Blob([JSON.stringify({ frames, root, result: ex })], {
+								type: 'application/json'
+							})
+						);
+						a.click();
+						URL.revokeObjectURL(a.href);
+					}}>↓ datos de la grabación (diagnóstico)</button
+				>
 			{/if}
 			<div class="mt-3 flex flex-wrap justify-end gap-2">
 				<button

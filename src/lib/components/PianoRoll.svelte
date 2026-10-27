@@ -1,8 +1,21 @@
 <script lang="ts">
-	// Piano roll para revisar y acomodar un patrón: las notas van una detrás de otra (melodía).
-	// Arrastrar una nota arriba/abajo cambia el tono; arrastrar su borde derecho, la duración.
-	// También con botones y teclado (flechas, Supr), para quien no quiera arrastrar.
+	// Piano roll para revisar y acomodar un patrón. Clic en un espacio vacío agrega una nota; arrastrar
+	// el centro de una nota la mueve (arriba/abajo cambia el tono, a los costados el momento); arrastrar
+	// el borde izquierdo o derecho cambia su duración; clic derecho la borra. Las notas nunca se
+	// superponen: al poner una, las demás le hacen lugar (ver music/roll.ts). También hay botones y
+	// teclado (flechas, Supr) para quien no quiera arrastrar.
 	import type { GeneratedNote } from '$lib/music/transcribe';
+	import {
+		clampDuration,
+		fromEvents,
+		GRID,
+		MAX_DURATION,
+		place,
+		snap,
+		toEvents,
+		totalOf,
+		type RollEvent
+	} from '$lib/music/roll';
 	import { noteLabel } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
 
@@ -15,61 +28,146 @@
 	const BEAT = 48; // unidades del viewBox por tiempo
 	const ROW = 16; // unidades por semitono
 	const LABEL = 40; // columna de nombres de nota
-	const GRID = 0.25; // duraciones de a semicorchea
-	const HANDLE = 8; // ancho del borde para cambiar la duración
+	const HANDLE = 8; // ancho máximo de cada borde para cambiar la duración
+	const PAD = 4; // semitonos de aire arriba y abajo
+	const TAIL = 4; // tiempos de aire a la derecha
+	const MIN_PITCH = -12;
+	const MAX_PITCH = 24;
+	/** Largo de la nota que se agrega con un clic (se recuerda el de la última editada). */
+	let newLength = $state(1);
 
 	let selected = $state<number | null>(null);
 	let svg: SVGSVGElement;
 
-	const rows = $derived.by(() => {
+	type Mode = 'move' | 'left' | 'right';
+	interface Drag {
+		mode: Mode;
+		/** Las demás notas y la elegida, como estaban al empezar (cada movimiento parte de ahí). */
+		others: RollEvent[];
+		origin: RollEvent;
+		total: number;
+		x: number;
+		y: number;
+		/** Límite del borde izquierdo: no pasa de la nota anterior. */
+		minStart: number;
+		/** Medidas fijas durante el arrastre, para que la hoja no se mueva bajo el puntero. */
+		lo: number;
+		hi: number;
+		beats: number;
+	}
+	let drag = $state.raw<Drag | null>(null);
+
+	const view = $derived.by(() => {
+		if (drag) return { lo: drag.lo, hi: drag.hi, beats: drag.beats };
 		const pitched = notes.filter((n) => !n.rest).map((n) => n.s);
-		let lo = Math.min(0, ...pitched) - 2;
-		let hi = Math.max(0, ...pitched) + 2;
+		let lo = Math.min(0, ...pitched) - PAD;
+		let hi = Math.max(0, ...pitched) + PAD;
 		while (hi - lo < 12) {
 			hi++;
 			if (hi - lo < 12) lo--;
 		}
-		return { lo, hi };
+		return { lo, hi, beats: Math.max(8, Math.ceil(totalOf(notes)) + TAIL) };
 	});
-	const totalBeats = $derived(notes.reduce((a, n) => a + n.d, 0));
-	const width = $derived(LABEL + Math.max(8, Math.ceil(totalBeats) + 1) * BEAT);
-	const height = $derived((rows.hi - rows.lo + 1) * ROW);
+	const width = $derived(LABEL + view.beats * BEAT);
+	const height = $derived((view.hi - view.lo + 1) * ROW);
 	const starts = $derived(notes.map((_, i) => notes.slice(0, i).reduce((a, n) => a + n.d, 0)));
 
-	const rowY = (s: number) => (rows.hi - s) * ROW;
+	const rowY = (s: number) => (view.hi - s) * ROW;
 	const isBlack = (midi: number) => [1, 3, 6, 8, 10].includes(((midi % 12) + 12) % 12);
-
-	// ---------- arrastre ----------
-	let drag: {
-		i: number;
-		mode: 'pitch' | 'length';
-		x: number;
-		y: number;
-		s: number;
-		d: number;
-	} | null = null;
+	/** Un compás en tiempos (6/8 = 3 negras). */
+	const measure = $derived(beatsPerMeasure === 6 ? 3 : beatsPerMeasure);
 
 	/** Unidades del viewBox por píxel de pantalla. */
 	function scale(): number {
-		const r = svg.getBoundingClientRect();
-		return width / r.width;
+		return width / svg.getBoundingClientRect().width;
 	}
 
-	function down(e: PointerEvent, i: number) {
+	// ---------- ediciones (todas pasan por `commit`) ----------
+	function commit(others: RollEvent[], active: RollEvent, total: number) {
+		const r = place(others, active, total);
+		const out = fromEvents(r.events, r.total, active);
+		notes = out.notes;
+		selected = out.index;
+	}
+
+	/** Eventos de la lista actual, con la nota `i` aparte. */
+	function split(i: number) {
+		const { events, total } = toEvents(notes);
+		const active = events.find((e) => e.from === i);
+		return active ? { others: events.filter((e) => e !== active), active, total } : null;
+	}
+
+	function edit(i: number, change: (e: RollEvent) => RollEvent) {
+		const sp = split(i);
+		if (!sp) return;
+		const e = change({ ...sp.active });
+		newLength = e.d;
+		commit(sp.others, e, sp.total);
+	}
+
+	const setPitch = (i: number, s: number) =>
+		edit(i, (e) => ({
+			...e,
+			note: { ...e.note, s: Math.max(MIN_PITCH, Math.min(MAX_PITCH, s)) }
+		}));
+	const setLength = (i: number, d: number) => edit(i, (e) => ({ ...e, d: clampDuration(d) }));
+	const shift = (i: number, beats: number) =>
+		edit(i, (e) => ({ ...e, start: Math.max(0, snap(e.start + beats)) }));
+
+	function duplicate(i: number) {
+		const sp = split(i);
+		if (!sp) return;
+		const copy = {
+			...sp.active,
+			start: sp.active.start + sp.active.d,
+			note: { ...sp.active.note }
+		};
+		commit([...sp.others, sp.active], copy, sp.total);
+	}
+
+	/** Borra la nota y deja su lugar como silencio (las demás no se mueven). */
+	function remove(i: number) {
+		const sp = split(i);
+		if (!sp || sp.others.length < 2) return;
+		notes = fromEvents(sp.others, sp.total).notes;
+		selected = null;
+	}
+
+	function addAt(e: PointerEvent) {
+		if (e.button !== 0) return;
+		const r = svg.getBoundingClientRect();
+		const k = width / r.width;
+		const x = (e.clientX - r.left) * k;
+		const y = (e.clientY - r.top) * k;
+		if (x < LABEL) {
+			selected = null;
+			return;
+		}
+		const start = Math.floor((x - LABEL) / BEAT / GRID) * GRID;
+		const s = Math.max(MIN_PITCH, Math.min(MAX_PITCH, view.hi - Math.floor(y / ROW)));
+		const { events, total } = toEvents(notes);
+		commit(events, { start, d: newLength, note: { d: newLength, s }, from: -1 }, total);
+	}
+
+	// ---------- arrastre ----------
+	function down(e: PointerEvent, i: number, mode: Mode) {
+		if (e.button !== 0) return;
 		e.stopPropagation();
 		selected = i;
-		const n = notes[i];
-		const k = scale();
-		const r = svg.getBoundingClientRect();
-		const x = (e.clientX - r.left) * k;
-		const right = LABEL + (starts[i] + n.d) * BEAT;
+		const sp = split(i);
+		if (!sp) return;
+		const prev = sp.others.filter((o) => o.start < sp.active.start).at(-1);
 		drag = {
-			i,
-			mode: right - x <= HANDLE ? 'length' : 'pitch',
+			mode,
+			others: sp.others,
+			origin: sp.active,
+			total: sp.total,
 			x: e.clientX,
 			y: e.clientY,
-			s: n.s,
-			d: n.d
+			minStart: prev ? prev.start + GRID : 0,
+			lo: view.lo,
+			hi: view.hi,
+			beats: view.beats
 		};
 		svg.setPointerCapture(e.pointerId);
 	}
@@ -77,57 +175,52 @@
 	function move(e: PointerEvent) {
 		if (!drag) return;
 		const k = scale();
-		const n = notes[drag.i];
-		if (drag.mode === 'pitch' && !n.rest) {
+		const dBeats = ((e.clientX - drag.x) * k) / BEAT;
+		const o = drag.origin;
+		const end = o.start + o.d;
+		let active: RollEvent;
+		if (drag.mode === 'move') {
 			const ds = Math.round((-(e.clientY - drag.y) * k) / ROW);
-			setPitch(drag.i, drag.s + ds);
-		} else if (drag.mode === 'length') {
-			const dd = Math.round(((e.clientX - drag.x) * k) / BEAT / GRID) * GRID;
-			setLength(drag.i, drag.d + dd);
+			const s = Math.max(Math.max(MIN_PITCH, drag.lo), Math.min(MAX_PITCH, drag.hi, o.note.s + ds));
+			const start = Math.max(0, Math.min(drag.beats - o.d, snap(o.start + dBeats)));
+			active = { ...o, start, note: { ...o.note, s } };
+		} else if (drag.mode === 'right') {
+			active = { ...o, d: Math.min(clampDuration(o.d + dBeats), drag.beats - o.start) };
+		} else {
+			const start = Math.max(
+				drag.minStart,
+				end - MAX_DURATION,
+				Math.min(end - GRID, snap(o.start + dBeats))
+			);
+			active = { ...o, start, d: end - start };
 		}
+		newLength = active.d;
+		commit(drag.others, active, drag.total);
 	}
 
 	function up() {
 		drag = null;
 	}
 
-	// ---------- ediciones ----------
-	function setPitch(i: number, s: number) {
-		notes[i] = { ...notes[i], s: Math.max(-12, Math.min(24, s)) };
-	}
-
-	function setLength(i: number, d: number) {
-		notes[i] = { ...notes[i], d: Math.max(GRID, Math.min(4, Math.round(d / GRID) * GRID)) };
-	}
-
-	function toggleRest(i: number) {
-		const n = notes[i];
-		notes[i] = n.rest ? { d: n.d, s: notes[i - 1]?.s ?? 0 } : { d: n.d, s: 0, rest: true };
-	}
-
-	function duplicate(i: number) {
-		notes.splice(i + 1, 0, { ...notes[i] });
-		selected = i + 1;
-	}
-
-	function remove(i: number) {
-		if (notes.length <= 2) return;
-		notes.splice(i, 1);
-		selected = Math.min(i, notes.length - 1);
-	}
-
 	function onKey(e: KeyboardEvent) {
 		if (selected === null) return;
 		const i = selected;
 		const n = notes[i];
+		if (!n || n.rest) return;
+		const horizontal = (dir: 1 | -1) =>
+			e.shiftKey ? setLength(i, n.d + dir * GRID) : shift(i, dir * GRID);
 		const map: Record<string, () => void> = {
 			ArrowUp: () => setPitch(i, n.s + 1),
 			ArrowDown: () => setPitch(i, n.s - 1),
-			ArrowRight: () => setLength(i, n.d + GRID),
-			ArrowLeft: () => setLength(i, n.d - GRID),
+			ArrowRight: () => horizontal(1),
+			ArrowLeft: () => horizontal(-1),
 			Delete: () => remove(i),
 			Backspace: () => remove(i),
-			Tab: () => (selected = (i + (e.shiftKey ? notes.length - 1 : 1)) % notes.length)
+			Tab: () => {
+				const idx = notes.map((x, j) => (x.rest ? -1 : j)).filter((j) => j >= 0);
+				const at = idx.indexOf(i);
+				selected = idx[(at + (e.shiftKey ? idx.length - 1 : 1)) % idx.length];
+			}
 		};
 		const action = map[e.key];
 		if (action) {
@@ -135,6 +228,8 @@
 			action();
 		}
 	}
+
+	const CURSOR: Record<Mode, string> = { move: 'grabbing', left: 'ew-resize', right: 'ew-resize' };
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -150,16 +245,19 @@
 			bind:this={svg}
 			viewBox="0 0 {width} {height}"
 			style:width="{Math.max(100, (width / (14 * BEAT + LABEL)) * 100)}%"
-			class="block touch-none select-none"
+			style:--drag-cursor={drag ? CURSOR[drag.mode] : null}
+			class="block cursor-cell touch-none select-none"
+			class:dragging={drag}
 			role="presentation"
 			onpointermove={move}
 			onpointerup={up}
 			onpointercancel={up}
-			onpointerdown={() => (selected = null)}
+			onpointerdown={addAt}
+			oncontextmenu={(e) => e.preventDefault()}
 		>
 			<!-- filas: teclas negras sombreadas, nombre de nota a la izquierda -->
-			{#each { length: rows.hi - rows.lo + 1 }, r (r)}
-				{@const s = rows.hi - r}
+			{#each { length: view.hi - view.lo + 1 }, r (r)}
+				{@const s = view.hi - r}
 				<rect
 					x={LABEL}
 					y={r * ROW}
@@ -171,64 +269,80 @@
 					x={LABEL - 4}
 					y={r * ROW + ROW * 0.72}
 					text-anchor="end"
-					class="fill-muted text-[9px] {s === 0 ? 'font-bold' : ''}">{noteLabel(root + s)}</text
+					class="pointer-events-none fill-muted text-[9px] {s === 0 ? 'font-bold' : ''}"
+					>{noteLabel(root + s)}</text
 				>
 			{/each}
 			<!-- tiempos y compases -->
-			{#each { length: Math.floor((width - LABEL) / BEAT) + 1 }, b (b)}
+			{#each { length: view.beats + 1 }, b (b)}
 				<line
 					x1={LABEL + b * BEAT}
 					x2={LABEL + b * BEAT}
 					y1="0"
 					y2={height}
-					class={b % beatsPerMeasure === 0 ? 'stroke-muted/50' : 'stroke-border'}
-					stroke-width={b % beatsPerMeasure === 0 ? 1.2 : 0.6}
+					class="pointer-events-none {b % measure === 0 ? 'stroke-muted/50' : 'stroke-border'}"
+					stroke-width={b % measure === 0 ? 1.2 : 0.6}
 				/>
 			{/each}
-			<!-- notas -->
+			<!-- silencios: huecos entre notas (un clic ahí agrega una nota) -->
 			{#each notes as n, i (i)}
-				{@const x = LABEL + starts[i] * BEAT}
-				{@const w = n.d * BEAT}
 				{#if n.rest}
-					<g role="presentation" onpointerdown={(e) => down(e, i)} class="cursor-ew-resize">
-						<rect
-							x={x + 1}
-							y={height / 2 - ROW}
-							width={w - 2}
-							height={ROW * 2}
-							rx="4"
-							class="fill-transparent stroke-muted/60 {selected === i ? 'stroke-accent' : ''}"
-							stroke-dasharray="4 3"
-						/>
-						<text
-							x={x + w / 2}
-							y={height / 2 + 4}
-							text-anchor="middle"
-							class="fill-muted text-[10px]">{t('roll.rest')}</text
-						>
-					</g>
-				{:else}
-					<g role="presentation" onpointerdown={(e) => down(e, i)} class="cursor-ns-resize">
+					<rect
+						x={LABEL + starts[i] * BEAT + 1}
+						y={height / 2 - 2}
+						width={Math.max(2, n.d * BEAT - 2)}
+						height="4"
+						rx="2"
+						class="pointer-events-none fill-muted/25"
+					/>
+				{/if}
+			{/each}
+			<!-- notas: centro para mover, bordes para cambiar la duración -->
+			{#each notes as n, i (i)}
+				{#if !n.rest}
+					{@const x = LABEL + starts[i] * BEAT}
+					{@const w = n.d * BEAT}
+					{@const edge = Math.min(HANDLE, w / 3)}
+					<g role="presentation" oncontextmenu={(e) => (e.preventDefault(), remove(i))}>
 						<rect
 							x={x + 1}
 							y={rowY(n.s) + 1}
 							width={Math.max(4, w - 2)}
 							height={ROW - 2}
 							rx="4"
-							class={n.hint
+							class="pointer-events-none {n.hint
 								? 'fill-muted/30 stroke-muted/60'
 								: selected === i
 									? 'fill-accent stroke-fg'
-									: 'fill-accent/80 stroke-accent'}
+									: 'fill-accent/80 stroke-accent'}"
 							stroke-width={selected === i ? 1.5 : 1}
 						/>
-						<!-- borde para cambiar la duración -->
 						<rect
-							x={x + w - HANDLE}
-							y={rowY(n.s) + 1}
-							width={HANDLE - 1}
-							height={ROW - 2}
+							x={x + edge}
+							y={rowY(n.s)}
+							width={Math.max(1, w - edge * 2)}
+							height={ROW}
+							class="cursor-grab fill-transparent"
+							role="presentation"
+							onpointerdown={(e) => down(e, i, 'move')}
+						/>
+						<rect
+							{x}
+							y={rowY(n.s)}
+							width={edge}
+							height={ROW}
 							class="cursor-ew-resize fill-white/0 hover:fill-white/40"
+							role="presentation"
+							onpointerdown={(e) => down(e, i, 'left')}
+						/>
+						<rect
+							x={x + w - edge}
+							y={rowY(n.s)}
+							width={edge}
+							height={ROW}
+							class="cursor-ew-resize fill-white/0 hover:fill-white/40"
+							role="presentation"
+							onpointerdown={(e) => down(e, i, 'right')}
 						/>
 					</g>
 				{/if}
@@ -238,24 +352,22 @@
 
 	<!-- acciones sobre la nota elegida -->
 	<div class="flex flex-wrap items-center gap-1.5 border-t border-border px-2 py-1.5 text-xs">
-		{#if selected !== null && notes[selected]}
+		{#if selected !== null && notes[selected] && !notes[selected].rest}
 			{@const n = notes[selected]}
 			<span class="mr-1 font-semibold">
-				{n.rest ? t('roll.rest') : noteLabel(root + n.s)} · {n.d}
+				{noteLabel(root + n.s)} · {n.d}
 				{t('roll.beats')}{n.hint ? ` · ${t('roll.hint')}` : ''}
 			</span>
-			{#if !n.rest}
-				<button
-					class="roll-btn"
-					aria-label={t('roll.up')}
-					onclick={() => setPitch(selected!, n.s + 1)}>▲</button
-				>
-				<button
-					class="roll-btn"
-					aria-label={t('roll.down')}
-					onclick={() => setPitch(selected!, n.s - 1)}>▼</button
-				>
-			{/if}
+			<button
+				class="roll-btn"
+				aria-label={t('roll.up')}
+				onclick={() => setPitch(selected!, n.s + 1)}>▲</button
+			>
+			<button
+				class="roll-btn"
+				aria-label={t('roll.down')}
+				onclick={() => setPitch(selected!, n.s - 1)}>▼</button
+			>
 			<button
 				class="roll-btn"
 				aria-label={t('roll.shorter')}
@@ -265,9 +377,6 @@
 				class="roll-btn"
 				aria-label={t('roll.longer')}
 				onclick={() => setLength(selected!, n.d + GRID)}>+</button
-			>
-			<button class="roll-btn" onclick={() => toggleRest(selected!)}
-				>{n.rest ? t('roll.toNote') : t('roll.toRest')}</button
 			>
 			<button class="roll-btn" onclick={() => duplicate(selected!)}>{t('roll.duplicate')}</button>
 			<button class="roll-btn text-red-600" onclick={() => remove(selected!)}
@@ -289,5 +398,10 @@
 	}
 	.roll-btn:hover {
 		border-color: var(--color-accent);
+	}
+	/* Mientras se arrastra, el cursor es el del gesto aunque el puntero pase sobre otra cosa. */
+	.dragging,
+	.dragging :global(*) {
+		cursor: var(--drag-cursor) !important;
 	}
 </style>
