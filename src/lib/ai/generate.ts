@@ -6,6 +6,7 @@
 // devuelven los errores para que corrija (hasta MAX_ATTEMPTS). Medir y validar lo hace el código;
 // componer lo hace el modelo.
 import {
+	dropNulls,
 	extractJson,
 	GENERATED_EXERCISE_JSON_SCHEMA,
 	GeneratedExerciseSchema,
@@ -24,8 +25,11 @@ export interface LlmConfig {
 	jsonMode: 'schema' | 'object' | 'none';
 	/** Tope de tokens de la respuesta; los modelos que razonan gastan parte antes del JSON. */
 	maxTokens: number;
-	/** Razonamiento (parámetro `reasoning` de OpenRouter): 'none' lo apaga; sin valor no se envía. */
-	reasoningEffort?: 'none' | 'low' | 'medium' | 'high';
+	/**
+	 * Esfuerzo de razonamiento; sin valor no se envía. OpenRouter usa `reasoning` ('none' lo apaga);
+	 * Meta y OpenAI usan `reasoning_effort` (Muse acepta desde 'minimal').
+	 */
+	reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high';
 }
 
 export interface GenerateRequest {
@@ -58,15 +62,22 @@ const DEFAULT_MODEL = 'nvidia/nemotron-3.5-super-vl:free';
 export function configFromEnv(env: Record<string, string | undefined>): LlmConfig {
 	const jsonMode = env.LLM_JSON_MODE;
 	const baseUrl = (env.LLM_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
+	// Por defecto: Nemotron (OpenRouter) sin razonar, porque se queda sin tokens; Muse (Meta) con
+	// razonamiento bajo, que en las pruebas dio buenos ejercicios en ~15–20 s.
 	const effort =
-		env.LLM_REASONING_EFFORT ?? (baseUrl.includes('openrouter.ai') ? 'none' : undefined);
+		env.LLM_REASONING_EFFORT ??
+		(baseUrl.includes('openrouter.ai')
+			? 'none'
+			: baseUrl.includes('meta.ai') || baseUrl.includes('meta.com')
+				? 'low'
+				: undefined);
 	return {
 		baseUrl,
 		model: env.LLM_MODEL || DEFAULT_MODEL,
 		apiKey: env.LLM_API_KEY || '',
 		jsonMode: jsonMode === 'object' || jsonMode === 'none' ? jsonMode : 'schema',
 		maxTokens: Number(env.LLM_MAX_TOKENS) || 8000,
-		reasoningEffort: ['none', 'low', 'medium', 'high'].includes(effort ?? '')
+		reasoningEffort: ['none', 'minimal', 'low', 'medium', 'high'].includes(effort ?? '')
 			? (effort as LlmConfig['reasoningEffort'])
 			: undefined
 	};
@@ -95,7 +106,7 @@ export async function generateExercise(
 		let errors: string[];
 		let exercise: GeneratedExercise | null = null;
 		try {
-			const parsed = GeneratedExerciseSchema.safeParse(extractJson(content));
+			const parsed = GeneratedExerciseSchema.safeParse(dropNulls(extractJson(content)));
 			if (parsed.success) {
 				exercise = parsed.data;
 				errors = validateGenerated(exercise, req.range);
@@ -131,9 +142,12 @@ async function complete(
 		temperature: 0.7,
 		max_tokens: config.maxTokens
 	};
-	if (config.reasoningEffort)
-		body.reasoning =
-			config.reasoningEffort === 'none' ? { enabled: false } : { effort: config.reasoningEffort };
+	if (config.reasoningEffort) {
+		if (config.baseUrl.includes('openrouter.ai'))
+			body.reasoning =
+				config.reasoningEffort === 'none' ? { enabled: false } : { effort: config.reasoningEffort };
+		else body.reasoning_effort = config.reasoningEffort;
+	}
 	if (config.jsonMode === 'schema') {
 		body.response_format = {
 			type: 'json_schema',

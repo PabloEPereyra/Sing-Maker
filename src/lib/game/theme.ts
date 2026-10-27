@@ -10,6 +10,8 @@ export type CollectibleState = 'idle' | 'collected' | 'missed';
 export interface CharacterState {
 	/** El ejercicio está en marcha (vuela o camina); si no, espera parado en el punto de partida. */
 	flying: boolean;
+	/** Mira hacia adelante (de frente), mientras se escucha el ejercicio antes de empezar. */
+	facingFront: boolean;
 	/** El mundo avanza (cuenta previa o ejercicio): el caminante camina; en pausa o al final, no. */
 	moving: boolean;
 	/** Caminante: en el aire (saltando o cayendo), sin pisar plataforma ni suelo. */

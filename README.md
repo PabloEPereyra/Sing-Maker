@@ -35,7 +35,17 @@ El botón **«Crear con IA»** manda una descripción en texto a `/api/generate`
 `functions/api/generate.ts`). El servidor arma el prompt con ejemplos del catálogo, pide al modelo un JSON
 estructurado, lo valida con `zod` y reglas musicales (duraciones, saltos, rango de la persona) y, si falla,
 le devuelve los errores para que corrija (hasta 3 intentos). El resultado se guarda en «Mis ejercicios».
-La clave del modelo vive solo en el servidor.
+La clave del modelo vive solo en el servidor. Antes de practicar se puede **escuchar** el resultado y
+**editar las notas** en un piano roll.
+
+**«Con la voz»**: se graban unos segundos cantando o tarareando. La transcripción es local
+(`src/lib/music/transcribe.ts`, sin mandar audio a ningún lado): separa las notas por cambios de tono
+sostenidos y silencios (ignorando la entrada deslizada y el vibrato), estima el tempo con la mediana entre
+notas, cuantiza a corcheas o semicorcheas, completa el compás y agrega la nota guía. Después se revisa en el
+piano roll y, si se quiere, la IA lo acomoda en un patrón más prolijo y le pone nombre.
+
+**Escucha previa**: al empezar cualquier ejercicio, el personaje mira de frente («Escucha los tonos») y
+suena una vez la primera repetición antes de la cuenta.
 
 Proveedor configurable (API compatible con OpenAI), en `.dev.vars` para desarrollo (ver `.dev.vars.example`)
 o como variables del proyecto en Cloudflare:
@@ -43,10 +53,10 @@ o como variables del proyecto en Cloudflare:
 | Variable               | Pruebas (hoy)                       | Hackathon                                   |
 | ---------------------- | ----------------------------------- | ------------------------------------------- |
 | `LLM_API_KEY`          | clave de OpenRouter                 | clave de la Meta Model API                  |
-| `LLM_BASE_URL`         | `https://openrouter.ai/api/v1`      | URL de la Meta Model API                    |
-| `LLM_MODEL`            | `nvidia/nemotron-3.5-super-vl:free` | modelo Muse (p. ej. Muse Spark)             |
+| `LLM_BASE_URL`         | `https://openrouter.ai/api/v1`      | `https://api.meta.ai/v1`                    |
+| `LLM_MODEL`            | `nvidia/nemotron-3.5-super-vl:free` | `muse-spark-1.3-contributor`                |
 | `LLM_JSON_MODE`        | `schema` (por defecto)              | `schema`, u `object`/`none` si no lo admite |
-| `LLM_REASONING_EFFORT` | `none` (por defecto en OpenRouter)  | sin valor (no se envía)                     |
+| `LLM_REASONING_EFFORT` | `none` (por defecto en OpenRouter)  | `low` (por defecto en Meta)                 |
 
 > El modelo de NVIDIA por OpenRouter es solo para desarrollar mientras llegan los créditos: la entrega
 > del hackathon usa los modelos de Meta.

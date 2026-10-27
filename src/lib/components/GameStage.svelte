@@ -101,7 +101,10 @@
 	}
 
 	const playing = $derived(
-		status?.phase === 'countin' || status?.phase === 'playing' || status?.phase === 'paused'
+		status?.phase === 'listen' ||
+			status?.phase === 'countin' ||
+			status?.phase === 'playing' ||
+			status?.phase === 'paused'
 	);
 	const pct = $derived(
 		status && status.total ? Math.round((status.collected / status.total) * 100) : 0
@@ -159,6 +162,17 @@
 				class="pointer-events-none absolute right-3 bottom-4 rounded-lg bg-black/30 px-2 py-1 text-sm text-white"
 			>
 				{status.sungMidi === null ? '—' : noteLabel(status.sungMidi)}
+			</div>
+		{/if}
+
+		{#if status.phase === 'listen'}
+			<div class="pointer-events-none absolute inset-x-0 top-[18%] grid place-items-center">
+				<div
+					class="flex items-center gap-2 rounded-full bg-black/35 px-5 py-2 text-2xl font-bold text-white backdrop-blur-sm"
+				>
+					<span class="animate-pulse">♪</span>
+					{t('stage.listen')}
+				</div>
 			</div>
 		{/if}
 

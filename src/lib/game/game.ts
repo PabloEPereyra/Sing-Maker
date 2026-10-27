@@ -7,7 +7,11 @@ import { COLLECTIBLES, type CollectibleSkin } from './collectibles';
 import { buildStars, HIT_WINDOW_SEC, isHit, type PitchSample, type Star } from './scoring';
 import type { Theme } from './theme';
 
-export type Phase = 'idle' | 'countin' | 'playing' | 'paused' | 'done';
+/** 'listen': antes de la cuenta suena una vez la primera repetición, con el personaje de frente. */
+export type Phase = 'idle' | 'listen' | 'countin' | 'playing' | 'paused' | 'done';
+
+/** Silencio entre la escucha previa y la cuenta. */
+const LISTEN_GAP_SEC = 0.6;
 
 /** Al reanudar se retrocede este tiempo para retomar con contexto. */
 const RESUME_PREROLL_SEC = 1;
@@ -86,6 +90,8 @@ export class Game {
 	private nextNoteToSchedule = 0;
 	private nextBeatToSchedule = 0;
 	private pausedAt = 0;
+	/** Tiempo del AudioContext en que termina la escucha previa. */
+	private listenEnd = 0;
 
 	private birdMidi = 60;
 	private birdVy = 0;
@@ -159,16 +165,40 @@ export class Game {
 		this.latency = latency;
 		const ctx = getContext();
 		const beat = 60 / this.opts.bpm;
-		this.t0 = ctx.currentTime + 0.2 + this.opts.beatsPerMeasure * beat;
+		// Escucha previa: la primera repetición entera (guía incluida) suena una vez.
+		const first = this.seq.reps[0];
+		const from = ctx.currentTime + 0.15;
+		let listenSec = 0;
+		if (first) {
+			for (const n of this.seq.notes) {
+				if (n.rep !== 0) break;
+				if (n.isRest) continue;
+				playNote(
+					n.midi,
+					from + n.start - first.start,
+					n.staccato ? n.duration * 0.5 : n.duration,
+					n.isHint ? 0.9 : 0.7
+				);
+			}
+			listenSec = first.end - first.start + LISTEN_GAP_SEC;
+		}
+		this.listenEnd = from + listenSec;
+		this.t0 = this.listenEnd + 0.05 + this.opts.beatsPerMeasure * beat;
 		this.nextNoteToSchedule = 0;
 		this.nextBeatToSchedule = -this.opts.beatsPerMeasure;
-		this.phase = 'countin';
-		this.grounded = false;
+		this.phase = listenSec ? 'listen' : 'countin';
+		this.grounded = this.phase === 'listen';
 		this.emitStatus(true);
 	}
 
 	/** Congela el ejercicio donde está (se retoma con resume). */
 	pause(): void {
+		// Durante la escucha previa no hay nada que retomar: se vuelve al comienzo.
+		if (this.phase === 'listen') {
+			this.stop();
+			this.emitStatus(true);
+			return;
+		}
 		if (this.phase !== 'countin' && this.phase !== 'playing') return;
 		this.pausedAt = getContext().currentTime - this.t0;
 		this.phase = 'paused';
@@ -191,7 +221,12 @@ export class Game {
 	}
 
 	stop(): void {
-		if (this.phase === 'countin' || this.phase === 'playing' || this.phase === 'paused')
+		if (
+			this.phase === 'listen' ||
+			this.phase === 'countin' ||
+			this.phase === 'playing' ||
+			this.phase === 'paused'
+		)
 			this.phase = 'idle';
 		this.source = null;
 		if (this.phase === 'idle') {
@@ -214,7 +249,18 @@ export class Game {
 		const anim = ms / 1000;
 
 		let time = this.previewTime;
-		if (this.phase === 'countin' || this.phase === 'playing') {
+		if (this.phase === 'listen') {
+			// Se ve la vista previa; la cuenta se programa con anticipación para que entre a tiempo.
+			const ctx = getContext();
+			this.scheduleAudio(ctx.currentTime - this.t0);
+			if (ctx.currentTime >= this.listenEnd) {
+				this.phase = 'countin';
+				this.grounded = false;
+				this.emitStatus(true);
+			}
+			this.sung = null;
+			this.updateBird(dt);
+		} else if (this.phase === 'countin' || this.phase === 'playing') {
 			const songTime = getContext().currentTime - this.t0;
 			this.scheduleAudio(songTime);
 			time = songTime - this.latency;
@@ -514,6 +560,7 @@ export class Game {
 			Math.abs(this.sung - current.midi) <= this.opts.tolerance;
 		this.theme.drawCharacter(g, this.birdX, this.y(this.birdMidi), this.birdSize, anim, {
 			flying: !this.grounded,
+			facingFront: this.phase === 'listen',
 			moving: this.phase === 'countin' || this.phase === 'playing',
 			airborne: this.airborne,
 			sinceLanding: this.sinceLanding,

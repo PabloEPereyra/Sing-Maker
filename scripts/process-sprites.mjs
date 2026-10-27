@@ -37,6 +37,15 @@ const SHEETS = [
 		anchor: 'beak',
 		beak: true
 	},
+	// Pájaro de frente (pulgar arriba): mientras se escucha el ejercicio antes de empezar.
+	{
+		src: 'assets/logo/avatar.png',
+		out: 'static/themes/sky/bird-front',
+		frames: 1,
+		height: 220,
+		split: 'auto',
+		anchor: 'feet'
+	},
 	// Árboles de partida (el pájaro espera parado en la copa). Un cuadro cada uno.
 	{
 		src: 'assets/sky/tree1.png',
@@ -63,6 +72,17 @@ const SHEETS = [
 		out: 'static/themes/path/bunny-rest',
 		frames: 4,
 		pick: [1],
+		height: 240,
+		split: 'auto',
+		anchor: 'feet',
+		despill: 'green'
+	},
+	// Coneja de frente saludando (1.er cuadro de las 4 poses): mientras se escucha el ejercicio.
+	{
+		src: 'assets/path/bunny-poses.png',
+		out: 'static/themes/path/bunny-front',
+		frames: 4,
+		pick: [0],
 		height: 240,
 		split: 'auto',
 		anchor: 'feet',

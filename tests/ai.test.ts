@@ -94,6 +94,24 @@ describe('bucle de generación', () => {
 		expect(feedback).toMatch(/bpm must be between/);
 	});
 
+	it('acepta los null de los esquemas estrictos (Meta) en los campos opcionales', async () => {
+		const strict = {
+			...VALID,
+			notes: VALID.notes.map((n) => ({
+				rest: null,
+				hint: null,
+				legato: null,
+				staccato: null,
+				...n
+			}))
+		};
+		const { fetchImpl } = fakeModel([JSON.stringify(strict)]);
+		const result = await generateExercise({ prompt: 'x', lang: 'es' }, config, fetchImpl);
+		expect(result.attempts).toBe(1);
+		expect(result.exercise.notes[1].rest).toBeUndefined();
+		expect(result.exercise.notes[0].hint).toBe(true);
+	});
+
 	it('se rinde tras 3 intentos con los errores', async () => {
 		const { fetchImpl } = fakeModel(['no json', 'tampoco', '{"name": 1}']);
 		await expect(
@@ -114,6 +132,16 @@ describe('bucle de generación', () => {
 			configFromEnv({ LLM_BASE_URL: 'https://example.com/v1' }).reasoningEffort
 		).toBeUndefined();
 		expect(configFromEnv({ LLM_REASONING_EFFORT: 'low' }).reasoningEffort).toBe('low');
+		expect(configFromEnv({ LLM_BASE_URL: 'https://api.meta.ai/v1' }).reasoningEffort).toBe('low');
+	});
+
+	it('a Meta le manda reasoning_effort (no el parámetro de OpenRouter)', async () => {
+		const { calls, fetchImpl } = fakeModel([JSON.stringify(VALID)]);
+		const meta = configFromEnv({ LLM_API_KEY: 'k', LLM_BASE_URL: 'https://api.meta.ai/v1' });
+		await generateExercise({ prompt: 'x', lang: 'es' }, meta, fetchImpl);
+		const body = calls[0] as unknown as Record<string, unknown>;
+		expect(body.reasoning_effort).toBe('low');
+		expect(body.reasoning).toBeUndefined();
 	});
 
 	it('envía reasoning desactivado y el tope de tokens', async () => {

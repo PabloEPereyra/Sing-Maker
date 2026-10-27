@@ -5,6 +5,11 @@
 	import { requestExercise, GenerateRequestError, type GeneratedResponse } from '$lib/ai/client';
 	import { settings } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
+	import { parse } from '$lib/music/parser';
+	import { playPattern, previewRoot, stopPreview } from '$lib/audio/preview';
+	import { onDestroy } from 'svelte';
+	import { toCode } from '$lib/ai/exercise';
+	import PianoRoll from './PianoRoll.svelte';
 
 	let {
 		range,
@@ -22,16 +27,39 @@
 	let details = $state<string[]>([]);
 	let result = $state<GeneratedResponse | null>(null);
 
+	let listening = $state(false);
+	let editing = $state(false);
+	/** Raíz de referencia para los nombres del piano roll: fija mientras se edita. */
+	let root = $state(60);
+
+	/** Escuchar el resultado una vez, sobre una raíz en el medio del rango. */
+	async function listen() {
+		if (!result) return;
+		if (listening) {
+			stopPreview();
+			return;
+		}
+		const { meta, notes } = parse(toCode(result.exercise));
+		listening = true;
+		await playPattern(notes, meta.bpm, previewRoot(notes, range.low, range.high));
+		listening = false;
+	}
+
+	onDestroy(stopPreview);
+
 	const EXAMPLES = ['create.ex1', 'create.ex2', 'create.ex3', 'create.ex4'] as const;
 
 	async function create() {
 		if (!prompt.trim() || loading) return;
+		stopPreview();
+		editing = false;
 		loading = true;
 		error = '';
 		details = [];
 		result = null;
 		try {
 			result = await requestExercise(prompt, settings.lang, range);
+			root = previewRoot(parse(result.code).notes, range.low, range.high);
 		} catch (e) {
 			error = e instanceof Error ? e.message : t('create.error');
 			details = e instanceof GenerateRequestError ? e.details : [];
@@ -147,18 +175,43 @@
 						{/if}
 					{/each}
 				</svg>
+				{#if editing}
+					<div class="mt-2">
+						<PianoRoll
+							bind:notes={result.exercise.notes}
+							beatsPerMeasure={result.exercise.beatsPerMeasure}
+							{root}
+						/>
+					</div>
+				{/if}
 				<div class="mt-2 text-xs text-muted">
 					{result.exercise.bpm} bpm · {result.exercise.syllable || '—'} ·
 					{t('create.attempts', { n: result.attempts, model: result.model })}
 				</div>
 				<div class="mt-3 flex justify-end gap-2">
 					<button
+						class="mr-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {listening
+							? 'border-accent text-accent'
+							: ''}"
+						onclick={listen}
+						>{listening ? '■' : '▶'}
+						{listening ? t('create.stopListen') : t('create.listen')}</button
+					>
+					<button
 						class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"
 						onclick={create}>{t('create.again')}</button
 					>
 					<button
+						class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {editing
+							? 'border-accent text-accent'
+							: ''}"
+						aria-pressed={editing}
+						onclick={() => (editing = !editing)}>✎ {t('create.edit')}</button
+					>
+					<button
 						class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
-						onclick={() => result && onPractice(result.code, prompt)}>{t('create.practice')}</button
+						onclick={() => result && onPractice(toCode(result.exercise), prompt)}
+						>{t('create.practice')}</button
 					>
 				</div>
 			</div>

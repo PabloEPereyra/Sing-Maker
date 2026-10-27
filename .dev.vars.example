@@ -6,14 +6,15 @@ LLM_API_KEY=sk-or-...
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
 
-# Hackathon: Meta Model API (Muse). Completar con la URL y el modelo de la documentación de Meta.
+# Hackathon: Meta Model API (Muse Spark). La clave se crea en el panel de Model API > API keys
+# (Meta la llama MODEL_API_KEY; acá va en LLM_API_KEY). Para usarla, comentá las 3 líneas de arriba.
 # LLM_API_KEY=...
-# LLM_BASE_URL=...
-# LLM_MODEL=...
+# LLM_BASE_URL=https://api.meta.ai/v1
+# LLM_MODEL=muse-spark-1.3-contributor   (o muse-spark-1.3, muse-wonder-1.0)
 # Si el proveedor no acepta json_schema, probar LLM_JSON_MODE=object (o none).
 # LLM_JSON_MODE=schema
 
 # Opcionales. Tope de tokens de la respuesta (por defecto 8000) y esfuerzo de razonamiento
-# (none/low/medium/high; en OpenRouter por defecto none, en otros proveedores no se envía).
+# (none/minimal/low/medium/high; por defecto none en OpenRouter, low en Meta).
 # LLM_MAX_TOKENS=8000
 # LLM_REASONING_EFFORT=none

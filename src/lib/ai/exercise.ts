@@ -53,14 +53,15 @@ export const GENERATED_EXERCISE_JSON_SCHEMA = {
 			items: {
 				type: 'object',
 				additionalProperties: false,
-				required: ['d', 's'],
+				// Esquema estricto: todos los campos obligatorios; los opcionales admiten null.
+				required: ['d', 's', 'rest', 'hint', 'legato', 'staccato'],
 				properties: {
 					d: { type: 'number' },
 					s: { type: 'number' },
-					rest: { type: 'boolean' },
-					hint: { type: 'boolean' },
-					legato: { type: 'boolean' },
-					staccato: { type: 'boolean' }
+					rest: { type: ['boolean', 'null'] },
+					hint: { type: ['boolean', 'null'] },
+					legato: { type: ['boolean', 'null'] },
+					staccato: { type: ['boolean', 'null'] }
 				}
 			}
 		}
@@ -132,6 +133,21 @@ export function toCode(ex: GeneratedExercise): string {
 }
 
 /** Extrae el JSON de la respuesta del modelo (tolera bloques ```json y texto alrededor). */
+/**
+ * Con esquemas estrictos (Meta, OpenAI) todos los campos son obligatorios y los opcionales llegan como
+ * `null`: se quitan para validar igual que si no hubieran venido.
+ */
+export function dropNulls(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(dropNulls);
+	if (value && typeof value === 'object')
+		return Object.fromEntries(
+			Object.entries(value)
+				.filter(([, v]) => v !== null)
+				.map(([k, v]) => [k, dropNulls(v)])
+		);
+	return value;
+}
+
 export function extractJson(text: string): unknown {
 	const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
 	const body = fenced ? fenced[1] : text;

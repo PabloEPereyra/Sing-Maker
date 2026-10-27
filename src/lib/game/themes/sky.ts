@@ -18,11 +18,13 @@ interface CharacterDef {
 	fly: string;
 	/** Orden de cuadros del aleteo. */
 	flap: number[];
+	/** De frente (un cuadro, pies al borde inferior): mientras escucha el ejercicio. */
+	front: string;
 }
 
 const CHARACTERS: Partial<Record<CharacterId, CharacterDef>> = {
 	// Parado: primer cuadro de volando.png; volando: los 6 cuadros de volando2.png.
-	bird: { rest: 'bird-rest', fly: 'bird-fly', flap: [0, 1, 2, 3, 4, 5] }
+	bird: { rest: 'bird-rest', fly: 'bird-fly', flap: [0, 1, 2, 3, 4, 5], front: 'bird-front' }
 };
 /** Velocidad del fondo respecto de las estrellas (paralaje). */
 const BACKGROUND_SPEED = 0.3;
@@ -43,6 +45,7 @@ export function createSkyTheme(
 	let tree: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
 	let rest: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
 	let fly: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
+	let front: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
 	let background: HTMLImageElement | null = null;
 
 	const loadSheet = async (name: string) => {
@@ -82,9 +85,10 @@ export function createSkyTheme(
 		movement: 'fly',
 
 		async load() {
-			[rest, fly, background] = await Promise.all([
+			[rest, fly, front, background] = await Promise.all([
 				loadSheet(character.rest),
 				loadSheet(character.fly),
+				loadSheet(character.front),
 				loadImage('/themes/sky/background.jpg')
 			]);
 			tree = await loadSheet(startId);
@@ -138,7 +142,11 @@ export function createSkyTheme(
 			if (!state.flying) {
 				// Parado: los pies apoyados en el suelo (el motor pasa el centro a 0,42 del tamaño).
 				const bob = Math.sin(time * 2.2) * 1.2;
-				blit(g, rest, 0, x, y + size * 0.44 - size + bob, size);
+				if (state.facingFront && front) {
+					// De frente, escuchando el ejercicio antes de despegar.
+					const h = size * 1.05;
+					blit(g, front, 0, x + h * 0.05, y + size * 0.44 - h + bob, h);
+				} else blit(g, rest, 0, x, y + size * 0.44 - size + bob, size);
 			} else {
 				// En el aire aletea siempre (más rápido cuando canta). El alto se ajusta para que el
 				// cuerpo mida lo mismo que parado (misma relación pico/alto).

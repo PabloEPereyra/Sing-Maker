@@ -30,6 +30,7 @@ const SPRITE_SCALE = 1.3;
 export function createPathTheme(): Theme {
 	let rest: Sheet | null = null;
 	let move: Sheet | null = null;
+	let front: Sheet | null = null;
 	let background: HTMLImageElement | null = null;
 
 	const loadSheet = async (name: string): Promise<Sheet> => {
@@ -70,9 +71,10 @@ export function createPathTheme(): Theme {
 		movement: 'walk',
 
 		async load() {
-			[rest, move, background] = await Promise.all([
+			[rest, move, front, background] = await Promise.all([
 				loadSheet('bunny-rest'),
 				loadSheet('bunny-move'),
+				loadSheet('bunny-front'),
 				loadImage('/themes/path/background.jpg')
 			]);
 		},
@@ -140,7 +142,11 @@ export function createPathTheme(): Theme {
 				g.shadowColor = 'rgba(255,230,120,0.9)';
 				g.shadowBlur = 22;
 			}
-			if (!state.flying) {
+			if (!state.flying && state.facingFront && front) {
+				// De frente, saludando mientras escucha el ejercicio.
+				const sway = 1 + Math.sin(time * 3) * 0.01;
+				blit(g, front, 0, x, feetY, h * sway);
+			} else if (!state.flying) {
 				// Esperando en el sendero, de perfil, con una leve respiración.
 				const breathe = 1 + Math.sin(time * 2.2) * 0.008;
 				blit(g, rest, 0, x, feetY, h * breathe);
