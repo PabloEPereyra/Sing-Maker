@@ -26,7 +26,8 @@ Sin micrófono se puede probar con **Modo demo** (un piloto automático canta la
 - **Reloj único**: el juego usa el reloj del `AudioContext`, así el piano guía y la escena no se desfasan; la
   vista se corre según la latencia estimada del detector.
 - **Temas**: el motor (`src/lib/game/game.ts`) solo calcula tiempos, cámara y puntuación; el dibujo lo hace un
-  `Theme` (`src/lib/game/themes/sky.ts`). Otros mundos (caminante con monedas, etc.) se suman con otro tema.
+  `Theme`. Dos tipos de personaje: voladores (`themes/sky.ts`, el pájaro sigue la voz) y terrestres
+  (`themes/path.ts`, la coneja salta entre plataformas y en silencio cae al sendero).
 
 ## Crear ejercicios con IA
 
@@ -73,5 +74,10 @@ tests.
 
 - Tema "Cielo": `assets/sky/character-sheet.png` (pájaro parado, primer cuadro), `assets/sky/character2-sheet.png` (pájaro volando, 6 cuadros) y `static/themes/sky/background.jpg` (fondo) y `assets/sky/tree1.png`/`tree2.png` (árboles de partida), generados por el autor con Meta AI; los sprites se recortan y escalan a `static/themes/sky/bird-rest.png` y `bird-fly.png`
   con `npm run sprites`.
+- Tema "Sendero": `assets/path/bunny-poses.png` y `bunny-move.png` (coneja parada, caminando y saltando) y
+  `static/themes/path/background.jpg` (fondo), generados por el autor con Meta AI; `npm run sprites` los
+  convierte en `static/themes/path/bunny-rest.png` y `bunny-move.png`.
+- Coleccionables: `assets/collectibles/notes-sheet.png` (notas) y `carrots-sheet.png` (zanahorias), generados por
+  el autor con Meta AI; `npm run sprites` los pasa a `static/collectibles/`.
 - Logo y favicons: `assets/logo/logo.png` (pájaro guiñando, generado por el autor con Meta AI), con `npm run logo`.
 - Muestras de piano: CDN propio del autor (`singapp.b-cdn.net`).

@@ -123,9 +123,21 @@ Assets extra: percha visible obligatoria (asset 11: plataforma de ladrillo, nube
 coleccionable tipo moneda (opcional: 4 cuadros de moneda girando). La plataforma se dibuja de la longitud de la
 nota con las 3 piezas (borde izquierdo, medio repetido, borde derecho).
 
-Cambios de código (pendientes): en el tema, `movement: 'jump'`; la altura del personaje se anima con una
-parábola corta (~0,25 s) en vez de seguir el tono directamente, y el cuadro se elige por la velocidad
-vertical (subiendo, cayendo, aterrizando) en lugar de por el aleteo.
+**Implementado: coneja en el tema "Sendero"** (`src/lib/game/themes/path.ts`, `movement: 'walk'`).
+
+- Hojas: `assets/path/bunny-poses.png` (se usa la pose de perfil hacia la derecha) y
+  `assets/path/bunny-move.png` (7 cuadros: 0–3 caminar, 4 agachada/aterrizaje, 5 bajando, 6 subiendo).
+  Vienen con transparencia y verde oculto bajo el alfa: `npm run sprites` lo limpia (`despill: 'green'`) y
+  alinea los cuadros por los pies (`anchor: 'feet'`). Los demás cuadros de la tabla son opcionales.
+- Fondo `static/themes/path/background.jpg` (sendero2.jpg, un paisaje despejado para que no se confunda con los objetos): el sendero de tierra queda al 86,5 % del alto
+  y es el suelo. Las notas se ubican solo en la zona de arriba del suelo, para que la plataforma más grave no
+  quede debajo.
+- Plataformas: troncos con musgo dibujados en código, del largo de la nota, a la altura de los pies; los
+  coleccionables quedan a la altura del pecho.
+- Movimiento (`updateWalker` en `game.ts`): afinada sobre la nota actual se para en su plataforma; al cambiar
+  de altura salta en arco (0,2–0,42 s, más alto cuanto más grande el salto); desafinada sigue la voz en el
+  aire; en silencio espera 0,22 s (respiraciones, staccato) y después cae al sendero con gravedad. Antes de
+  empezar espera parada en el sendero (no tiene punto de partida aparte).
 
 ### 4.3 Escalador (escaleras)
 

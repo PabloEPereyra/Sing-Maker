@@ -1,5 +1,5 @@
 // Objetos para recolectar, independientes del tema: se elige uno en "Personalizar".
-// Las estrellas se dibujan con código; las notas usan una hoja de sprites (una imagen por color).
+// Las estrellas se dibujan con código; las notas y las zanahorias usan hojas de sprites.
 import type { CollectibleId } from '$lib/settings.svelte';
 import type { CollectibleState } from './theme';
 
@@ -79,8 +79,15 @@ interface SpriteMeta {
 	frameHeight: number;
 }
 
+interface SpriteOptions {
+	/** Cuadros que se usan como variantes (uno por nota, en rotación). Por defecto, todos. */
+	variants?: number[];
+	/** Cuadro que se muestra al recogerlo (si no, el mismo de la variante). */
+	collected?: number;
+}
+
 /** Objeto a partir de una hoja de sprites en `static/collectibles/<id>.png`. */
-function spriteSkin(id: CollectibleId, scale: number): CollectibleSkin {
+function spriteSkin(id: CollectibleId, scale: number, opts: SpriteOptions = {}): CollectibleSkin {
 	let img: HTMLImageElement | null = null;
 	let meta: SpriteMeta = { frames: 1, frameWidth: 1, frameHeight: 1 };
 	return {
@@ -101,7 +108,9 @@ function spriteSkin(id: CollectibleId, scale: number): CollectibleSkin {
 		},
 		draw(g, x, y, size, state, age, time, variant) {
 			if (!img) return;
-			const frame = ((variant % meta.frames) + meta.frames) % meta.frames;
+			const pool = opts.variants ?? Array.from({ length: meta.frames }, (_, i) => i);
+			let frame = pool[((variant % pool.length) + pool.length) % pool.length];
+			if (state === 'collected' && opts.collected !== undefined) frame = opts.collected;
 			const h = size * scale;
 			const w = (meta.frameWidth / meta.frameHeight) * h;
 			const blit = (cx: number, cy: number, k: number) =>
@@ -136,5 +145,7 @@ function spriteSkin(id: CollectibleId, scale: number): CollectibleSkin {
 
 export const COLLECTIBLES: Record<CollectibleId, CollectibleSkin> = {
 	stars,
-	notes: spriteSkin('notes', 2.3)
+	notes: spriteSkin('notes', 2.3),
+	// Derecha e inclinada se alternan entre notas; la de brillos aparece al recogerla.
+	carrots: spriteSkin('carrots', 2.5, { variants: [0, 1], collected: 2 })
 };

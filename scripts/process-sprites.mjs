@@ -1,6 +1,6 @@
 // Prepara hojas de sprites PNG con transparencia -> tira de cuadros iguales en static/.
-// Se respeta el alfa del archivo; solo se limpia el tinte magenta que traen algunos píxeles
-// semitransparentes del borde (el color oculto bajo el alfa es magenta).
+// Se respeta el alfa del archivo; solo se limpia el tinte que traen algunos píxeles semitransparentes
+// del borde (el color oculto bajo el alfa): magenta por defecto, o `despill: 'green'`.
 //
 // Dos formas de separar los cuadros:
 //   split: 'grid'  -> N columnas del mismo ancho (cuando la IA dejó los cuadros parejos).
@@ -11,7 +11,8 @@
 // `pick` elige qué cuadros salen (por índice). Con `beak: true` el .json incluye `beakWidth` (ancho del
 // pico naranja en px de salida) para igualar el tamaño del cuerpo entre hojas distintas.
 // En 'auto' cada cuadro se alinea por un ancla, para que el cuerpo no "salte" entre cuadros:
-//   anchor: 'mass' -> centro de masa;  anchor: 'beak' -> pico naranja (mitad superior de la figura).
+//   anchor: 'mass' -> centro de masa;  anchor: 'beak' -> pico naranja (mitad superior de la figura);
+//   anchor: 'feet' -> centro horizontal de masa y borde inferior (personajes que caminan).
 import sharp from 'sharp';
 import { writeFileSync } from 'node:fs';
 
@@ -55,6 +56,35 @@ const SHEETS = [
 		dropSpecks: true,
 		erode: 3
 	},
+	// Coneja (tema Sendero): parada de perfil (2.º cuadro de las 4 poses) y caminar/saltar (7 cuadros:
+	// 0–3 caminar, 4 agachada, 5 subiendo, 6 bajando). Todos alineados por los pies.
+	{
+		src: 'assets/path/bunny-poses.png',
+		out: 'static/themes/path/bunny-rest',
+		frames: 4,
+		pick: [1],
+		height: 240,
+		split: 'auto',
+		anchor: 'feet',
+		despill: 'green'
+	},
+	{
+		src: 'assets/path/bunny-move.png',
+		out: 'static/themes/path/bunny-move',
+		frames: 7,
+		height: 240,
+		split: 'auto',
+		anchor: 'feet',
+		despill: 'green'
+	},
+	// Zanahorias: 0 derecha, 1 inclinada (se alternan entre notas), 2 con brillos (al recogerla).
+	{
+		src: 'assets/collectibles/carrots-sheet.png',
+		out: 'static/collectibles/carrots',
+		frames: 3,
+		height: 160,
+		split: 'auto'
+	},
 	{
 		src: 'assets/collectibles/notes-sheet.png',
 		out: 'static/collectibles/notes',
@@ -66,7 +96,7 @@ const SHEETS = [
 
 const ALPHA_MIN = 20;
 
-async function loadClean(src, erode = 0) {
+async function loadClean(src, erode = 0, despill = 'magenta') {
 	const { data, info } = await sharp(src).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
 	for (let i = 0; i < data.length; i += 4) {
 		const a = data[i + 3];
@@ -74,9 +104,14 @@ async function loadClean(src, erode = 0) {
 			const r = data[i],
 				g = data[i + 1],
 				b = data[i + 2];
-			const m = Math.max(0, Math.min(r, b) - g);
-			data[i] = r - m * 0.8;
-			data[i + 2] = b - m * 0.8;
+			if (despill === 'green') {
+				const m = Math.max(0, g - Math.max(r, b));
+				data[i + 1] = g - m * 0.9;
+			} else {
+				const m = Math.max(0, Math.min(r, b) - g);
+				data[i] = r - m * 0.8;
+				data[i + 2] = b - m * 0.8;
+			}
 		}
 	}
 	// Erosión del alfa (mínimo 3×3): quita bordes de recorte de color (halo verde o magenta).
@@ -244,7 +279,8 @@ function autoFrames(img, n, anchor = 'mass', dropSpecks = false) {
 			if (bn > 50)
 				return { left: x0, top: y0, width: fw, height: fh, mask: own, cx: bx / bn, cy: by / bn };
 		}
-		return { left: x0, top: y0, width: fw, height: fh, mask: own, cx: sx / cnt, cy: sy / cnt };
+		const cy = anchor === 'feet' ? fh : sy / cnt;
+		return { left: x0, top: y0, width: fw, height: fh, mask: own, cx: sx / cnt, cy };
 	});
 }
 
@@ -284,8 +320,9 @@ function beakWidth(img, f) {
 
 const EMPTY = { r: 0, g: 0, b: 0, alpha: 0 };
 
-for (const sheet of SHEETS) {
-	const img = await loadClean(sheet.src, sheet.erode ?? 0);
+const only = process.argv[2];
+for (const sheet of SHEETS.filter((s) => !only || s.out.includes(only))) {
+	const img = await loadClean(sheet.src, sheet.erode ?? 0, sheet.despill);
 	const all =
 		sheet.split === 'auto'
 			? autoFrames(img, sheet.frames, sheet.anchor, sheet.dropSpecks)

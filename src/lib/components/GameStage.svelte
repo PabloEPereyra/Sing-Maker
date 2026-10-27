@@ -106,7 +106,8 @@
 	const pct = $derived(
 		status && status.total ? Math.round((status.collected / status.total) * 100) : 0
 	);
-	const icon = $derived(settings.collectible === 'notes' ? '♪' : '★');
+	const ICONS = { stars: '★', notes: '♪', carrots: '🥕' } as const;
+	const icon = $derived(ICONS[settings.collectible]);
 </script>
 
 <div
@@ -199,7 +200,7 @@
 					<div class="mb-4 text-muted">
 						{t('stage.percent', {
 							p: pct,
-							c: t(settings.collectible === 'notes' ? 'collectible.notes' : 'collectible.stars')
+							c: t(`collectible.${settings.collectible}`)
 						})}
 					</div>
 					<div class="mb-5 flex h-16 items-end gap-1">

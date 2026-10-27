@@ -43,6 +43,23 @@ export type PitchSource = (time: number) => number | null;
 const TRAIL_SEC = 1.6;
 const LOOKAHEAD_SEC = 0.35;
 
+// Caminante (movement 'walk'), en semitonos y segundos.
+/** Silencio tolerado antes de caer (respiraciones cortas, staccato). */
+const COYOTE_SEC = 0.22;
+/** Gravedad de la caída al suelo, en semitonos/s². */
+const GRAVITY = 70;
+/** Diferencia mínima con la altura actual para saltar en vez de acomodarse. */
+const JUMP_MIN = 0.4;
+
+interface Jump {
+	from: number;
+	to: number;
+	t: number;
+	dur: number;
+	/** Altura extra del arco sobre la recta entre `from` y `to`. */
+	peak: number;
+}
+
 export class Game {
 	private g: CanvasRenderingContext2D;
 	private w = 0;
@@ -75,6 +92,13 @@ export class Game {
 	/** Antes de pulsar play el personaje espera en el suelo; despega al empezar. */
 	private grounded = true;
 	private sung: number | null = null;
+	/** Tiempo del ejercicio del último cuadro con tono (para saber sobre qué nota se está). */
+	private now = 0;
+	private jump: Jump | null = null;
+	private fallV = 0;
+	private silentFor = 0;
+	private airborne = false;
+	private sinceLanding = 1;
 	private camCenter = 60;
 	private camSpan = 14;
 	private lastStatusKey = '';
@@ -100,6 +124,7 @@ export class Game {
 
 	setTheme(theme: Theme): void {
 		this.theme = theme;
+		this.resetWalker();
 	}
 
 	setCollectible(skin: CollectibleSkin): void {
@@ -115,6 +140,7 @@ export class Game {
 		this.phase = 'idle';
 		this.grounded = true;
 		this.birdVy = 0;
+		this.resetWalker();
 		this.focusCamera(this.previewTime, true);
 		this.emitStatus(true);
 	}
@@ -168,7 +194,10 @@ export class Game {
 		if (this.phase === 'countin' || this.phase === 'playing' || this.phase === 'paused')
 			this.phase = 'idle';
 		this.source = null;
-		if (this.phase === 'idle') this.grounded = true;
+		if (this.phase === 'idle') {
+			this.grounded = true;
+			this.resetWalker();
+		}
 		stopAll();
 	}
 
@@ -242,6 +271,7 @@ export class Game {
 	}
 
 	private updatePitch(time: number, dt: number): void {
+		this.now = time;
 		this.sung = this.source ? this.source(time) : null;
 		this.history.push({ time, midi: this.sung });
 		while (this.history.length && this.history[0].time < time - 4) this.history.shift();
@@ -250,13 +280,15 @@ export class Game {
 
 	private updateBird(dt: number): void {
 		const prev = this.birdMidi;
-		if (this.grounded) {
+		if (this.theme.movement === 'walk') {
+			// En pausa queda congelada donde estaba.
+			if (this.phase !== 'paused') this.updateWalker(dt);
+		} else if (this.grounded) {
 			// Parado sobre el suelo.
 			this.birdMidi = this.midiAt(this.groundTop - this.birdSize * 0.42);
 			this.birdVy = 0;
 			return;
-		}
-		if (this.sung !== null) {
+		} else if (this.sung !== null) {
 			this.birdMidi += (this.sung - this.birdMidi) * Math.min(1, dt * 18);
 		} else if (this.phase === 'countin') {
 			// Despegue: sube hacia la primera nota mientras suena la cuenta.
@@ -269,9 +301,100 @@ export class Game {
 			const clamped = Math.max(floor, Math.min(ceil, this.birdMidi));
 			this.birdMidi += (clamped - this.birdMidi) * Math.min(1, dt * 4);
 		}
-		const pxPerSemi = this.h / this.camSpan;
+		const pxPerSemi = this.fieldH / this.camSpan;
 		const vy = dt > 0 ? (-(this.birdMidi - prev) * pxPerSemi) / dt : 0;
 		this.birdVy += (vy - this.birdVy) * Math.min(1, dt * 8);
+	}
+
+	private resetWalker(): void {
+		this.jump = null;
+		this.fallV = 0;
+		this.silentFor = 0;
+		this.airborne = false;
+		this.sinceLanding = 1;
+	}
+
+	/**
+	 * Caminante: sobre la nota que se canta afinado se para en su plataforma; al cambiar de altura
+	 * salta en arco; desafinado sigue la voz en el aire, y en silencio cae al suelo con gravedad.
+	 */
+	private updateWalker(dt: number): void {
+		const ground = this.midiAt(this.groundTop - this.birdSize * 0.42);
+		this.sinceLanding += dt;
+		const land = () => {
+			if (this.airborne) this.sinceLanding = 0;
+			this.airborne = false;
+			this.fallV = 0;
+		};
+
+		if (this.grounded) {
+			// Antes de empezar espera parada en el sendero.
+			this.jump = null;
+			this.birdMidi = ground;
+			land();
+			return;
+		}
+		if (this.sung === null && this.silentFor >= COYOTE_SEC) {
+			// Sin voz: cae al sendero (o espera parada en él antes de empezar).
+			this.jump = null;
+			if (this.birdMidi <= ground + 0.05) {
+				this.birdMidi = ground;
+				land();
+			} else {
+				this.airborne = true;
+				this.fallV += GRAVITY * dt;
+				this.birdMidi = Math.max(ground, this.birdMidi - this.fallV * dt);
+				if (this.birdMidi === ground) land();
+			}
+			if (this.sung === null) this.silentFor += dt;
+			return;
+		}
+		if (this.sung === null) {
+			// Silencio corto: se queda donde está, sin caer todavía.
+			this.silentFor += dt;
+			if (!this.jump) return;
+		} else {
+			this.silentFor = 0;
+		}
+
+		// Destino: la plataforma de la nota actual si se canta afinado; si no, la altura de la voz.
+		let target = this.jump?.to ?? this.birdMidi;
+		let onPlatform = false;
+		if (this.sung !== null) {
+			const n = this.noteAt(this.now);
+			onPlatform = n !== null && !n.isHint && Math.abs(this.sung - n.midi) <= this.opts.tolerance;
+			target = Math.max(ground, onPlatform ? n!.midi : this.sung);
+		}
+
+		if (this.jump) {
+			this.jump.to = target;
+		} else if (Math.abs(target - this.birdMidi) >= JUMP_MIN) {
+			const d = Math.abs(target - this.birdMidi);
+			this.jump = {
+				from: this.birdMidi,
+				to: target,
+				t: 0,
+				dur: Math.min(0.42, 0.2 + d * 0.018),
+				peak: 0.7 + d * 0.12
+			};
+		}
+		if (this.jump) {
+			const j = this.jump;
+			j.t += dt;
+			const p = Math.min(1, j.t / j.dur);
+			this.birdMidi = j.from + (j.to - j.from) * p + j.peak * 4 * p * (1 - p);
+			this.airborne = true;
+			if (p >= 1) {
+				this.jump = null;
+				this.birdMidi = j.to;
+				if (onPlatform || j.to <= ground + 0.05) land();
+			}
+			return;
+		}
+		// Ajustes chicos: sigue la voz; en el aire si no está sobre una plataforma ni el suelo.
+		this.birdMidi += (target - this.birdMidi) * Math.min(1, dt * 18);
+		if (onPlatform || this.birdMidi <= ground + 0.05) land();
+		else this.airborne = true;
 	}
 
 	private judgeStars(time: number): void {
@@ -321,8 +444,17 @@ export class Game {
 		this.camSpan += (span - this.camSpan) * k;
 	}
 
+	/**
+	 * Alto (px) de la zona donde van las notas. El volador usa todo el canvas; el caminante, lo que
+	 * queda sobre el suelo, para que la plataforma más grave no quede debajo del sendero.
+	 */
+	private get fieldH(): number {
+		if (this.theme.movement !== 'walk') return this.h;
+		return Math.max(this.h * 0.4, this.groundTop - this.birdSize * 0.42 - 14);
+	}
+
 	private midiAt(y: number): number {
-		return this.camCenter + (this.h / 2 - y) / (this.h / this.camSpan);
+		return this.camCenter + (this.fieldH / 2 - y) / (this.fieldH / this.camSpan);
 	}
 
 	/** Altura donde se para el personaje antes de empezar (la define el tema: copa del árbol, suelo…). */
@@ -335,7 +467,7 @@ export class Game {
 	}
 
 	private y(midi: number): number {
-		return this.h / 2 - (midi - this.camCenter) * (this.h / this.camSpan);
+		return this.fieldH / 2 - (midi - this.camCenter) * (this.fieldH / this.camSpan);
 	}
 
 	private get pps(): number {
@@ -371,7 +503,7 @@ export class Game {
 		// Punto de partida (árbol): queda donde esperaba el personaje y se aleja al despegar.
 		this.theme.drawStart(g, this.x(this.previewTime, time), w, h);
 		this.drawPerches(time);
-		this.drawTrail(time);
+		if (this.theme.movement === 'fly') this.drawTrail(time);
 		this.drawStars(time, anim);
 
 		const current = this.noteAt(time);
@@ -382,6 +514,9 @@ export class Game {
 			Math.abs(this.sung - current.midi) <= this.opts.tolerance;
 		this.theme.drawCharacter(g, this.birdX, this.y(this.birdMidi), this.birdSize, anim, {
 			flying: !this.grounded,
+			moving: this.phase === 'countin' || this.phase === 'playing',
+			airborne: this.airborne,
+			sinceLanding: this.sinceLanding,
 			singing: this.sung !== null,
 			onTarget,
 			vy: this.birdVy
@@ -396,7 +531,9 @@ export class Game {
 			if (x1 < -20) continue;
 			if (x0 > this.w + 20) break;
 			const gap = Math.min(6, (x1 - x0) * 0.1);
-			this.theme.drawPerch(this.g, x0 + gap, this.y(n.midi), Math.max(4, x1 - x0 - gap * 2), {
+			const y = this.y(n.midi);
+			this.theme.drawPerch(this.g, x0 + gap, y, Math.max(4, x1 - x0 - gap * 2), {
+				footY: y + this.birdSize * 0.42,
 				hint: n.isHint,
 				past: n.start + n.duration < time,
 				label: n.syllable ? `${midiToNote(n.midi)} · ${n.syllable}` : midiToNote(n.midi)
@@ -463,7 +600,7 @@ export class Game {
 	}
 
 	private drawStars(time: number, anim: number): void {
-		const size = Math.max(9, Math.min(15, (this.h / this.camSpan) * 0.45));
+		const size = Math.max(9, Math.min(15, (this.fieldH / this.camSpan) * 0.45));
 		for (const s of this.stars) {
 			const x = this.x(s.time, time);
 			if (x < -40) continue;

@@ -1,6 +1,7 @@
 // Tema "Cielo": un pájaro azul que vuela sobre un fondo de nubes.
 import type { CharacterId, StartId } from '$lib/settings.svelte';
 import type { CharacterState, Theme } from '../theme';
+import { drawHintPerch, drawPerchLabel, drawScrollingBackground, loadImage } from './common';
 
 interface SpriteMeta {
 	frames: number;
@@ -19,21 +20,12 @@ interface CharacterDef {
 	flap: number[];
 }
 
-const CHARACTERS: Record<CharacterId, CharacterDef> = {
+const CHARACTERS: Partial<Record<CharacterId, CharacterDef>> = {
 	// Parado: primer cuadro de volando.png; volando: los 6 cuadros de volando2.png.
 	bird: { rest: 'bird-rest', fly: 'bird-fly', flap: [0, 1, 2, 3, 4, 5] }
 };
 /** Velocidad del fondo respecto de las estrellas (paralaje). */
 const BACKGROUND_SPEED = 0.3;
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-	return new Promise((resolve, reject) => {
-		const i = new Image();
-		i.onload = () => resolve(i);
-		i.onerror = reject;
-		i.src = src;
-	});
-}
 
 /**
  * Árbol de partida: se dibuja el doble de alto que lo visible para que solo asome la mitad
@@ -47,7 +39,7 @@ export function createSkyTheme(
 	characterId: CharacterId = 'bird',
 	startId: StartId = 'tree1'
 ): Theme {
-	const character = CHARACTERS[characterId];
+	const character = CHARACTERS[characterId] ?? CHARACTERS.bird!;
 	let tree: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
 	let rest: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
 	let fly: { img: HTMLImageElement; meta: SpriteMeta } | null = null;
@@ -87,6 +79,7 @@ export function createSkyTheme(
 	return {
 		id: `sky-${characterId}-${startId}`,
 		name: 'Cielo',
+		movement: 'fly',
 
 		async load() {
 			[rest, fly, background] = await Promise.all([
@@ -99,19 +92,7 @@ export function createSkyTheme(
 
 		drawBackground(g, w, h, scroll, progress) {
 			if (background) {
-				// La imagen cubre el alto y se repite en espejo para que las uniones no se noten.
-				const tw = (background.width / background.height) * h;
-				const offset = (scroll * BACKGROUND_SPEED) % (tw * 2);
-				for (let x = -offset, i = 0; x < w; x += tw, i++) {
-					if (i % 2 === 0) g.drawImage(background, x, 0, tw, h);
-					else {
-						g.save();
-						g.translate(x + tw, 0);
-						g.scale(-1, 1);
-						g.drawImage(background, 0, 0, tw, h);
-						g.restore();
-					}
-				}
+				drawScrollingBackground(g, background, w, h, scroll * BACKGROUND_SPEED);
 			} else {
 				g.fillStyle = '#6cb8ec';
 				g.fillRect(0, 0, w, h);
@@ -142,34 +123,9 @@ export function createSkyTheme(
 		},
 
 		drawPerch(g, x, y, width, info) {
-			g.save();
-			if (info.hint) {
-				// Nota guía: línea punteada, suena pero no se canta.
-				g.globalAlpha = info.past ? 0.25 : 0.6;
-				g.strokeStyle = '#ffffff';
-				g.lineWidth = 3;
-				g.setLineDash([8, 8]);
-				g.beginPath();
-				g.moveTo(x, y);
-				g.lineTo(x + width, y);
-				g.stroke();
-				g.setLineDash([]);
-				g.fillStyle = '#ffffff';
-				g.font = 'bold 18px system-ui, sans-serif';
-				g.fillText('♪', x + 4, y - 8);
-				g.restore();
-				return;
-			}
 			// La percha es invisible: solo el nombre de la nota al comienzo, sobre los objetos.
-			g.globalAlpha = info.past ? 0.35 : 0.95;
-			g.font = '700 12px system-ui, sans-serif';
-			g.lineJoin = 'round';
-			g.lineWidth = 3;
-			g.strokeStyle = 'rgba(20,35,80,0.55)';
-			g.strokeText(info.label, x, y - 22);
-			g.fillStyle = '#ffffff';
-			g.fillText(info.label, x, y - 22);
-			g.restore();
+			if (info.hint) drawHintPerch(g, x, y, width, info.past);
+			else drawPerchLabel(g, x, y, info.label, info.past);
 		},
 
 		drawCharacter(g, x, y, size, time, state: CharacterState) {

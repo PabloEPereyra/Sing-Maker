@@ -3,8 +3,9 @@ import { midiToNote, midiToSolfege } from '$lib/music/notes';
 
 export type Lang = 'es' | 'en';
 export type Notation = 'solfege' | 'american';
-export type CollectibleId = 'stars' | 'notes';
-export type CharacterId = 'bird';
+export type CollectibleId = 'stars' | 'notes' | 'carrots';
+/** Voladores (tema Cielo, eligen árbol de partida) y terrestres (tema Sendero). */
+export type CharacterId = 'bird' | 'bunny';
 export type StartId = 'tree1' | 'tree2';
 
 const KEY = 'singmaker-settings';
@@ -35,9 +36,8 @@ export function loadSettings(): void {
 		const s = JSON.parse(localStorage.getItem(KEY) ?? '{}');
 		if (s.lang === 'es' || s.lang === 'en') settings.lang = s.lang;
 		if (s.notation === 'solfege' || s.notation === 'american') settings.notation = s.notation;
-		if (s.collectible === 'stars' || s.collectible === 'notes')
-			settings.collectible = s.collectible;
-		if (s.character === 'bird') settings.character = s.character;
+		if (['stars', 'notes', 'carrots'].includes(s.collectible)) settings.collectible = s.collectible;
+		if (s.character === 'bird' || s.character === 'bunny') settings.character = s.character;
 		if (s.start === 'tree1' || s.start === 'tree2') settings.start = s.start;
 	} catch {}
 }

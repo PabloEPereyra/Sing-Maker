@@ -14,6 +14,7 @@
 	import { PitchDetector } from '$lib/audio/pitch';
 	import { autopilot, type GameOptions, type Phase } from '$lib/game/game';
 	import { createSkyTheme } from '$lib/game/themes/sky';
+	import { createPathTheme } from '$lib/game/themes/path';
 	import {
 		loadSettings,
 		saveSettings,
@@ -25,9 +26,11 @@
 	import { t, tDynamic } from '$lib/i18n';
 
 	const PREFS_KEY = 'singmaker-prefs';
-	// Un tema por combinación de personaje y punto de partida, creado una sola vez.
+	// Un tema por combinación de personaje y punto de partida, creado una sola vez. Los voladores
+	// van al cielo (con árbol de partida); los terrestres, al sendero.
 	const themes: Record<string, Theme> = {};
 	function themeFor(character: CharacterId, start: StartId): Theme {
+		if (character === 'bunny') return (themes.bunny ??= createPathTheme());
 		const key = `${character}-${start}`;
 		return (themes[key] ??= createSkyTheme(character, start));
 	}
