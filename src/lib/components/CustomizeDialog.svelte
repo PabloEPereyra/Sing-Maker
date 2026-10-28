@@ -7,20 +7,49 @@
 		type CollectibleId,
 		type StartId
 	} from '$lib/settings.svelte';
-	import { t } from '$lib/i18n';
+	import { t, tDynamic } from '$lib/i18n';
 	import {
+		addCharacter,
+		type CharacterRecord,
 		characters,
 		CUSTOM_PREFIX,
+		MAX_CHARACTERS,
 		customId,
 		findCharacter,
 		isCustomId,
 		removeCharacter
 	} from '$lib/character/store.svelte';
 	import { downloadCharacter } from '$lib/character/export';
+	import { ImportError, importCharacter } from '$lib/character/import';
 	import CharacterThumb from './CharacterThumb.svelte';
 	import CreateCharacterDialog from './CreateCharacterDialog.svelte';
 
 	let creating = $state(false);
+	let editing = $state<CharacterRecord | null>(null);
+	let importing = $state(false);
+	let importError = $state('');
+
+	/** Sube un .zip exportado antes (o de otra persona) y lo suma a los personajes propios. */
+	async function onImport(file: File | undefined) {
+		if (!file || importing) return;
+		importError = '';
+		if (characters.list.length >= MAX_CHARACTERS) {
+			importError = t('char.full', { n: MAX_CHARACTERS });
+			return;
+		}
+		importing = true;
+		try {
+			const rec = await addCharacter(await importCharacter(file));
+			settings.character = customId(rec.id);
+		} catch (e) {
+			importError =
+				e instanceof ImportError
+					? t(`char.imp.${e.code}` as 'char.imp.notZip')
+					: t('char.imp.notZip');
+		} finally {
+			importing = false;
+		}
+	}
 
 	let { onClose }: { onClose: () => void } = $props();
 
@@ -65,6 +94,25 @@
 			? findCharacter(settings.character.slice(CUSTOM_PREFIX.length))?.movement === 'fly'
 			: settings.character === 'bird'
 	);
+
+	/** Copia de un personaje (una variante para retocar sin tocar el original). */
+	async function duplicate(c: CharacterRecord) {
+		importError = '';
+		if (characters.list.length >= MAX_CHARACTERS) {
+			importError = t('char.full', { n: MAX_CHARACTERS });
+			return;
+		}
+		// Las hojas son imágenes que no cambian: la copia puede compartirlas.
+		const copy = await addCharacter({
+			name: `${c.name} (${t('char.copy')})`.slice(0, 30),
+			movement: c.movement,
+			stand: c.stand,
+			move: c.move,
+			jump: c.jump,
+			meta: c.meta
+		});
+		settings.character = customId(copy.id);
+	}
 
 	async function remove(id: string) {
 		if (settings.character === customId(id)) settings.character = 'bird';
@@ -149,14 +197,21 @@
 							>{t(c.movement === 'fly' ? 'character.flyer' : 'character.walker')}</span
 						>
 					</button>
-					<button
-						class="absolute top-1.5 left-1.5 grid h-7 w-7 place-items-center rounded-lg bg-surface/80 text-muted opacity-0 group-hover/item:opacity-100 hover:text-accent focus-visible:opacity-100"
-						aria-label={t('char.export')}
-						title={t('char.exportHelp')}
-						onclick={() => downloadCharacter(c)}>⬇</button
+					<!-- Acciones: exportar, editar y duplicar (los de fábrica no tienen) -->
+					<div
+						class="absolute top-1.5 left-1.5 flex gap-1 opacity-0 transition group-focus-within/item:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
 					>
+						{#each [{ key: 'char.export', help: 'char.exportHelp', icon: '⬇', run: () => downloadCharacter(c) }, { key: 'char.edit', help: 'char.edit', icon: '✎', run: () => (editing = c) }, { key: 'char.duplicate', help: 'char.duplicate', icon: '⧉', run: () => duplicate(c) }] as a (a.key)}
+							<button
+								class="grid h-7 w-7 place-items-center rounded-lg bg-surface/80 text-muted hover:text-accent"
+								aria-label={tDynamic(a.key)}
+								title={tDynamic(a.help)}
+								onclick={a.run}>{a.icon}</button
+							>
+						{/each}
+					</div>
 					<button
-						class="absolute top-1.5 right-1.5 grid h-7 w-7 place-items-center rounded-lg bg-surface/80 text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100"
+						class="absolute top-1.5 right-1.5 grid h-7 w-7 place-items-center rounded-lg bg-surface/80 text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
 						aria-label={t('char.delete')}
 						title={t('char.delete')}
 						onclick={() => remove(c.id)}>✕</button
@@ -170,7 +225,27 @@
 				<span class="text-2xl">✨</span>
 				{t('char.createCard')}
 			</button>
+			<label
+				class="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-border p-3 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-fg"
+			>
+				<span class="text-xl">⬆</span>
+				{importing ? t('char.importing') : t('char.import')}
+				<span class="text-[11px] font-normal">{t('char.importHelp')}</span>
+				<input
+					type="file"
+					accept=".zip,application/zip"
+					class="sr-only"
+					disabled={importing}
+					onchange={(e) => {
+						onImport(e.currentTarget.files?.[0]);
+						e.currentTarget.value = '';
+					}}
+				/>
+			</label>
 		</div>
+		{#if importError}
+			<p role="alert" class="mt-2 text-sm text-red-700">{importError}</p>
+		{/if}
 
 		{#if flyer}
 			<h4 class="mt-5 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
@@ -236,4 +311,12 @@
 
 {#if creating}
 	<CreateCharacterDialog onClose={() => (creating = false)} onCreated={() => (creating = false)} />
+{/if}
+
+{#if editing}
+	<CreateCharacterDialog
+		{editing}
+		onClose={() => (editing = null)}
+		onCreated={() => (editing = null)}
+	/>
 {/if}

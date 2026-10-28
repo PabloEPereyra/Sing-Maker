@@ -6,11 +6,12 @@ import {
 	buildStrip,
 	compositeOnColor,
 	chromaObjects,
-	splitStripByColumns,
+	cutCell,
+	flipHorizontal,
+	gridCells,
 	cutObject,
 	estimateBackground,
 	newRaster,
-	pickObjects,
 	trimToContent,
 	type Raster,
 	type Strip
@@ -122,7 +123,19 @@ export async function cutSubject(
 		cutObject(photo, best, solidBackground ? estimateBackground(photo) : undefined),
 		6
 	);
-	// Cuadrado con el sujeto centrado, así la imagen de referencia no deforma nada.
+	const square = greenSquareBase(cutout);
+	let reference = compositeOnColor(square, GREEN);
+	let result = cutout;
+	// Todas las poses salen del modelo siguiendo esta referencia: si mira a la izquierda, se espeja.
+	if ((await facingOf(reference)) === 'left') {
+		reference = flipHorizontal(reference);
+		result = flipHorizontal(cutout);
+	}
+	return { cutout: result, reference: rasterToJpegUrl(reference, 0.92) };
+}
+
+/** Cuadrado con el sujeto centrado y margen, así la imagen de referencia no deforma nada. */
+function greenSquareBase(cutout: Raster): Raster {
 	const side = Math.max(cutout.width, cutout.height) + 24;
 	const square = newRaster(side, side);
 	const ox = Math.round((side - cutout.width) / 2);
@@ -132,7 +145,27 @@ export async function cutSubject(
 			cutout.data.subarray(y * cutout.width * 4, (y + 1) * cutout.width * 4),
 			((oy + y) * side + ox) * 4
 		);
-	return { cutout, reference: rasterToJpegUrl(compositeOnColor(square, GREEN), 0.92) };
+	return square;
+}
+
+/**
+ * Reconstruye la imagen de referencia (personaje sobre verde) a partir del primer cuadro de la hoja de
+ * "parado" de un personaje guardado: sirve para retocar uno creado antes de guardar su origen o importado.
+ */
+export async function referenceFromStand(sheet: {
+	blob: Blob;
+	frameWidth: number;
+	frameHeight: number;
+}): Promise<string> {
+	const full = await blobToRaster(sheet.blob, 100000);
+	const frame = newRaster(sheet.frameWidth, sheet.frameHeight);
+	for (let y = 0; y < sheet.frameHeight; y++)
+		frame.data.set(
+			full.data.subarray(y * full.width * 4, y * full.width * 4 + sheet.frameWidth * 4),
+			y * sheet.frameWidth * 4
+		);
+	const square = greenSquareBase(trimToContent(frame, 6));
+	return rasterToJpegUrl(compositeOnColor(square, GREEN), 0.92);
 }
 
 // ---------- creación ----------
@@ -161,6 +194,21 @@ export interface CreatedStrips {
 
 const MAX_TRIES = 2;
 
+/** Hacia dónde mira el personaje de la imagen (Spark); si falla la consulta, "unclear" y no se espeja. */
+async function facingOf(r: Raster): Promise<'left' | 'right' | 'front' | 'unclear'> {
+	try {
+		return await characterApi.facing(rasterToJpegUrl(r));
+	} catch {
+		return 'unclear';
+	}
+}
+
+function opaqueArea(r: Raster): number {
+	let n = 0;
+	for (let i = 3; i < r.data.length; i += 4) if (r.data[i] > 128) n++;
+	return n;
+}
+
 /** Una tira: imagen -> SAM -> poses -> tira. Si sale mal (pocas poses, error) se vuelve a pedir. */
 async function makeStrip(kind: StripKind, input: CreateInput, reference: string): Promise<Strip> {
 	let lastError: unknown;
@@ -176,19 +224,27 @@ async function makeStrip(kind: StripKind, input: CreateInput, reference: string)
 			);
 			const raster = await dataUrlToRaster(image);
 			const background = estimateBackground(raster);
-			const { ask, min, max } = STRIPS[kind];
-			let picked: SamObject[] = [];
-			try {
-				picked = pickObjects(await segment(raster, input.noun, true), min, max);
-			} catch (e) {
-				if (!(e instanceof CharacterError)) throw e;
-			}
-			// Si faltan poses (aspas o capas que tocan a la vecina y las juntan), se cortan en celdas parejas.
-			if (picked.length < ask) {
-				const cells = pickObjects(splitStripByColumns(raster, background, ask), min, max);
-				if (cells.length > picked.length) picked = cells;
-			}
-			const frames = picked.map((o) => cutObject(raster, o, background));
+			const { cols, rows, min } = STRIPS[kind];
+			// SAM marca las poses (semillas) y, en paralelo, Spark mira hacia dónde apuntan.
+			const [seeds, facing] = await Promise.all([
+				segment(raster, input.noun, false),
+				kind === 'stand' ? Promise.resolve('unclear' as const) : facingOf(raster)
+			]);
+			// Cada pose se recorta dentro de su celda: lo que cruce el borde de la celda no cuenta.
+			let frames = gridCells(raster, background, cols, rows)
+				.map((cell) => cutCell(raster, cell, seeds, background))
+				.filter((f): f is Raster => f !== null);
+			// Una "pose" muy chica es una mota suelta, no un cuadro.
+			const sizes = frames.map(opaqueArea);
+			const biggest = Math.max(0, ...sizes);
+			frames = frames.filter((_, i) => sizes[i] >= biggest * 0.25);
+			if (frames.length < min)
+				throw new CharacterError(
+					'fewPoses',
+					`Only ${frames.length} poses were found; at least ${min} are needed.`
+				);
+			// El juego espera personajes que miran a la derecha.
+			if (facing === 'left') frames = frames.map(flipHorizontal);
 			return buildStrip(frames, input.movement === 'walk' ? 'feet' : 'center');
 		} catch (e) {
 			lastError = e;
@@ -237,4 +293,79 @@ export async function createCharacter(
 		Strip
 	>;
 	return { reference, move: byKind.move, stand: byKind.stand, jump: byKind.jump };
+}
+
+export type RefineScope = 'all' | StripKind;
+
+export interface Creation {
+	input: CreateInput;
+	created: CreatedStrips;
+}
+
+/**
+ * Retoca un personaje ya creado sin empezar de cero. Spark aplica el cambio a la descripción; después:
+ *   'all'  -> se edita la imagen del personaje (Muse Image con la actual como referencia) y se rehacen
+ *             todas las hojas con la nueva;
+ *   hoja   -> se rehace solo esa hoja con la referencia de siempre y la descripción nueva.
+ */
+export async function refineCharacter(
+	prev: Creation,
+	instruction: string,
+	scope: RefineScope,
+	lang: 'es' | 'en',
+	onProgress: Progress,
+	/** Estilo nuevo (solo con alcance 'all'); si cambia, se redibuja el mismo personaje en ese estilo. */
+	newStyle?: StyleId
+): Promise<Creation> {
+	const { input, created } = prev;
+	const restyle = scope === 'all' && !!newStyle && newStyle !== input.style;
+	// Solo se cambió el estilo (sin texto): la descripción queda igual y no hace falta consultar a Spark.
+	const refined = instruction.trim()
+		? await characterApi.refine(input.visual, input.noun, input.flight ?? '', instruction, lang)
+		: {
+				status: 'ok' as const,
+				message: '',
+				visual: input.visual,
+				noun: input.noun,
+				flight: input.flight ?? ''
+			};
+	if (refined.status !== 'ok') throw new CharacterError('refused', refined.message || instruction);
+	const next: CreateInput = {
+		...input,
+		style: restyle ? newStyle! : input.style,
+		visual: refined.visual,
+		noun: refined.noun || input.noun,
+		flight: input.movement === 'fly' ? refined.flight || input.flight : undefined
+	};
+
+	if (scope === 'all') {
+		onProgress('hero', 'working');
+		let reference: string;
+		try {
+			const hero = await dataUrlToRaster(
+				await characterApi.hero(next.visual, next.style, next.movement, {
+					reference: created.reference,
+					change: instruction.trim(),
+					restyle
+				}),
+				1024
+			);
+			reference = (await cutSubject(hero, next.noun, true)).reference;
+			onProgress('hero', 'done');
+		} catch (e) {
+			onProgress('hero', 'failed', (e as Error).message);
+			throw e;
+		}
+		return { input: next, created: await createCharacter({ ...next, reference }, onProgress) };
+	}
+
+	onProgress(scope, 'working');
+	try {
+		const strip = await makeStrip(scope, next, created.reference);
+		onProgress(scope, 'done');
+		return { input: next, created: { ...created, [scope]: strip } };
+	} catch (e) {
+		onProgress(scope, 'failed', (e as Error).message);
+		throw e;
+	}
 }

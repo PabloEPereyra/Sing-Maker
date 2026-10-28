@@ -1,6 +1,6 @@
 // Personajes creados con IA, guardados en el dispositivo (IndexedDB: son imágenes, no caben en
 // localStorage). Cada personaje guarda sus tiras de cuadros como PNG con transparencia.
-import type { Movement } from './spec';
+import type { Movement, StyleId } from './spec';
 
 const DB_NAME = 'singmaker';
 const STORE = 'characters';
@@ -14,6 +14,16 @@ export interface SheetRecord {
 	frameHeight: number;
 }
 
+/** Con qué se creó el personaje: es lo que permite retocarlo después. */
+export interface CharacterMeta {
+	visual: string;
+	noun: string;
+	flight?: string;
+	style: StyleId;
+	/** Imagen de referencia del personaje sobre verde (JPEG, data URL). */
+	reference: string;
+}
+
 export interface CharacterRecord {
 	id: string;
 	name: string;
@@ -25,6 +35,8 @@ export interface CharacterRecord {
 	move: SheetRecord;
 	/** Solo caminantes: despegue, subida, bajada. */
 	jump?: SheetRecord;
+	/** Ausente en los creados antes de poder editar y en algunos importados: se reconstruye al editar. */
+	meta?: CharacterMeta;
 }
 
 export const characters = $state<{ list: CharacterRecord[]; loaded: boolean }>({
@@ -80,6 +92,12 @@ export async function addCharacter(
 	await run('readwrite', (s) => s.put(full));
 	characters.list = [...characters.list, full];
 	return full;
+}
+
+/** Reemplaza un personaje guardado (editado). */
+export async function updateCharacter(rec: CharacterRecord): Promise<void> {
+	await run('readwrite', (s) => s.put(rec));
+	characters.list = characters.list.map((c) => (c.id === rec.id ? rec : c));
 }
 
 export async function removeCharacter(id: string): Promise<void> {

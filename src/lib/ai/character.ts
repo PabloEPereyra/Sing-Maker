@@ -14,6 +14,15 @@ export type { Movement, StripKind, StyleId };
 const STYLE_PROMPT: Record<StyleId, string> = {
 	cute3d: 'cute soft 3D cartoon render, big expressive eyes, soft lighting, clean and friendly',
 	cartoon: 'flat 2D cartoon illustration, bold clean outlines, bright colors',
+	anime:
+		'anime style cel-shaded illustration, clean line art, large expressive eyes, vibrant colors, crisp highlights',
+	ligneclaire:
+		'ligne claire comic style: clean dark outlines of one uniform thickness, flat solid colors with no gradients and no shading, clear readable shapes',
+	comic:
+		'retro comic-book style: bold black ink outlines, flat saturated colors, halftone dot shading',
+	clay: 'claymation plasticine style, soft handmade clay textures, rounded forms, soft studio lighting',
+	flatvector:
+		'flat vector illustration, minimal geometric shapes, solid colors, no gradients, no outlines',
 	pixel: 'chunky pixel art sprite, limited palette, crisp pixels',
 	watercolor: 'soft watercolor storybook illustration, gentle colors'
 };
@@ -43,7 +52,20 @@ export const CharacterRequestSchema = z.discriminatedUnion('action', [
 		visual: z.string().min(3).max(600),
 		style: z.enum(STYLES).default('cute3d'),
 		movement: z.enum(['walk', 'fly']),
-		flight: z.string().max(300).optional()
+		flight: z.string().max(300).optional(),
+		/** Retoque: se edita esta imagen (el personaje actual) aplicando `change`, en vez de dibujar uno nuevo. */
+		reference: dataUrl.optional(),
+		change: z.string().max(300).optional(),
+		/** El estilo de dibujo cambió: se redibuja el mismo personaje en el estilo nuevo. */
+		restyle: z.boolean().optional()
+	}),
+	z.object({
+		action: z.literal('refine'),
+		visual: z.string().min(3).max(600),
+		noun: z.string().min(1).max(80),
+		flight: z.string().max(300).default(''),
+		instruction: z.string().min(2).max(300),
+		lang: z.enum(['es', 'en']).default('es')
 	}),
 	z.object({
 		action: z.literal('strip'),
@@ -54,7 +76,8 @@ export const CharacterRequestSchema = z.discriminatedUnion('action', [
 		flight: z.string().max(300).optional(),
 		reference: dataUrl
 	}),
-	z.object({ action: z.literal('segment'), image: dataUrl, noun: z.string().min(1).max(80) })
+	z.object({ action: z.literal('segment'), image: dataUrl, noun: z.string().min(1).max(80) }),
+	z.object({ action: z.literal('facing'), image: dataUrl })
 ]);
 export type CharacterRequest = z.infer<typeof CharacterRequestSchema>;
 
@@ -226,7 +249,7 @@ export function mediaConfigFromEnv(
 const POSES = (flight?: string): Record<Movement, Record<StripKind, string>> => ({
 	walk: {
 		move: 'a looping RUN CYCLE (contact, down, passing, up poses; the last frame flows back into the first), running to the right',
-		jump: 'a JUMP sequence in order: crouched anticipation, pushing off, rising with body stretched, apex, falling with legs reaching down to land',
+		jump: 'a JUMP sequence of 6 poses in order: crouched anticipation, pushing off the ground, rising with body stretched, apex of the jump, falling with legs reaching down, landing and absorbing the impact',
 		stand:
 			'TWO poses: (1) standing relaxed in side view facing right; (2) standing facing the viewer, front view, one hand waving hello'
 	},
@@ -240,8 +263,20 @@ const POSES = (flight?: string): Record<Movement, Record<StripKind, string>> => 
 	}
 });
 
+/** Retoque de la imagen del personaje: se cambia solo lo pedido y todo lo demás queda igual. */
+export function heroEditPrompt(
+	visual: string,
+	style: StyleId,
+	change: string,
+	restyle = false
+): string {
+	if (restyle)
+		return `Redraw the character of the reference image (${visual}) in this art style: ${STYLE_PROMPT[style]}. Keep the same identity, colors, accessories, side view facing RIGHT, framing and ${BACKDROP} background.${change ? ` Also apply this change: ${change}.` : ''} Whole body fully visible and not cropped, no shadows, no ground, no text.`;
+	return `Edit the reference image: keep EXACTLY the same character (${visual}), the same art style (${STYLE_PROMPT[style]}), the same side view facing RIGHT, the same framing and the same ${BACKDROP} background; change ONLY this: ${change}. Whole body fully visible and not cropped, no shadows, no ground, no text.`;
+}
+
 export function heroPrompt(visual: string, style: StyleId): string {
-	return `Character design of ${visual}. ${STYLE_PROMPT[style]}. Full body, a single character centered, side view facing right, whole body fully visible and not cropped, on a ${BACKDROP} background with no shadows, no ground, no text.`;
+	return `Character design of ${visual}. ${STYLE_PROMPT[style]}. Full body, a single character centered, side view facing RIGHT (the front of the character or vehicle points toward the right edge), whole body fully visible and not cropped, on a ${BACKDROP} background with no shadows, no ground, no text.`;
 }
 
 export function stripPrompt(
@@ -251,8 +286,12 @@ export function stripPrompt(
 	movement: Movement,
 	flight?: string
 ): string {
-	const n = STRIPS[kind].ask;
-	return `Sprite sheet of the SAME character as the reference image (${visual}), exactly ${n} separate poses in ONE single horizontal row, evenly spaced with clear empty space between poses, same size and same art style in every pose, none overlapping or touching: ${POSES(flight)[movement][kind]}. ${STYLE_PROMPT[style]}. Each pose shows the whole body fully visible and not cropped. ${BACKDROP} background everywhere, no shadows, no ground line, no text, no numbers, no borders.`;
+	const { cols, rows, ask } = STRIPS[kind];
+	const layout =
+		rows === 1
+			? `ONE row of ${cols} equal cells`
+			: `a grid of ${cols} columns by ${rows} rows (${ask} equal cells)`;
+	return `Sprite sheet of the SAME character as the reference image (${visual}), laid out as ${layout}, exactly one pose per cell, in reading order (left to right, then top to bottom) as the animation order. Each pose sits fully inside its own cell, centered, with generous empty space on all sides: nothing (limbs, tools, rotor blades, capes, tails, effects) may touch or cross the edges of its cell or touch another pose. Same size and same art style in every pose. Side view with the character facing RIGHT: the front of the character or of its vehicle (face, nose, cockpit) points toward the right edge of the image. ${POSES(flight)[movement][kind]}. ${STYLE_PROMPT[style]}. Each pose shows the whole body fully visible and not cropped. ${BACKDROP} background everywhere, no grid lines, no borders, no shadows, no ground line, no text, no numbers.`;
 }
 
 interface ImageResponse {
@@ -343,5 +382,88 @@ function upstreamError(status: number, body: string): GenerateError {
 	return new GenerateError(`The model service failed (${status}).`, 502, message ? [message] : []);
 }
 
-/** Tamaño pedido para cada imagen: tiras anchas (4:1) y el personaje solo cuadrado. */
-export const SIZE = { strip: '2000x500', hero: '1024x1024' } as const;
+/** Tamaño pedido para cada imagen: el personaje solo, cuadrado; las hojas de poses, en la proporción de su grilla. */
+export const SIZE = { hero: '1024x1024', grid: '1536x1024', stand: '1536x768' } as const;
+export const sizeFor = (kind: StripKind): string => (kind === 'stand' ? SIZE.stand : SIZE.grid);
+
+// ---------- Spark: ¿hacia dónde mira? ----------
+
+export const FACING_JSON_SCHEMA = {
+	type: 'object',
+	additionalProperties: false,
+	required: ['facing'],
+	properties: { facing: { type: 'string', enum: ['left', 'right', 'front', 'unclear'] } }
+};
+const FacingSchema = z.object({ facing: z.enum(['left', 'right', 'front', 'unclear']) });
+export type Facing = z.infer<typeof FacingSchema>['facing'];
+
+/** Hacia dónde mira el personaje (o su vehículo) en una imagen; sirve para espejarla si mira a la izquierda. */
+export async function detectFacing(
+	image: string,
+	config: LlmConfig,
+	fetchImpl: typeof fetch = fetch
+): Promise<Facing> {
+	const messages: Message[] = [
+		{
+			role: 'user',
+			content: [
+				{
+					type: 'text',
+					text: 'The image shows a game character (possibly several poses of it). Looking at the character, or the vehicle it rides if any, which side of the image does its FRONT point to (face, nose, cockpit, direction of travel)? "right" or "left" for a side view, "front" if it looks at the viewer, "unclear" if you cannot tell or the poses disagree.'
+				},
+				{ type: 'image_url', image_url: { url: image } }
+			]
+		}
+	];
+	return (await askJson(messages, config, fetchImpl, FacingSchema, FACING_JSON_SCHEMA, 'facing'))
+		.facing;
+}
+
+// ---------- Spark: retocar la descripción ----------
+
+export const REFINE_JSON_SCHEMA = {
+	type: 'object',
+	additionalProperties: false,
+	required: ['status', 'message', 'visual', 'noun', 'flight'],
+	properties: {
+		status: { type: 'string', enum: ['ok', 'clarify', 'refuse'] },
+		message: { type: 'string' },
+		visual: { type: 'string' },
+		noun: { type: 'string' },
+		flight: { type: 'string' }
+	}
+};
+const RefineSchema = z.object({
+	status: z.enum(['ok', 'clarify', 'refuse']),
+	message: z.string(),
+	visual: z.string(),
+	noun: z.string(),
+	flight: z.string()
+});
+export type Refined = z.infer<typeof RefineSchema>;
+
+/** Aplica un pedido de cambio ("que la gorra sea roja", "el helicóptero no gira") a la descripción del personaje. */
+export async function refineBrief(
+	req: { visual: string; noun: string; flight: string; instruction: string; lang: 'es' | 'en' },
+	config: LlmConfig,
+	fetchImpl: typeof fetch = fetch
+): Promise<Refined> {
+	const language = req.lang === 'es' ? 'Spanish' : 'English';
+	const messages: Message[] = [
+		{
+			role: 'system',
+			content: `You update the description of an existing game character after the user asks for a change.
+Current description (visual): ${req.visual}
+Current segmentation noun: ${req.noun}
+Current way of moving/flying: ${req.flight || '(none)'}
+Answer with JSON only:
+- status: "ok" if the change is clear and allowed; "clarify" if you cannot tell what to change; "refuse" for real people, famous copyrighted characters, brands, violence, sexual or hateful content.
+- message: for "clarify" ask ONE short question in ${language}; for "refuse" a short polite reason in ${language}; otherwise an empty string.
+- visual: the FULL updated ENGLISH visual description (max 60 words) with ONLY the requested change applied and everything else kept. If the change is only about how it moves, keep it as is.
+- noun: the ENGLISH segmentation noun (kind of creature or object plus at most one color; name the whole visible object, e.g. the vehicle if it pilots one); keep the current one unless the change alters what the character is.
+- flight: the ENGLISH one-sentence description of how it moves/flies; update it if the request is about the movement or animation (e.g. "the rotor does not spin" -> make the spinning motion explicit); otherwise keep the current one. Never add wings unless asked.`
+		},
+		{ role: 'user', content: req.instruction }
+	];
+	return askJson(messages, config, fetchImpl, RefineSchema, REFINE_JSON_SCHEMA, 'character_refine');
+}

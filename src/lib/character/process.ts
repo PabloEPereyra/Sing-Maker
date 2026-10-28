@@ -49,6 +49,14 @@ function erode(mask: Uint8Array, w: number, h: number, n: number): Uint8Array {
 
 export type Rgb = [number, number, number];
 
+/** Rectángulo de píxeles: x1/y1 incluidos, x2/y2 excluidos. */
+export interface Rect {
+	x1: number;
+	y1: number;
+	x2: number;
+	y2: number;
+}
+
 /** Color del fondo liso de una imagen: mediana por canal de un marco de 4 px alrededor. */
 export function estimateBackground(src: Raster): Rgb {
 	const ring: number[][] = [[], [], []];
@@ -77,21 +85,24 @@ const GROW_FRACTION = 0.3;
  * traen un pelo del fondo), se suaviza (promedio 3×3) y en la franja del borde se le saca al verde
  * lo que sobra, que es el reflejo del fondo. El tamaño del resultado es el de la caja agrandada.
  */
-export function cutObject(src: Raster, obj: SamObject, background?: Rgb): Raster {
+export function cutObject(src: Raster, obj: SamObject, background?: Rgb, clip?: Rect): Raster {
 	const grow = background ? Math.round(Math.max(obj.mask.w, obj.mask.h) * GROW_FRACTION) : 0;
-	const x0 = Math.max(0, obj.box.x1 - grow);
-	const y0 = Math.max(0, obj.box.y1 - grow);
-	const w = Math.min(src.width, obj.box.x2 + 1 + grow) - x0;
-	const h = Math.min(src.height, obj.box.y2 + 1 + grow) - y0;
+	// `clip` (la celda de la grilla) limita todo: la máscara y el crecimiento nunca salen de ahí.
+	const x0 = Math.max(clip?.x1 ?? 0, obj.box.x1 - grow);
+	const y0 = Math.max(clip?.y1 ?? 0, obj.box.y1 - grow);
+	const w = Math.min(clip?.x2 ?? src.width, obj.box.x2 + 1 + grow) - x0;
+	const h = Math.min(clip?.y2 ?? src.height, obj.box.y2 + 1 + grow) - y0;
 	const out = newRaster(w, h);
 
 	// Máscara de SAM puesta en la región agrandada.
 	const mask = new Uint8Array(w * h);
-	const ox = obj.box.x1 - x0;
-	const oy = obj.box.y1 - y0;
 	for (let y = 0; y < obj.mask.h; y++)
-		for (let x = 0; x < obj.mask.w; x++)
-			if (obj.mask.data[y * obj.mask.w + x]) mask[(oy + y) * w + ox + x] = 1;
+		for (let x = 0; x < obj.mask.w; x++) {
+			const gx = obj.box.x1 + x - x0;
+			const gy = obj.box.y1 + y - y0;
+			if (obj.mask.data[y * obj.mask.w + x] && gx >= 0 && gy >= 0 && gx < w && gy < h)
+				mask[gy * w + gx] = 1;
+		}
 
 	if (background) {
 		const limit = BACKGROUND_DISTANCE * BACKGROUND_DISTANCE;
@@ -229,61 +240,149 @@ export function chromaObjects(src: Raster, background: Rgb, joinRadius = 10): Sa
 		});
 }
 
-/**
- * Plan C para una tira de `n` poses en fila: cuando las piezas de poses vecinas se tocan (aspas, capas
- * largas) no hay forma de separarlas por conexión. Se corta en `n` celdas parejas, y cada corte se
- * acomoda en la columna con menos píxeles de figura cerca del punto esperado.
- */
-export function splitStripByColumns(src: Raster, background: Rgb, n: number): SamObject[] {
-	const { width: w, height: h } = src;
+/** Máscara de lo que no es fondo (distancia de color al fondo liso mayor que el umbral). */
+function foregroundMask(src: Raster, background: Rgb): Uint8Array {
 	const limit = BACKGROUND_DISTANCE * BACKGROUND_DISTANCE;
-	const fg = new Uint8Array(w * h);
-	const mass = new Int32Array(w);
+	const fg = new Uint8Array(src.width * src.height);
+	for (let i = 0; i < fg.length; i++) {
+		const dr = src.data[i * 4] - background[0];
+		const dg = src.data[i * 4 + 1] - background[1];
+		const db = src.data[i * 4 + 2] - background[2];
+		if (dr * dr + dg * dg + db * db > limit) fg[i] = 1;
+	}
+	return fg;
+}
+
+/**
+ * Celdas de una hoja de poses en grilla de `cols`×`rows`. Los cortes caen en el punto esperado, corridos
+ * hacia la franja con menos dibujo cerca (hasta un 20 % de una celda), por si el modelo no las dejó parejas.
+ */
+export function gridCells(src: Raster, background: Rgb, cols: number, rows: number): Rect[] {
+	const { width: w, height: h } = src;
+	const fg = foregroundMask(src, background);
+	const colMass = new Int32Array(w);
+	const rowMass = new Int32Array(h);
 	for (let y = 0; y < h; y++)
-		for (let x = 0; x < w; x++) {
-			const i = (y * w + x) * 4;
-			const dr = src.data[i] - background[0];
-			const dg = src.data[i + 1] - background[1];
-			const db = src.data[i + 2] - background[2];
-			if (dr * dr + dg * dg + db * db > limit) {
-				fg[y * w + x] = 1;
-				mass[x]++;
+		for (let x = 0; x < w; x++)
+			if (fg[y * w + x]) {
+				colMass[x]++;
+				rowMass[y]++;
 			}
-		}
-	const cell = w / n;
-	const cuts = [0];
-	for (let k = 1; k < n; k++) {
-		const expected = Math.round(k * cell);
-		const from = Math.max(cuts[k - 1] + 1, Math.round(expected - cell * 0.2));
-		const to = Math.min(w - 1, Math.round(expected + cell * 0.2));
-		let best = expected;
-		for (let x = from; x <= to; x++) if (mass[x] < mass[best] || best < from) best = x;
-		cuts.push(best);
-	}
-	cuts.push(w);
-	const objects: SamObject[] = [];
-	for (let k = 0; k < n; k++) {
-		let x1 = w;
-		let x2 = -1;
-		let y1 = h;
-		let y2 = -1;
-		for (let y = 0; y < h; y++)
-			for (let x = cuts[k]; x < cuts[k + 1]; x++)
-				if (fg[y * w + x]) {
-					if (x < x1) x1 = x;
-					if (x > x2) x2 = x;
-					if (y < y1) y1 = y;
-					if (y > y2) y2 = y;
+	const cuts = (length: number, n: number, mass: Int32Array): number[] => {
+		const out = [0];
+		const cell = length / n;
+		for (let k = 1; k < n; k++) {
+			const expected = Math.round(k * cell);
+			const from = Math.max(out[k - 1] + 1, Math.round(expected - cell * 0.2));
+			const to = Math.min(length - 1, Math.round(expected + cell * 0.2));
+			let best = Math.min(Math.max(expected, from), to);
+			let bestCost = Infinity;
+			for (let i = from; i <= to; i++) {
+				const cost = mass[i] * 1000 + Math.abs(i - expected);
+				if (cost < bestCost) {
+					bestCost = cost;
+					best = i;
 				}
-		if (x2 < 0) continue;
-		const mw = x2 - x1 + 1;
-		const mh = y2 - y1 + 1;
-		const data = new Uint8Array(mw * mh);
-		for (let y = y1; y <= y2; y++)
-			for (let x = x1; x <= x2; x++) data[(y - y1) * mw + x - x1] = fg[y * w + x];
-		objects.push({ id: `s${k}`, box: { x1, y1, x2, y2 }, mask: { w: mw, h: mh, data } });
+			}
+			out.push(best);
+		}
+		out.push(length);
+		return out;
+	};
+	const xs = cuts(w, cols, colMass);
+	const ys = cuts(h, rows, rowMass);
+	const cells: Rect[] = [];
+	for (let r = 0; r < rows; r++)
+		for (let c = 0; c < cols; c++)
+			cells.push({ x1: xs[c], y1: ys[r], x2: xs[c + 1], y2: ys[r + 1] });
+	return cells;
+}
+
+/** Con menos píxeles de máscara que esto, SAM no marcó nada útil en la celda y se usa el color. */
+const MIN_SEED_PIXELS = 150;
+
+/**
+ * Recorta la pose de una celda. Las máscaras de SAM (`seeds`) que caen en la celda son la semilla; si no hay,
+ * es todo lo que no es fondo. Después crece por color pero sin salir de la celda, así una pieza larga de la
+ * pose vecina (aspas) no se cuela. Devuelve null si la celda está vacía.
+ */
+export function cutCell(
+	src: Raster,
+	cell: Rect,
+	seeds: SamObject[],
+	background: Rgb
+): Raster | null {
+	const w = cell.x2 - cell.x1;
+	const h = cell.y2 - cell.y1;
+	let mask = new Uint8Array(w * h);
+	let count = 0;
+	for (const o of seeds)
+		for (let y = 0; y < o.mask.h; y++)
+			for (let x = 0; x < o.mask.w; x++) {
+				const gx = o.box.x1 + x - cell.x1;
+				const gy = o.box.y1 + y - cell.y1;
+				if (
+					o.mask.data[y * o.mask.w + x] &&
+					gx >= 0 &&
+					gy >= 0 &&
+					gx < w &&
+					gy < h &&
+					!mask[gy * w + gx]
+				) {
+					mask[gy * w + gx] = 1;
+					count++;
+				}
+			}
+	if (count < MIN_SEED_PIXELS) {
+		const fg = foregroundMask(src, background);
+		mask = new Uint8Array(w * h);
+		count = 0;
+		for (let y = 0; y < h; y++)
+			for (let x = 0; x < w; x++)
+				if (fg[(cell.y1 + y) * src.width + cell.x1 + x]) {
+					mask[y * w + x] = 1;
+					count++;
+				}
 	}
-	return objects;
+	if (count < MIN_SEED_PIXELS) return null;
+	let x1 = w;
+	let y1 = h;
+	let x2 = -1;
+	let y2 = -1;
+	for (let y = 0; y < h; y++)
+		for (let x = 0; x < w; x++)
+			if (mask[y * w + x]) {
+				if (x < x1) x1 = x;
+				if (x > x2) x2 = x;
+				if (y < y1) y1 = y;
+				if (y > y2) y2 = y;
+			}
+	const mw = x2 - x1 + 1;
+	const mh = y2 - y1 + 1;
+	const data = new Uint8Array(mw * mh);
+	for (let y = y1; y <= y2; y++)
+		for (let x = x1; x <= x2; x++) data[(y - y1) * mw + x - x1] = mask[y * w + x];
+	const object: SamObject = {
+		id: 'cell',
+		box: { x1: cell.x1 + x1, y1: cell.y1 + y1, x2: cell.x1 + x2, y2: cell.y1 + y2 },
+		mask: { w: mw, h: mh, data }
+	};
+	return cutObject(src, object, background, cell);
+}
+
+/** Espeja un raster de izquierda a derecha. */
+export function flipHorizontal(r: Raster): Raster {
+	const out = newRaster(r.width, r.height);
+	for (let y = 0; y < r.height; y++)
+		for (let x = 0; x < r.width; x++) {
+			const from = (y * r.width + x) * 4;
+			const to = (y * r.width + (r.width - 1 - x)) * 4;
+			out.data[to] = r.data[from];
+			out.data[to + 1] = r.data[from + 1];
+			out.data[to + 2] = r.data[from + 2];
+			out.data[to + 3] = r.data[from + 3];
+		}
+	return out;
 }
 
 /**

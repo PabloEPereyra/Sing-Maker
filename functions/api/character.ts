@@ -3,13 +3,17 @@
 // La clave de Meta vive en el servidor.
 import {
 	CharacterRequestSchema,
+	detectFacing,
 	generateImage,
+	heroEditPrompt,
 	heroPrompt,
 	listObjects,
 	makeBrief,
+	refineBrief,
 	mediaConfigFromEnv,
 	segmentImage,
 	SIZE,
+	sizeFor,
 	stripPrompt
 } from '../../src/lib/ai/character';
 import { configFromEnv, GenerateError } from '../../src/lib/ai/generate';
@@ -46,18 +50,26 @@ export async function onRequestPost({
 				return json({ objects: await listObjects(input, config) });
 			case 'hero':
 				return json({
-					image: await generateImage(heroPrompt(input.visual, input.style), media, {
-						size: SIZE.hero
-					})
+					image: await generateImage(
+						input.reference && (input.change || input.restyle)
+							? heroEditPrompt(input.visual, input.style, input.change ?? '', input.restyle)
+							: heroPrompt(input.visual, input.style),
+						media,
+						{ size: SIZE.hero, reference: input.reference }
+					)
 				});
+			case 'refine':
+				return json(await refineBrief(input, config));
 			case 'strip':
 				return json({
 					image: await generateImage(
 						stripPrompt(input.kind, input.visual, input.style, input.movement, input.flight),
 						media,
-						{ size: SIZE.strip, reference: input.reference }
+						{ size: sizeFor(input.kind), reference: input.reference }
 					)
 				});
+			case 'facing':
+				return json({ facing: await detectFacing(input.image, config) });
 			case 'segment':
 				return json({ text: await segmentImage(input.image, input.noun, media) });
 		}

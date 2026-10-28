@@ -1,7 +1,7 @@
 // Exportar un personaje: un .zip con las tiras de cuadros en PNG con transparencia y un JSON con lo
 // necesario para usarlas en otro lado (cuadros, tamaño de cada cuadro, tipo de movimiento). Los .json de
 // cada hoja tienen el mismo formato que los de static/themes/.
-import type { SheetRecord } from './store.svelte';
+import type { CharacterMeta, SheetRecord } from './store.svelte';
 import type { Movement } from './spec';
 import { zipStore } from './zip';
 
@@ -11,6 +11,7 @@ export interface ExportableCharacter {
 	stand: SheetRecord;
 	move: SheetRecord;
 	jump?: SheetRecord;
+	meta?: CharacterMeta;
 }
 
 /** Nombre de archivo seguro a partir del nombre del personaje. */
@@ -55,6 +56,24 @@ export async function buildExportZip(c: ExportableCharacter): Promise<Blob> {
 		});
 		meta[role] = { file: `${base}-${role}.png`, ...info, description: SHEET_ROLES[role] };
 	}
+	// Con qué se creó (para poder retocarlo después de importarlo): descripción y la imagen de referencia.
+	let source: Record<string, unknown> | undefined;
+	if (c.meta) {
+		const ref = c.meta.reference.match(/^data:image\/jpeg;base64,(.+)$/);
+		if (ref) {
+			entries.push({
+				name: `${base}-reference.jpg`,
+				data: Uint8Array.from(atob(ref[1]), (ch) => ch.charCodeAt(0))
+			});
+		}
+		source = {
+			visual: c.meta.visual,
+			noun: c.meta.noun,
+			flight: c.meta.flight,
+			style: c.meta.style,
+			reference: ref ? `${base}-reference.jpg` : undefined
+		};
+	}
 	entries.push({
 		name: 'character.json',
 		data: new TextEncoder().encode(
@@ -63,7 +82,8 @@ export async function buildExportZip(c: ExportableCharacter): Promise<Blob> {
 					name: c.name,
 					movement: c.movement,
 					note: 'Hojas de cuadros iguales en fila (PNG con transparencia), apoyadas en el borde inferior (caminante) o centradas (volador).',
-					sheets: meta
+					sheets: meta,
+					source
 				},
 				null,
 				'\t'

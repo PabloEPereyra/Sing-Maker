@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildStrip,
 	chromaObjects,
+	cutCell,
 	cutObject,
+	flipHorizontal,
+	gridCells,
 	estimateBackground,
 	newRaster,
 	pickObjects,
@@ -208,9 +211,8 @@ describe('separar figuras por color (plan B sin SAM)', () => {
 	});
 });
 
-describe('cortar una tira por columnas (poses que se tocan)', () => {
-	it('separa 3 poses unidas por un puente de aspas en el valle de menos píxeles', async () => {
-		const { splitStripByColumns } = await import('../src/lib/character/process');
+describe('grilla de poses', () => {
+	it('recorta cada pose en su celda aunque las aspas de la vecina la toquen', () => {
 		const img = newRaster(300, 100);
 		for (let i = 0; i < img.width * img.height; i++) img.data.set([90, 140, 70, 255], i * 4);
 		const paint = (x: number, y: number, w: number, h: number) => {
@@ -218,15 +220,142 @@ describe('cortar una tira por columnas (poses que se tocan)', () => {
 				for (let i = 0; i < w; i++)
 					img.data.set([240, 60, 60, 255], ((y + j) * img.width + x + i) * 4);
 		};
-		paint(15, 40, 70, 50);
+		paint(15, 40, 70, 50); // cuerpos
 		paint(115, 40, 70, 50);
 		paint(215, 40, 70, 50);
-		paint(80, 20, 40, 4); // aspas: unen la 1.ª con la 2.ª
+		paint(80, 20, 40, 4); // aspas que unen la 1.ª con la 2.ª
 		paint(180, 20, 40, 4); // y la 2.ª con la 3.ª
-		const cells = splitStripByColumns(img, [90, 140, 70], 3);
+		const bg: [number, number, number] = [90, 140, 70];
+		const cells = gridCells(img, bg, 3, 1);
 		expect(cells).toHaveLength(3);
-		expect(cells.map((c) => c.box.y2 - c.box.y1 + 1)).toEqual(
-			[71, 71, 71].map((v) => v - 21 + 21 - 1)
+		const frames = cells.map((c) => cutCell(img, c, [], bg)!);
+		for (const f of frames) {
+			expect(f).not.toBeNull();
+			// Un cuerpo (70 px) más un tramo de aspas: nunca un cuerpo vecino entero (~170 px).
+			expect(f.width).toBeLessThan(110);
+		}
+	});
+
+	it('una celda vacía da null', () => {
+		const img = newRaster(100, 50);
+		for (let i = 0; i < img.width * img.height; i++) img.data.set([90, 140, 70, 255], i * 4);
+		expect(cutCell(img, { x1: 0, y1: 0, x2: 50, y2: 50 }, [], [90, 140, 70])).toBeNull();
+	});
+
+	it('espejar cambia el lado', () => {
+		const r = newRaster(4, 1);
+		r.data.set([255, 0, 0, 255], 0);
+		const f = flipHorizontal(r);
+		expect(Array.from(f.data.slice(12, 16))).toEqual([255, 0, 0, 255]);
+		expect(f.data[3]).toBe(0);
+	});
+});
+
+describe('importar un personaje (.zip)', () => {
+	/** Zip de un solo archivo, con el método (0 = sin compresión, 8 = deflate) y tamaño declarado a elección. */
+	async function zipOf(
+		name: string,
+		payload: Uint8Array,
+		opts: { method?: 0 | 8; declared?: number; crc?: number } = {}
+	) {
+		const { deflateRawSync } = await import('node:zlib');
+		const { crc32 } = await import('../src/lib/character/zip');
+		const method = opts.method ?? 0;
+		const body = method === 8 ? new Uint8Array(deflateRawSync(payload)) : payload;
+		const nameBytes = new TextEncoder().encode(name);
+		const crc = opts.crc ?? crc32(payload);
+		const usize = opts.declared ?? payload.length;
+		const local = new DataView(new ArrayBuffer(30));
+		local.setUint32(0, 0x04034b50, true);
+		local.setUint16(8, method, true);
+		local.setUint32(14, crc, true);
+		local.setUint32(18, body.length, true);
+		local.setUint32(22, usize, true);
+		local.setUint16(26, nameBytes.length, true);
+		const cd = new DataView(new ArrayBuffer(46));
+		cd.setUint32(0, 0x02014b50, true);
+		cd.setUint16(10, method, true);
+		cd.setUint32(16, crc, true);
+		cd.setUint32(20, body.length, true);
+		cd.setUint32(24, usize, true);
+		cd.setUint16(28, nameBytes.length, true);
+		cd.setUint32(42, 0, true);
+		const end = new DataView(new ArrayBuffer(22));
+		end.setUint32(0, 0x06054b50, true);
+		end.setUint16(8, 1, true);
+		end.setUint16(10, 1, true);
+		end.setUint32(12, 46 + nameBytes.length, true);
+		end.setUint32(16, 30 + nameBytes.length + body.length, true);
+		return Uint8Array.from([
+			...new Uint8Array(local.buffer),
+			...nameBytes,
+			...body,
+			...new Uint8Array(cd.buffer),
+			...nameBytes,
+			...new Uint8Array(end.buffer)
+		]);
+	}
+
+	it('lee un zip sin compresión y uno con deflate (el de cualquier programa)', async () => {
+		const { readZip } = await import('../src/lib/character/import');
+		const text = new TextEncoder().encode('hola '.repeat(200));
+		for (const method of [0, 8] as const) {
+			const files = await readZip(await zipOf('dir/a.txt', text, { method }));
+			expect(Array.from(files.keys())).toEqual(['a.txt']);
+			expect(files.get('a.txt')).toEqual(text);
+		}
+	});
+
+	it('rechaza lo que no es un zip, un CRC roto y una entrada que pesa más de lo declarado', async () => {
+		const { readZip, ImportError } = await import('../src/lib/character/import');
+		await expect(
+			readZip(new TextEncoder().encode('esto no es un zip, para nada de nada'))
+		).rejects.toBeInstanceOf(ImportError);
+		const text = new TextEncoder().encode('x'.repeat(500));
+		await expect(readZip(await zipOf('a.txt', text, { crc: 123 }))).rejects.toBeInstanceOf(
+			ImportError
 		);
+		await expect(
+			readZip(await zipOf('a.txt', text, { method: 8, declared: 10 }))
+		).rejects.toBeInstanceOf(ImportError);
+	});
+
+	it('valida el manifiesto', async () => {
+		const { parseManifest, ImportError } = await import('../src/lib/character/import');
+		const sheet = (file: string, frames = 6) => ({
+			file,
+			frames,
+			frameWidth: 200,
+			frameHeight: 220
+		});
+		const ok = parseManifest({
+			name: '  Michi  ',
+			movement: 'walk',
+			sheets: { stand: sheet('s.png', 2), move: sheet('m.png'), jump: sheet('../x/j.png', 5) }
+		});
+		expect(ok.name).toBe('Michi');
+		expect(ok.jump?.file).toBe('j.png'); // sin rutas
+		expect(() => parseManifest(null)).toThrow(ImportError);
+		expect(() => parseManifest({ movement: 'swim', sheets: {} })).toThrow(ImportError);
+		expect(() =>
+			parseManifest({
+				movement: 'fly',
+				sheets: { stand: sheet('s.png'), move: { ...sheet('m.png'), frames: 999 } }
+			})
+		).toThrow(ImportError);
+		expect(() =>
+			parseManifest({ movement: 'fly', sheets: { stand: sheet('s.exe'), move: sheet('m.png') } })
+		).toThrow(ImportError);
+	});
+
+	it('un zip exportado por la app se puede volver a leer', async () => {
+		const { readZip } = await import('../src/lib/character/import');
+		const { zipStore } = await import('../src/lib/character/zip');
+		const zip = zipStore([
+			{ name: 'a-move.png', data: new Uint8Array([137, 80, 78, 71, 1, 2, 3, 4, 5]) },
+			{ name: 'character.json', data: new TextEncoder().encode('{}') }
+		]);
+		const files = await readZip(zip);
+		expect([...files.keys()].sort()).toEqual(['a-move.png', 'character.json']);
 	});
 });
