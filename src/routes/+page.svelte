@@ -52,6 +52,8 @@
 	/** Batería, con un patrón elegido para cada familia de compás; `/2` la pasa a la mitad de velocidad. */
 	let drums = $state(false);
 	let drumsHalf = $state(false);
+	/** Al terminar un ejercicio: la voz parece desfasada (se señala el menú de configuración). */
+	let desync = $state(false);
 	let drumPick = $state<Record<MeterId, string>>({ '4/4': 'basic-44', '6/8': 'basic-68' });
 	let tolerance = $state(0.6);
 	let demo = $state(true); // sin micrófono hasta que se active
@@ -184,7 +186,7 @@
 		}
 		const d = await ensureMic();
 		if (!d) return;
-		stage.play(() => d.read().midi, d.latency);
+		stage.play(() => d.read().midi, d.latency + settings.latencyMs / 1000);
 	}
 
 	/** Play/pausa: arranca, pausa o retoma sin volver a empezar. */
@@ -300,7 +302,7 @@
 			>
 				<Icon name="mic" class="h-5 w-5" />
 			</button>
-			<ProfileMenu getDetector={micForCalibration} />
+			<ProfileMenu getDetector={micForCalibration} bind:highlight={desync} />
 		</div>
 	</header>
 
@@ -437,6 +439,7 @@
 					title={text.name}
 					{demo}
 					bind:phase
+					bind:desync
 					onStart={start}
 					onNext={next}
 				/>

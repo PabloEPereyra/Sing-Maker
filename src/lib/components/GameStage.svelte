@@ -11,7 +11,7 @@
 	import type { Sequence } from '$lib/music/generate';
 	import { scoreByRep } from '$lib/game/scoring';
 	import { COLLECTIBLES } from '$lib/game/collectibles';
-	import { noteLabel, settings } from '$lib/settings.svelte';
+	import { noteLabel, settings, ZOOM_MAX, ZOOM_MIN } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
 
@@ -24,6 +24,8 @@
 		demo: boolean;
 		/** Fase del juego, para que la página muestre play o pausa. */
 		phase?: Phase;
+		/** Al terminar un ejercicio, si la voz parece entrar desfasada (la página señala la configuración). */
+		desync?: boolean;
 		onStart: () => void;
 		onNext: () => void;
 	}
@@ -35,6 +37,7 @@
 		title,
 		demo,
 		phase = $bindable('idle'),
+		desync = $bindable(false),
 		onStart,
 		onNext
 	}: Props = $props();
@@ -52,12 +55,18 @@
 			created = new Game(canvas, theme, (s) => {
 				status = s;
 				phase = s.phase;
-				if (s.phase === 'done' && created) repScores = scoreByRep(created.getStars());
+				if (s.phase === 'done' && created) {
+					repScores = scoreByRep(created.getStars());
+					desync = created.looksDesynced;
+				} else if (s.phase !== 'done') desync = false;
 			});
 			created.setSequence(sequence, options);
 			game = created;
 		});
+		// La rueda no puede ser pasiva: se evita que la página haga scroll o zoom del navegador.
+		canvas.addEventListener('wheel', onWheel, { passive: false });
 		return () => {
+			canvas.removeEventListener('wheel', onWheel);
 			disposed = true;
 			created?.destroy();
 		};
@@ -76,6 +85,49 @@
 		const th = theme;
 		th.load().then(() => g?.setTheme(th));
 	});
+
+	// Zoom del escenario.
+	$effect(() => {
+		game?.setZoom(settings.zoom);
+	});
+
+	const ZOOM_STEP = 1.25;
+	function zoomBy(factor: number) {
+		settings.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, settings.zoom * factor));
+	}
+
+	// Rueda (el pellizco del trackpad llega como rueda con Ctrl) y pellizco con dos dedos.
+	function onWheel(e: WheelEvent) {
+		e.preventDefault();
+		zoomBy(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+	}
+	let touches: { id: number; x: number; y: number }[] = [];
+	let pinchStart = 0;
+	let zoomAtPinch = 1;
+	const spread = () => Math.hypot(touches[0].x - touches[1].x, touches[0].y - touches[1].y);
+	function onPointerDown(e: PointerEvent) {
+		if (e.pointerType !== 'touch') return;
+		touches = [
+			...touches.filter((p) => p.id !== e.pointerId),
+			{ id: e.pointerId, x: e.clientX, y: e.clientY }
+		];
+		if (touches.length === 2) {
+			pinchStart = spread();
+			zoomAtPinch = settings.zoom;
+		}
+	}
+	function onPointerMove(e: PointerEvent) {
+		const p = touches.find((x) => x.id === e.pointerId);
+		if (!p) return;
+		p.x = e.clientX;
+		p.y = e.clientY;
+		if (touches.length === 2 && pinchStart > 0)
+			settings.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, (zoomAtPinch * spread()) / pinchStart));
+	}
+	function onPointerEnd(e: PointerEvent) {
+		touches = touches.filter((p) => p.id !== e.pointerId);
+		pinchStart = 0;
+	}
 
 	// Objeto a recolectar elegido en "Personalizar".
 	$effect(() => {
@@ -116,7 +168,14 @@
 <div
 	class="relative h-full w-full overflow-hidden rounded-lg border border-border bg-sky shadow-xl"
 >
-	<canvas bind:this={canvas} class="block h-full w-full"></canvas>
+	<canvas
+		bind:this={canvas}
+		class="block h-full w-full touch-none"
+		onpointerdown={onPointerDown}
+		onpointermove={onPointerMove}
+		onpointerup={onPointerEnd}
+		onpointercancel={onPointerEnd}
+	></canvas>
 
 	{#if demo}
 		<div class="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-3">
@@ -149,6 +208,33 @@
 				<span class="text-xl font-bold tabular-nums">{status.collected}</span>
 				<span class="text-sm opacity-70">/ {status.total}</span>
 			</div>
+		</div>
+
+		<!-- Zoom -->
+		<div
+			class="absolute bottom-4 left-3 flex items-center overflow-hidden rounded-lg bg-black/30 text-white backdrop-blur-sm"
+			role="group"
+			aria-label={t('zoom.label')}
+		>
+			<button
+				class="grid h-8 w-8 place-items-center text-lg font-bold hover:bg-white/20 disabled:opacity-40"
+				aria-label={t('zoom.out')}
+				title={t('zoom.out')}
+				disabled={settings.zoom <= ZOOM_MIN + 0.01}
+				onclick={() => zoomBy(1 / ZOOM_STEP)}>−</button
+			>
+			<button
+				class="h-8 min-w-12 px-1 text-xs font-semibold tabular-nums hover:bg-white/20"
+				title={t('zoom.reset')}
+				onclick={() => (settings.zoom = 1)}>{Math.round(settings.zoom * 100)}%</button
+			>
+			<button
+				class="grid h-8 w-8 place-items-center text-lg font-bold hover:bg-white/20 disabled:opacity-40"
+				aria-label={t('zoom.in')}
+				title={t('zoom.in')}
+				disabled={settings.zoom >= ZOOM_MAX - 0.01}
+				onclick={() => zoomBy(ZOOM_STEP)}>+</button
+			>
 		</div>
 
 		{#if playing}
@@ -226,6 +312,15 @@
 							></div>
 						{/each}
 					</div>
+					{#if desync}
+						<p
+							role="note"
+							class="mb-4 flex items-start gap-2 rounded-lg bg-accent/10 p-3 text-left text-sm"
+						>
+							<span class="text-lg leading-none text-accent" aria-hidden="true">↗</span>
+							{t('sync.hint')}
+						</p>
+					{/if}
 					<div class="flex justify-center gap-3">
 						<button
 							class="flex items-center gap-1.5 rounded-lg bg-surface-2 px-5 py-2 font-semibold hover:bg-border"

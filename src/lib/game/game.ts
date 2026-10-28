@@ -6,7 +6,15 @@ import { measureBeats, tickBeats } from '$lib/music/meter';
 import type { Sequence, TimedNote } from '$lib/music/generate';
 import { midiToNote } from '$lib/music/notes';
 import { COLLECTIBLES, type CollectibleSkin } from './collectibles';
-import { buildStars, HIT_WINDOW_SEC, isHit, type PitchSample, type Star } from './scoring';
+import {
+	bestShift,
+	buildStars,
+	HIT_WINDOW_SEC,
+	isHit,
+	looksDesynced,
+	type PitchSample,
+	type Star
+} from './scoring';
 import type { Theme } from './theme';
 
 /** 'listen': antes de la cuenta suena una vez la primera repetición, con el personaje de frente. */
@@ -95,6 +103,12 @@ export class Game {
 	};
 	private stars: Star[] = [];
 	private history: PitchSample[] = [];
+	/** Todas las lecturas de la corrida (el historial de arriba solo guarda los últimos segundos). */
+	private run: PitchSample[] = [];
+	/** Zoom pedido y zoom mostrado (se acerca de a poco para que el cambio sea suave). */
+	private zoomTarget = 1;
+	private zoomNow = 1;
+	private desynced = false;
 	private phase: Phase = 'idle';
 	private t0 = 0; // tiempo del AudioContext en que empieza el ejercicio
 	private latency = 0;
@@ -148,6 +162,16 @@ export class Game {
 		this.resetWalker();
 	}
 
+	/** 1 = normal; más es acercar (menos tiempo y menos notas a la vista), menos es alejar. */
+	setZoom(z: number): void {
+		this.zoomTarget = z;
+	}
+
+	/** ¿La voz parece entrar desfasada respecto del ejercicio que terminó? */
+	get looksDesynced(): boolean {
+		return this.desynced;
+	}
+
 	setCollectible(skin: CollectibleSkin): void {
 		this.collectible = skin;
 	}
@@ -186,6 +210,8 @@ export class Game {
 		this.stop();
 		this.stars = buildStars(this.seq.notes);
 		this.history = [];
+		this.run = [];
+		this.desynced = false;
 		this.source = source;
 		this.latency = latency;
 		const ctx = getContext();
@@ -244,6 +270,7 @@ export class Game {
 		this.nextDrumStep = Math.max(0, Math.ceil(from / this.drumStepSec));
 		const visible = from - this.latency;
 		this.history = this.history.filter((h) => h.time <= visible);
+		this.run = this.run.filter((h) => h.time <= visible);
 		// Lo que se repite en el retroceso se vuelve a juzgar (si no, quedarían estrellas "recogidas"
 		// en el futuro, con edad negativa).
 		for (const s of this.stars) {
@@ -283,6 +310,7 @@ export class Game {
 		const dt = Math.min(0.05, (ms - (this.lastFrame || ms)) / 1000);
 		this.lastFrame = ms;
 		this.animClock += dt * this.speed;
+		this.zoomNow += (this.zoomTarget - this.zoomNow) * Math.min(1, dt * 10);
 		const anim = this.animClock;
 
 		let time = this.previewTime;
@@ -367,6 +395,7 @@ export class Game {
 		this.now = time;
 		this.sung = this.source ? this.source(time) : null;
 		this.history.push({ time, midi: this.sung });
+		this.run.push({ time, midi: this.sung });
 		while (this.history.length && this.history[0].time < time - 4) this.history.shift();
 		this.updateBird(dt);
 	}
@@ -522,6 +551,10 @@ export class Game {
 		this.phase = 'done';
 		this.source = null;
 		for (const s of this.stars) if (s.state === 'idle') s.state = 'missed';
+		this.desynced = looksDesynced(
+			bestShift(this.stars, this.run, this.opts.tolerance),
+			this.stars.length
+		);
 		this.emitStatus(true);
 	}
 
@@ -535,14 +568,15 @@ export class Game {
 		let hi = -Infinity;
 		for (const n of this.seq.notes) {
 			if (n.start + n.duration < time - 0.3) continue;
-			if (n.start > time + 3 / this.speed) break;
+			if (n.start > time + 3 / (this.speed * this.zoomNow)) break;
 			if (n.isRest) continue;
 			lo = Math.min(lo, n.midi);
 			hi = Math.max(hi, n.midi);
 		}
 		if (lo === Infinity) return;
 		const center = (lo + hi) / 2;
-		const span = Math.max(13, hi - lo + 7);
+		// El zoom achica o agranda el rango de notas a la vista, sin dejar notas fuera de pantalla.
+		const span = Math.max(hi - lo + 3, Math.max(13, hi - lo + 7) / this.zoomNow);
 		const k = snap ? 1 : Math.min(1, dt * 2.5);
 		this.camCenter += (center - this.camCenter) * k;
 		this.camSpan += (span - this.camSpan) * k;
@@ -584,7 +618,7 @@ export class Game {
 	 * no se achican) y lo que cambia es qué tan rápido pasan.
 	 */
 	private get pps(): number {
-		return Math.max(120, this.w / 6.5) * this.speed;
+		return Math.max(120, this.w / 6.5) * this.speed * this.zoomNow;
 	}
 
 	private get birdX(): number {
@@ -663,7 +697,7 @@ export class Game {
 	private drawTrail(time: number): void {
 		const { g } = this;
 		// La longitud en pantalla se mantiene: a más tempo, menos segundos de estela.
-		const trailSec = TRAIL_SEC / this.speed;
+		const trailSec = TRAIL_SEC / (this.speed * this.zoomNow);
 		const points: { x: number; y: number; age: number }[] = [];
 		for (let i = this.history.length - 1; i >= 0; i--) {
 			const s = this.history[i];

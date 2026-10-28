@@ -82,3 +82,82 @@ export function scoreByRep(stars: Star[]): RepScore[] {
 	}
 	return [...reps.values()].sort((a, b) => a.rep - b.rep);
 }
+
+export interface ShiftFit {
+	/** Corrimiento (s) que se le suma al tiempo de las lecturas para que calcen mejor con las notas. */
+	shift: number;
+	/** Estrellas que se recogerían con ese corrimiento. */
+	hits: number;
+	/** Estrellas que se recogen sin corrimiento. */
+	base: number;
+}
+
+const SHIFT_MIN_SEC = -0.3;
+const SHIFT_MAX_SEC = 0.4;
+const SHIFT_STEP_SEC = 0.02;
+/** Margen alrededor de una estrella con lecturas útiles (incluye el hueco máximo a interpolar). */
+const NEIGHBOURHOOD_SEC = MAX_SAMPLE_GAP_SEC + HIT_WINDOW_SEC;
+
+/** Primer índice con `time >= t` (el historial está ordenado por tiempo). */
+function lowerBound(history: PitchSample[], t: number): number {
+	let lo = 0;
+	let hi = history.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >> 1;
+		if (history[mid].time < t) lo = mid + 1;
+		else hi = mid;
+	}
+	return lo;
+}
+
+/**
+ * Busca el corrimiento de la voz respecto del ejercicio que más estrellas recoge. Si con un
+ * corrimiento claro se aciertan bastantes más que sin él, la voz entra desfasada: la usa el
+ * aviso de calibración del final del ejercicio.
+ */
+export function bestShift(stars: Star[], history: PitchSample[], tolerance: number): ShiftFit {
+	const count = (shift: number): number => {
+		let hits = 0;
+		for (const star of stars) {
+			const at = star.time - shift; // el instante de la estrella en el tiempo original de las lecturas
+			const from = lowerBound(history, at - NEIGHBOURHOOD_SEC);
+			const to = lowerBound(history, at + NEIGHBOURHOOD_SEC);
+			if (from >= to) continue;
+			const local = history.slice(from, to).map((s) => ({ time: s.time + shift, midi: s.midi }));
+			if (isHit(star, local, tolerance)) hits++;
+		}
+		return hits;
+	};
+	const shifts: number[] = [];
+	for (let s = SHIFT_MIN_SEC; s <= SHIFT_MAX_SEC + 1e-9; s += SHIFT_STEP_SEC)
+		shifts.push(Math.round(s * 1000) / 1000);
+	const hits = shifts.map((s) => count(s));
+	const base = count(0);
+	const top = Math.max(base, ...hits);
+	if (base === top) return { shift: 0, hits: base, base };
+	// Los corrimientos que aciertan lo máximo forman tramos; se toma el centro del más cercano a 0
+	// (el centro, y no el borde, es el valor más robusto).
+	let best: { from: number; to: number } | null = null;
+	for (let i = 0; i < shifts.length; i++) {
+		if (hits[i] !== top) continue;
+		let j = i;
+		while (j + 1 < shifts.length && hits[j + 1] === top) j++;
+		const run = { from: shifts[i], to: shifts[j] };
+		const dist = (r: { from: number; to: number }) => Math.min(Math.abs(r.from), Math.abs(r.to));
+		if (!best || dist(run) < dist(best)) best = run;
+		i = j;
+	}
+	const shift = best ? Math.round(((best.from + best.to) / 2) * 1000) / 1000 : 0;
+	return { shift, hits: top, base };
+}
+
+/** ¿El mejor corrimiento mejora lo bastante como para pensar que hay un desfase de calibración? */
+export function looksDesynced(fit: ShiftFit, starCount: number): boolean {
+	if (starCount < 10) return false;
+	const gain = fit.hits - fit.base;
+	return (
+		Math.abs(fit.shift) >= 0.06 &&
+		gain >= Math.max(4, Math.round(starCount * 0.1)) &&
+		fit.hits >= starCount * 0.3
+	);
+}

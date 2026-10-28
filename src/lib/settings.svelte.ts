@@ -8,6 +8,12 @@ export type CollectibleId = 'stars' | 'notes' | 'carrots';
 export type CharacterId = 'bird' | 'bunny';
 export type StartId = 'tree1' | 'tree2';
 
+/** Corrección del retraso de la voz (ms, con signo) y límites del zoom del escenario. */
+export const LATENCY_MIN_MS = -200;
+export const LATENCY_MAX_MS = 500;
+export const ZOOM_MIN = 0.5;
+export const ZOOM_MAX = 2.5;
+
 const KEY = 'singmaker-settings';
 
 function initialLang(): Lang {
@@ -21,12 +27,18 @@ export const settings = $state<{
 	collectible: CollectibleId;
 	character: CharacterId;
 	start: StartId;
+	/** Se suma a la latencia estimada: positivo si la voz se ve atrasada. */
+	latencyMs: number;
+	/** Zoom del escenario (1 = normal). */
+	zoom: number;
 }>({
 	lang: 'es',
 	notation: 'solfege',
 	collectible: 'stars',
 	character: 'bird',
-	start: 'tree1'
+	start: 'tree1',
+	latencyMs: 0,
+	zoom: 1
 });
 
 export function loadSettings(): void {
@@ -39,6 +51,9 @@ export function loadSettings(): void {
 		if (['stars', 'notes', 'carrots'].includes(s.collectible)) settings.collectible = s.collectible;
 		if (s.character === 'bird' || s.character === 'bunny') settings.character = s.character;
 		if (s.start === 'tree1' || s.start === 'tree2') settings.start = s.start;
+		if (typeof s.latencyMs === 'number')
+			settings.latencyMs = Math.max(LATENCY_MIN_MS, Math.min(LATENCY_MAX_MS, s.latencyMs));
+		if (typeof s.zoom === 'number') settings.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, s.zoom));
 	} catch {}
 }
 
