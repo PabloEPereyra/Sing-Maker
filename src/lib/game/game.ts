@@ -420,7 +420,7 @@ export class Game {
 			// En pausa queda congelada donde estaba.
 			if (this.phase !== 'paused') this.updateWalker(dt);
 		} else if (this.grounded) {
-			// Parado sobre el suelo.
+			// Antes de empezar el volador ya flota (sin objeto de partida) a la altura que marca el tema.
 			this.birdMidi = this.midiAt(this.groundTop - this.birdSize * 0.42);
 			this.birdVy = 0;
 			return;
@@ -663,7 +663,7 @@ export class Game {
 			!current.isHint &&
 			Math.abs(this.sung - current.midi) <= this.opts.tolerance;
 		this.theme.drawCharacter(g, this.birdX, this.y(this.birdMidi), this.birdSize, anim, {
-			flying: !this.grounded,
+			flying: this.theme.movement === 'fly' || !this.grounded,
 			facingFront: this.phase === 'listen',
 			moving: this.phase === 'countin' || this.phase === 'playing',
 			airborne: this.airborne,

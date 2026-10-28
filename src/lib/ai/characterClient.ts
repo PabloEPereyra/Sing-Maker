@@ -1,7 +1,11 @@
 // Cliente del navegador para /api/character (la clave de Meta nunca pasa por acá).
 import type { Movement, StripKind, StyleId } from '../character/spec';
 import type { Brief, Refined } from './character';
+import { t } from '../i18n';
 import { GenerateRequestError } from './client';
+
+/** El filtro de contenido de la IA bloqueó la imagen (a veces con frases inocentes de la descripción). */
+export class ContentBlockedError extends GenerateRequestError {}
 
 async function call<T>(body: Record<string, unknown>): Promise<T> {
 	const res = await fetch('/api/character', {
@@ -10,6 +14,8 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
 		body: JSON.stringify(body)
 	});
 	const data = await res.json().catch(() => ({}));
+	// 422: el filtro de contenido de la IA bloqueó la imagen (también tras reintentar)
+	if (res.status === 422) throw new ContentBlockedError(t('char.blocked'));
 	if (!res.ok)
 		throw new GenerateRequestError(data.error ?? `HTTP ${res.status}`, data.details ?? []);
 	return data as T;

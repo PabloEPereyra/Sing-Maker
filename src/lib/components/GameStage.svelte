@@ -98,9 +98,18 @@
 	}
 
 	// Rueda (el pellizco del trackpad llega como rueda con Ctrl) y pellizco con dos dedos.
+	// Cada "paso" de rueda (~100 de delta) sube o baja el zoom 10 puntos (90 %, 100 %, 110 %…); los
+	// trackpads mandan muchos eventos chicos, por eso se acumulan hasta completar un paso.
+	const WHEEL_PX_PER_STEP = 100;
+	let wheelAcc = 0;
 	function onWheel(e: WheelEvent) {
 		e.preventDefault();
-		zoomBy(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)));
+		wheelAcc += (e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY) * (e.ctrlKey ? 6 : 1);
+		const steps = Math.trunc(Math.abs(wheelAcc) / WHEEL_PX_PER_STEP) * Math.sign(wheelAcc);
+		if (!steps) return;
+		wheelAcc -= steps * WHEEL_PX_PER_STEP;
+		const next = Math.round(settings.zoom * 10 - steps) / 10;
+		settings.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, next));
 	}
 	let touches: { id: number; x: number; y: number }[] = [];
 	let pinchStart = 0;

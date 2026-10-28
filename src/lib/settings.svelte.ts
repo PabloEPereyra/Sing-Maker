@@ -6,7 +6,6 @@ export type Notation = 'solfege' | 'american';
 export type CollectibleId = 'stars' | 'notes' | 'carrots' | `custom:${string}`;
 /** Voladores (tema Cielo, eligen árbol de partida) y terrestres (tema Sendero); `custom:<id>` = creado con IA. */
 export type CharacterId = 'bird' | 'bunny' | `custom:${string}`;
-export type StartId = 'tree1' | 'tree2';
 
 /** Corrección del retraso de la voz (ms, con signo) y límites del zoom del escenario. */
 export const LATENCY_MIN_MS = -200;
@@ -26,7 +25,6 @@ export const settings = $state<{
 	notation: Notation;
 	collectible: CollectibleId;
 	character: CharacterId;
-	start: StartId;
 	/** Fondo creado con IA para caminantes / voladores (id del fondo; vacío = el de fábrica). */
 	backgroundWalk: string;
 	backgroundFly: string;
@@ -39,7 +37,6 @@ export const settings = $state<{
 	notation: 'solfege',
 	collectible: 'stars',
 	character: 'bird',
-	start: 'tree1',
 	latencyMs: 0,
 	zoom: 1,
 	backgroundWalk: '',
@@ -66,7 +63,6 @@ export function loadSettings(): void {
 			(typeof s.character === 'string' && /^custom:\w+$/.test(s.character))
 		)
 			settings.character = s.character;
-		if (s.start === 'tree1' || s.start === 'tree2') settings.start = s.start;
 		if (typeof s.latencyMs === 'number')
 			settings.latencyMs = Math.max(LATENCY_MIN_MS, Math.min(LATENCY_MAX_MS, s.latencyMs));
 		if (typeof s.zoom === 'number') settings.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, s.zoom));

@@ -1,12 +1,7 @@
 <script lang="ts">
 	// "Personalizar": personaje y objeto que se recolecta. Más adelante: escenarios y elementos
 	// creados por el usuario.
-	import {
-		settings,
-		type CharacterId,
-		type CollectibleId,
-		type StartId
-	} from '$lib/settings.svelte';
+	import { settings, type CharacterId, type CollectibleId } from '$lib/settings.svelte';
 	import { t, tDynamic } from '$lib/i18n';
 	import {
 		addCharacter,
@@ -19,14 +14,26 @@
 		isCustomId,
 		removeCharacter
 	} from '$lib/character/store.svelte';
-	import { downloadCharacter } from '$lib/character/export';
+	import { downloadBlob, downloadCharacter, slug } from '$lib/character/export';
+	import { buildItemZip, buildSceneZip, importItem, importScene } from '$lib/character/assetsIO';
 	import { ImportError, importCharacter } from '$lib/character/import';
 	import CharacterThumb from './CharacterThumb.svelte';
 	import CreateCharacterDialog from './CreateCharacterDialog.svelte';
 	import CreateItemDialog from './CreateItemDialog.svelte';
 	import CreateSceneDialog from './CreateSceneDialog.svelte';
 	import SceneThumb from './SceneThumb.svelte';
-	import { assets, removeItem, removeScene } from '$lib/character/assets.svelte';
+	import {
+		addItem,
+		addScene,
+		assets,
+		MAX_ITEMS,
+		MAX_SCENES,
+		removeItem,
+		removeScene,
+		type ItemRecord,
+		type SceneRecord
+	} from '$lib/character/assets.svelte';
+	import type { Movement } from '$lib/character/spec';
 
 	let creating = $state(false);
 	let creatingItem = $state(false);
@@ -58,6 +65,43 @@
 	}
 
 	let { onClose }: { onClose: () => void } = $props();
+
+	/** Importar un objeto o un fondo desde un .zip exportado (queda elegido para usarlo enseguida). */
+	let importingAsset = $state(false);
+	let assetError = $state('');
+	async function onImportAsset(kind: 'item' | 'scene', file: File | undefined) {
+		if (!file || importingAsset) return;
+		assetError = '';
+		if (kind === 'item' && assets.items.length >= MAX_ITEMS) {
+			assetError = t('item.full', { n: MAX_ITEMS });
+			return;
+		}
+		if (kind === 'scene' && assets.scenes.length >= MAX_SCENES) {
+			assetError = t('scene.full', { n: MAX_SCENES });
+			return;
+		}
+		importingAsset = true;
+		try {
+			if (kind === 'item') {
+				const rec = await addItem(await importItem(file));
+				settings.collectible = `custom:${rec.id}`;
+			} else {
+				const rec = await addScene(await importScene(file));
+				selectScene(rec.id, rec.movement);
+			}
+		} catch (e) {
+			assetError =
+				e instanceof ImportError
+					? t(`char.imp.${e.code}` as 'char.imp.notZip')
+					: t('char.imp.notZip');
+		} finally {
+			importingAsset = false;
+		}
+	}
+	const exportItem = async (it: ItemRecord) =>
+		downloadBlob(await buildItemZip(it), `${slug(it.name, 'objeto')}.zip`);
+	const exportScene = async (sc: SceneRecord) =>
+		downloadBlob(await buildSceneZip(sc), `${slug(sc.name, 'fondo')}.zip`);
 
 	const OPTIONS: {
 		id: CollectibleId;
@@ -120,14 +164,15 @@
 		settings.character = customId(copy.id);
 	}
 
-	/** Fondos propios que sirven para el personaje elegido (los de caminantes tienen sendero). */
-	const sceneList = $derived(assets.scenes.filter((s) => s.movement === (flyer ? 'fly' : 'walk')));
+	/** Cada tipo de personaje (camina / vuela) guarda su propio fondo elegido; '' es el original. */
 	const activeScene = $derived(flyer ? settings.backgroundFly : settings.backgroundWalk);
 
-	function selectScene(id: string) {
-		if (flyer) settings.backgroundFly = id;
+	function selectScene(id: string, movement: Movement = flyer ? 'fly' : 'walk') {
+		if (movement === 'fly') settings.backgroundFly = id;
 		else settings.backgroundWalk = id;
 	}
+	const sceneActive = (sc: SceneRecord) =>
+		(sc.movement === 'fly' ? settings.backgroundFly : settings.backgroundWalk) === sc.id;
 
 	async function removeCustomItem(id: string) {
 		if (settings.collectible === `custom:${id}`) settings.collectible = 'stars';
@@ -144,11 +189,6 @@
 		if (settings.character === customId(id)) settings.character = 'bird';
 		await removeCharacter(id);
 	}
-
-	const STARTS: { id: StartId; label: 'start.tree1' | 'start.tree2' }[] = [
-		{ id: 'tree1', label: 'start.tree1' },
-		{ id: 'tree2', label: 'start.tree2' }
-	];
 
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') onClose();
@@ -270,29 +310,6 @@
 			<p role="alert" class="mt-2 text-sm text-red-700">{importError}</p>
 		{/if}
 
-		{#if flyer}
-			<h4 class="mt-5 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
-				{t('customize.start')}
-			</h4>
-			<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-				{#each STARTS as o (o.id)}
-					<button
-						class="flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition {settings.start ===
-						o.id
-							? 'border-accent bg-accent/10'
-							: 'border-border hover:border-accent/50'}"
-						aria-pressed={settings.start === o.id}
-						onclick={() => (settings.start = o.id)}
-					>
-						<div class="grid h-20 w-full place-items-center rounded-lg bg-sky/60">
-							<img src="/themes/sky/{o.id}.png" alt="" class="h-[72px] w-auto" />
-						</div>
-						<span class="text-sm font-semibold">{t(o.label)}</span>
-					</button>
-				{/each}
-			</div>
-		{/if}
-
 		<h4 class="mt-5 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
 			{t('customize.collectible')}
 		</h4>
@@ -343,6 +360,12 @@
 						<span class="max-w-full truncate text-sm font-semibold">{it.name}</span>
 					</button>
 					<button
+						class="absolute top-1 left-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-accent focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+						aria-label={t('char.export')}
+						title={t('item.exportHelp')}
+						onclick={() => exportItem(it)}>⬇</button
+					>
+					<button
 						class="absolute top-1 right-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
 						aria-label={t('item.delete')}
 						title={t('item.delete')}
@@ -357,6 +380,23 @@
 				<span class="text-xl">✨</span>
 				{t('item.createCard')}
 			</button>
+			<label
+				class="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-border p-2 text-center text-xs font-semibold text-muted transition hover:border-accent/50 hover:text-fg"
+			>
+				<span class="text-lg">⬆</span>
+				{importingAsset ? t('char.importing') : t('item.import')}
+				<span class="text-[11px] font-normal">{t('char.importHelp')}</span>
+				<input
+					type="file"
+					accept=".zip,application/zip"
+					class="sr-only"
+					disabled={importingAsset}
+					onchange={(e) => {
+						onImportAsset('item', e.currentTarget.files?.[0]);
+						e.currentTarget.value = '';
+					}}
+				/>
+			</label>
 		</div>
 
 		<!-- Escenario: el de fábrica o fondos creados con IA para este tipo de personaje -->
@@ -381,19 +421,29 @@
 				</div>
 				<span class="text-sm font-semibold">{t('scene.original')}</span>
 			</button>
-			{#each sceneList as sc (sc.id)}
+			{#each assets.scenes as sc (sc.id)}
 				<div class="group/item relative">
 					<button
-						class="flex w-full flex-col items-center gap-2 rounded-lg border-2 p-3 transition {activeScene ===
-						sc.id
+						class="flex w-full flex-col items-center gap-2 rounded-lg border-2 p-3 transition {sceneActive(
+							sc
+						)
 							? 'border-accent bg-accent/10'
 							: 'border-border hover:border-accent/50'}"
-						aria-pressed={activeScene === sc.id}
-						onclick={() => selectScene(sc.id)}
+						aria-pressed={sceneActive(sc)}
+						onclick={() => selectScene(sc.id, sc.movement)}
 					>
 						<SceneThumb image={sc.image} class="h-16" />
 						<span class="max-w-full truncate text-sm font-semibold">{sc.name}</span>
+						<span class="-mt-1.5 text-xs text-muted"
+							>{t(sc.movement === 'fly' ? 'scene.forFlyer' : 'scene.forWalker')}</span
+						>
 					</button>
+					<button
+						class="absolute top-1 left-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-accent focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+						aria-label={t('char.export')}
+						title={t('scene.exportHelp')}
+						onclick={() => exportScene(sc)}>⬇</button
+					>
 					<button
 						class="absolute top-1 right-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
 						aria-label={t('scene.delete')}
@@ -409,7 +459,27 @@
 				<span class="text-xl">✨</span>
 				{t('scene.createCard')}
 			</button>
+			<label
+				class="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-border p-2 text-center text-xs font-semibold text-muted transition hover:border-accent/50 hover:text-fg"
+			>
+				<span class="text-lg">⬆</span>
+				{importingAsset ? t('char.importing') : t('scene.import')}
+				<span class="text-[11px] font-normal">{t('char.importHelp')}</span>
+				<input
+					type="file"
+					accept=".zip,application/zip"
+					class="sr-only"
+					disabled={importingAsset}
+					onchange={(e) => {
+						onImportAsset('scene', e.currentTarget.files?.[0]);
+						e.currentTarget.value = '';
+					}}
+				/>
+			</label>
 		</div>
+		{#if assetError}
+			<p role="alert" class="mt-2 text-sm text-red-700">{assetError}</p>
+		{/if}
 	</div>
 </div>
 

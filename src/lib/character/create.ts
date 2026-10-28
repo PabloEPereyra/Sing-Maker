@@ -1,7 +1,7 @@
 // Orquesta la creación de un personaje en el navegador: pide a la IA (vía /api/character) la imagen de
 // referencia y las tiras de poses, recorta cada pose con SAM y arma las tiras de cuadros del juego.
 import { CharacterError, STRIPS, type Movement, type StripKind, type StyleId } from './spec';
-import { characterApi } from '$lib/ai/characterClient';
+import { characterApi, ContentBlockedError } from '$lib/ai/characterClient';
 import {
 	buildStrip,
 	compositeOnColor,
@@ -214,11 +214,12 @@ function opaqueArea(r: Raster): number {
 /** Una tira: imagen -> SAM -> poses -> tira. Si sale mal (pocas poses, error) se vuelve a pedir. */
 async function makeStrip(kind: StripKind, input: CreateInput, reference: string): Promise<Strip> {
 	let lastError: unknown;
+	let visual = input.visual;
 	for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
 		try {
 			const image = await characterApi.strip(
 				kind,
-				input.visual,
+				visual,
 				input.style,
 				input.movement,
 				reference,
@@ -250,6 +251,8 @@ async function makeStrip(kind: StripKind, input: CreateInput, reference: string)
 			return buildStrip(frames, input.movement === 'walk' ? 'feet' : 'center');
 		} catch (e) {
 			lastError = e;
+			// Si el filtro sigue bloqueando, se pide con una descripción corta: la referencia ya fija el aspecto.
+			if (e instanceof ContentBlockedError) visual = input.noun;
 		}
 	}
 	throw lastError instanceof Error ? lastError : new Error('The strip could not be made.');
@@ -263,10 +266,14 @@ export async function createCharacter(
 	if (!reference) {
 		onProgress('hero', 'working');
 		try {
-			const hero = await dataUrlToRaster(
-				await characterApi.hero(input.visual, input.style, input.movement),
-				1024
-			);
+			let image: string;
+			try {
+				image = await characterApi.hero(input.visual, input.style, input.movement);
+			} catch (e) {
+				if (!(e instanceof ContentBlockedError)) throw e;
+				image = await characterApi.hero(input.noun, input.style, input.movement);
+			}
+			const hero = await dataUrlToRaster(image, 1024);
 			reference = (await cutSubject(hero, input.noun, true)).reference;
 			onProgress('hero', 'done');
 		} catch (e) {

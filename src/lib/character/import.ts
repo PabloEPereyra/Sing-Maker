@@ -189,7 +189,10 @@ export function parseManifest(json: unknown): Manifest {
 // ---------- archivo completo ----------
 
 /** Comprueba que los bytes sean un PNG con las medidas del manifiesto y arma la hoja. */
-async function toSheet(files: Map<string, Uint8Array>, info: SheetInfo): Promise<SheetRecord> {
+export async function toSheet(
+	files: Map<string, Uint8Array>,
+	info: SheetInfo
+): Promise<SheetRecord> {
 	const data = files.get(info.file);
 	if (!data) throw new ImportError('missingFile', `Missing file ${info.file}.`);
 	const isPng = data.length > 8 && data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e;

@@ -30,32 +30,24 @@
 		isCustomId,
 		loadCharacters
 	} from '$lib/character/store.svelte';
-	import {
-		loadSettings,
-		saveSettings,
-		settings,
-		type CharacterId,
-		type StartId
-	} from '$lib/settings.svelte';
+	import { loadSettings, saveSettings, settings, type CharacterId } from '$lib/settings.svelte';
 	import type { Theme } from '$lib/game/theme';
 	import { t, tDynamic } from '$lib/i18n';
 
 	/** Tempo con el que arranca cada ejercicio. */
 	const DEFAULT_BPM = 90;
 	const PREFS_KEY = 'singmaker-prefs';
-	// Un tema por combinación de personaje y punto de partida, creado una sola vez. Los voladores
-	// van al cielo (con árbol de partida); los terrestres, al sendero.
+	// Un tema por personaje, creado una sola vez. Los voladores van al cielo; los terrestres, al sendero.
 	const themes: Record<string, Theme> = {};
-	function themeFor(character: CharacterId, start: StartId): Theme {
+	function themeFor(character: CharacterId): Theme {
 		if (isCustomId(character)) {
 			// Personaje creado con IA: se arma cuando carga la lista guardada; mientras tanto, el pájaro.
 			const rec = findCharacter(character.slice(CUSTOM_PREFIX.length));
-			if (rec) return (themes[`${character}-${start}`] ??= createCustomTheme(rec, start));
-			return (themes['bird-tree1'] ??= createSkyTheme('bird', 'tree1'));
+			if (rec) return (themes[character] ??= createCustomTheme(rec));
+			return (themes.bird ??= createSkyTheme('bird'));
 		}
 		if (character === 'bunny') return (themes.bunny ??= createPathTheme());
-		const key = `${character}-${start}`;
-		return (themes[key] ??= createSkyTheme(character, start));
+		return (themes[character] ??= createSkyTheme(character));
 	}
 
 	let selectedId = $state(byLevel()[0].exercises[0].id);
@@ -87,7 +79,7 @@
 
 	/** El tema del personaje elegido, con el fondo propio que se haya elegido para su tipo (si hay). */
 	const theme = $derived.by(() => {
-		const base = themeFor(settings.character, settings.start);
+		const base = themeFor(settings.character);
 		const id = base.movement === 'walk' ? settings.backgroundWalk : settings.backgroundFly;
 		const scene = id ? findScene(id) : undefined;
 		return scene ? withScene(base, scene) : base;

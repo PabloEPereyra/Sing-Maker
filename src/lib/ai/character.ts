@@ -347,6 +347,9 @@ interface ImageResponse {
 	output_format?: string;
 }
 
+/** Reintentos cuando el filtro de contenido bloquea la imagen. */
+const BLOCK_RETRIES = 2;
+
 /** Genera una imagen (opcionalmente editando una de referencia). Devuelve una data URL. */
 export async function generateImage(
 	prompt: string,
@@ -357,16 +360,22 @@ export async function generateImage(
 	if (!media.apiKey) throw new GenerateError('Missing LLM_API_KEY on the server.', 500);
 	const body: Record<string, unknown> = { model: media.imageModel, prompt, n: 1, size: opts.size };
 	if (opts.reference) body.images = [{ image_url: opts.reference }];
-	const res = await fetchImpl(
-		`${media.baseUrl}/images/${opts.reference ? 'edits' : 'generations'}`,
-		{
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${media.apiKey}` },
-			body: JSON.stringify(body)
-		}
-	);
-	const text = await res.text();
-	if (!res.ok) throw upstreamError(res.status, text);
+	let text = '';
+	// El filtro de contenido de Meta a veces bloquea un pedido inofensivo y deja pasar el mismo al reintentar.
+	for (let attempt = 0; ; attempt++) {
+		const res = await fetchImpl(
+			`${media.baseUrl}/images/${opts.reference ? 'edits' : 'generations'}`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${media.apiKey}` },
+				body: JSON.stringify(body)
+			}
+		);
+		text = await res.text();
+		if (res.ok) break;
+		const err = upstreamError(res.status, text);
+		if (err.status !== 422 || attempt >= BLOCK_RETRIES) throw err;
+	}
 	let data: ImageResponse;
 	try {
 		data = JSON.parse(text) as ImageResponse;

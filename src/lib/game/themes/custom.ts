@@ -2,7 +2,6 @@
 // para los caminantes, Cielo para los voladores) y solo cambia el personaje: sus tiras de cuadros vienen
 // del dispositivo (ver character/store.svelte.ts) y se dibujan con las mismas poses que la coneja y el pájaro.
 import type { CharacterRecord, SheetRecord } from '$lib/character/store.svelte';
-import type { StartId } from '$lib/settings.svelte';
 import type { CharacterState, Theme } from '../theme';
 import { loadImage } from './common';
 import { createPathTheme } from './path';
@@ -50,15 +49,15 @@ function blitCenter(g: CanvasRenderingContext2D, s: Sheet, frame: number, k: num
 	g.drawImage(s.img, frame * fw, 0, fw, fh, (-fw * k) / 2, (-fh * k) / 2, fw * k, fh * k);
 }
 
-export function createCustomTheme(rec: CharacterRecord, start: StartId): Theme {
-	const base: Theme = rec.movement === 'walk' ? createPathTheme() : createSkyTheme('bird', start);
+export function createCustomTheme(rec: CharacterRecord): Theme {
+	const base: Theme = rec.movement === 'walk' ? createPathTheme() : createSkyTheme('bird');
 	let stand: Sheet | null = null;
 	let move: Sheet | null = null;
 	let jump: Sheet | null = null;
 
 	return {
 		...base,
-		id: `custom-${rec.id}-${start}`,
+		id: `custom-${rec.id}`,
 
 		async load() {
 			await base.load();

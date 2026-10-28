@@ -15,7 +15,7 @@ export interface ExportableCharacter {
 }
 
 /** Nombre de archivo seguro a partir del nombre del personaje. */
-export function slug(name: string): string {
+export function slug(name: string, fallback = 'personaje'): string {
 	return (
 		name
 			.normalize('NFD')
@@ -23,7 +23,7 @@ export function slug(name: string): string {
 			.toLowerCase()
 			.replace(/[^a-z0-9]+/g, '-')
 			.replace(/^-+|-+$/g, '')
-			.slice(0, 40) || 'personaje'
+			.slice(0, 40) || fallback
 	);
 }
 
@@ -93,14 +93,19 @@ export async function buildExportZip(c: ExportableCharacter): Promise<Blob> {
 	return new Blob([zipStore(entries) as BlobPart], { type: 'application/zip' });
 }
 
-/** Descarga el personaje como `<nombre>.zip`. */
-export async function downloadCharacter(c: ExportableCharacter): Promise<void> {
-	const url = URL.createObjectURL(await buildExportZip(c));
+/** Descarga un archivo generado en el navegador. */
+export function downloadBlob(blob: Blob, filename: string): void {
+	const url = URL.createObjectURL(blob);
 	const a = document.createElement('a');
 	a.href = url;
-	a.download = `${slug(c.name)}.zip`;
+	a.download = filename;
 	document.body.appendChild(a);
 	a.click();
 	a.remove();
 	setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/** Descarga el personaje como `<nombre>.zip`. */
+export async function downloadCharacter(c: ExportableCharacter): Promise<void> {
+	downloadBlob(await buildExportZip(c), `${slug(c.name)}.zip`);
 }
