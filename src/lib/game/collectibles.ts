@@ -53,10 +53,14 @@ const stars: CollectibleSkin = {
 			g.fill();
 			sparkles(g, x, y, t);
 		} else if (state === 'missed') {
-			g.globalAlpha = Math.max(0.15, 0.45 - age);
+			// Lo perdido sigue a la vista, apagado, hasta salir por la izquierda.
+			g.globalAlpha = 0.65;
 			g.fillStyle = '#c9d3e0';
-			starPath(g, x, y, size * 0.8, 0);
+			starPath(g, x, y, size * 0.85, 0);
 			g.fill();
+			g.strokeStyle = '#8c98ad';
+			g.lineWidth = 1.5;
+			g.stroke();
 		} else {
 			const pulse = 1 + 0.08 * Math.sin(time * 6 + x * 0.05);
 			g.shadowColor = 'rgba(255,220,60,0.8)';
@@ -132,7 +136,8 @@ function spriteSkin(id: CollectibleId, scale: number, opts: SpriteOptions = {}):
 				blit(x, y - t * 50, 1 + t * 0.5);
 				sparkles(g, x, y, t);
 			} else if (state === 'missed') {
-				g.globalAlpha = Math.max(0.15, 0.4 - age);
+				// Lo perdido sigue a la vista, apagado, hasta salir por la izquierda.
+				g.globalAlpha = 0.6;
 				g.filter = 'grayscale(1)';
 				blit(x, y, 0.85);
 			} else {

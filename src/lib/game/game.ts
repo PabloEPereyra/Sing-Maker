@@ -372,6 +372,17 @@ export class Game {
 	}
 
 	private updateBird(dt: number): void {
+		this.stepBird(dt);
+		// Con notas muy agudas o graves el personaje llega al borde de la pantalla y se queda ahí.
+		const top = this.midiAt(this.birdSize * 0.5);
+		const bottom =
+			this.theme.movement === 'walk'
+				? this.midiAt(this.groundTop - this.birdSize * 0.42)
+				: this.midiAt(this.h - this.birdSize * 0.5);
+		this.birdMidi = Math.max(bottom, Math.min(top, this.birdMidi));
+	}
+
+	private stepBird(dt: number): void {
 		const prev = this.birdMidi;
 		if (this.theme.movement === 'walk') {
 			// En pausa queda congelada donde estaba.
@@ -662,7 +673,12 @@ export class Game {
 				if (points.length) break; // la estela se corta en el silencio
 				continue;
 			}
-			points.push({ x: this.x(s.time, time) - 22, y: this.y(s.midi), age });
+			// Igual que el personaje, la estela no sale de la pantalla.
+			const y = Math.max(
+				this.birdSize * 0.5,
+				Math.min(this.h - this.birdSize * 0.5, this.y(s.midi))
+			);
+			points.push({ x: this.x(s.time, time) - 22, y, age });
 		}
 		if (points.length < 2) return;
 
