@@ -229,7 +229,7 @@ export async function listObjects(
 }
 
 /** Pide JSON a Spark (con el esquema estricto) y lo valida; si no sirve, un reintento. */
-async function askJson<T>(
+export async function askJson<T>(
 	messages: Message[],
 	config: LlmConfig,
 	fetchImpl: typeof fetch,

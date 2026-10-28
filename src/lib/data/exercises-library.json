@@ -1,0 +1,461 @@
+[
+	{
+		"id": "1db92dc6",
+		"name": "Menor bachiana - 9 notas en corcheas",
+		"category": "Escalas Menores",
+		"level": "2",
+		"code": "@name: Menor bachiana - 9 notas en corcheas\n@description: Escala menor armónica al estilo bachiano | 9 notas | semicorcheas\n@level: basic\n@bpm: 60\n\n2 =  ~ !hint\n0.25 =  ~\n0.25 +2  ~\n0.25 +3  ~\n0.25 +5  ~\n0.25 +7  ~\n0.25 +9  ~\n0.25 +11  ~\n0.25 +12  ~\n0.25 +14  ~\n0.25 +12  ~\n0.25 +11  ~\n0.25 +9  ~\n0.25 +7  ~\n0.25 +5  ~\n0.25 +3  ~\n0.25 +2  ~\n2 =\n",
+		"name_en": "Bach-style minor - 9 notes in eighth notes",
+		"description_en": "Harmonic minor scale, Bach style | 9 notes | sixteenth notes"
+	},
+	{
+		"id": "1321a277",
+		"name": "Arpegio mayor 1531",
+		"category": "Arpegios Mayores",
+		"level": "3",
+		"code": "@name: Arpegio mayor 1531\n@description: Arpegio mayor | 1-5-3-1 | corchea\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 2\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n1 =\n1 +7\n1 +4\n1 =\n",
+		"name_en": "Major arpeggio 1531",
+		"description_en": "Major arpeggio | 1-5-3-1 | eighth note"
+	},
+	{
+		"id": "1ae6e37c",
+		"name": "Arpegio mayor descendente",
+		"category": "Arpegios Mayores",
+		"level": "3",
+		"code": "@name: Arpegio mayor descendente\n@description: Arpegio mayor en descenso con grave repetido 8-5-3-1-1-1\n@level: intermediate\n@bpm: 80\n@beatsPerMeasure: 2\n@direction: desc\n\n2 = !hint\n2 +12\n1 +7\n1 +4\n1 =\n1 =\n2 =\n",
+		"name_en": "Descending major arpeggio",
+		"description_en": "Descending major arpeggio with repeated low note 8-5-3-1-1-1"
+	},
+	{
+		"id": "f0f8b5b8",
+		"name": "Arpegio menor 1531",
+		"category": "Arpegios Menores",
+		"level": "3",
+		"code": "@name: Arpegio menor 1531\n@description: Arpegio menor | 1-5-3m-1 | corchea\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 2\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n1 =\n1 +7\n1 +3\n1 =\n",
+		"name_en": "Minor arpeggio 1531",
+		"description_en": "Minor arpeggio | 1-5-3m-1 | eighth note"
+	},
+	{
+		"id": "9447b720",
+		"name": "Arpegio menor descendente",
+		"category": "Arpegios Menores",
+		"level": "3",
+		"code": "@name: Arpegio menor descendente\n@description: Arpegio menor en descenso con grave repetido 8-5-3m-1-1-1\n@level: intermediate\n@bpm: 80\n@beatsPerMeasure: 2\n@direction: desc\n\n2 = !hint\n2 +12\n1 +7\n1 +3\n1 =\n1 =\n2 =\n",
+		"name_en": "Descending minor arpeggio",
+		"description_en": "Descending minor arpeggio with repeated low note 8-5-3m-1-1-1"
+	},
+	{
+		"id": "9a5d50f4",
+		"name": "Saltos de octava x3",
+		"category": "Saltos y Octavas",
+		"level": "3",
+		"code": "@name: Saltos de octava x3\n@description: Saltos de octava | 1-8-1-1-8-1-1-8-1\n@level: basic\n@bpm: 60\n\n# Hold the root note\n2 = !hint\n.25 =\n.25 r\n.25 +12\n.25 r\n.5 =\n.5 r\n.25 =\n.25 r\n.25 +12\n.25 r\n.5 =\n.5 r\n.25 =\n.25 r\n.25 +12\n.25 r\n1 =\n",
+		"name_en": "Octave jumps x3",
+		"description_en": "Octave jumps | 1-8-1-1-8-1-1-8-1"
+	},
+	{
+		"id": "c56fd5a3",
+		"name": "Escala para practicar vibrato",
+		"category": "Tecnica y Sostenido",
+		"level": "3",
+		"code": "@name: Escala para practicar vibrato\n@description: Escala para practicar vibrato |  1-2-3m-#4-5... \n@level: basic\n@bpm: 70\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +3\n0.5 +6\n0.5 +7\n0.5 +6\n0.5 +7\n0.5 +6\n0.25 +7\n0.25 +6 ~\n0.25 +7 ~\n0.25 +6 ~\n0.25 +7 ~\n0.25 +6 ~\n0.25 +7 ~\n0.25 +6 ~\n2.5 +7\n.5 +6\n.5 +3\n.5 +2\n4 =\n",
+		"name_en": "Scale to practice vibrato",
+		"description_en": "Scale to practice vibrato |  1-2-3m-#4-5..."
+	},
+	{
+		"id": "c828180a",
+		"name": "Escala mayor 7 notas",
+		"category": "Escalas Mayores",
+		"level": "4",
+		"code": "@number: ma-03\n@name: Escala mayor 7 notas\n@description: Escala mayor | 1-2-3-4-5-6-7-6-5-4-3-2-1 | corcheas\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 2\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +4\n0.5 +5\n0.5 +7\n0.5 +9\n0.5 +11\n0.5 +9\n0.5 +7\n0.5 +5\n0.5 +4\n0.5 +2\n2 =\n",
+		"name_en": "Major scale 7 notes",
+		"description_en": "Major scale | 1-2-3-4-5-6-7-6-5-4-3-2-1 | eighth notes"
+	},
+	{
+		"id": "fdda2076",
+		"name": "Escala mayor 8 notas",
+		"category": "Escalas Mayores",
+		"level": "4",
+		"code": "@number: ma-04\n@name: Escala mayor 8 notas\n@description: Escala mayor | 1-2-3-4-5-6-7-8-7-6-5-4-3-2-1 | corcheas\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 2\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +4\n0.5 +5\n0.5 +7\n0.5 +9\n0.5 +11\n0.5 +12\n0.5 +12\n0.5 +11\n0.5 +9\n0.5 +7\n0.5 +5\n0.5 +4\n0.5 +2\n2.5 =\n",
+		"name_en": "Major scale 8 notes",
+		"description_en": "Major scale | 1-2-3-4-5-6-7-8-7-6-5-4-3-2-1 | eighth notes"
+	},
+	{
+		"id": "6e1c1aa0",
+		"name": "Escala mayor 9 notas",
+		"category": "Escalas Mayores",
+		"level": "4",
+		"code": "@number: ma-04\n@name: Escala mayor 9 notas\n@description: Escala mayor | 1-2-3-4-5-6-7-8-9-8-7-6-5-4-3-2-1 | corcheas\n@level: intermediate\n@bpm: 70\n@beatsPerMeasure: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +4\n0.5 +5\n0.5 +7\n0.5 +9\n0.5 +11\n0.5 +12\n0.5 +14\n0.5 +12\n0.5 +11\n0.5 +9\n0.5 +7\n0.5 +5\n0.5 +4\n0.5 +2\n2 =\n",
+		"name_en": "Major scale 9 notes",
+		"description_en": "Major scale | 1-2-3-4-5-6-7-8-9-8-7-6-5-4-3-2-1 | eighth notes"
+	},
+	{
+		"id": "23dff1c1",
+		"name": "Escala menor 7 notas",
+		"category": "Escalas Menores",
+		"level": "4",
+		"code": "@number: me-03\n@name: Escala menor 7 notas\n@description: Escala menor | 1-2-3m-4-5-6m-7m-6m-5-4-3m-2-1 | corcheas\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 2\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +3\n0.5 +5\n0.5 +7\n0.5 +8\n0.5 +10\n0.5 +8\n0.5 +7\n0.5 +5\n0.5 +3\n0.5 +2\n2 =\n",
+		"name_en": "Minor scale 7 notes",
+		"description_en": "Minor scale | 1-2-3m-4-5-6m-7m-6m-5-4-3m-2-1 | eighth notes"
+	},
+	{
+		"id": "0b0c16d7",
+		"name": "Escala menor 8 notas",
+		"category": "Escalas Menores",
+		"level": "4",
+		"code": "@number: me-04\n@name: Escala menor 8 notas\n@description: Escala menor | 1-2-3m-4-5-6m-7m-8-7m-6m-5-4-3m-2-1 | corcheas\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 2\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +3\n0.5 +5\n0.5 +7\n0.5 +8\n0.5 +10\n0.5 +12\n0.5 +12\n0.5 +10\n0.5 +8\n0.5 +7\n0.5 +5\n0.5 +3\n0.5 +2\n0.5 =\n2 =\n",
+		"name_en": "Minor scale 8 notes",
+		"description_en": "Minor scale | 1-2-3m-4-5-6m-7m-8-7m-6m-5-4-3m-2-1 | eighth notes"
+	},
+	{
+		"id": "0baf722b",
+		"name": "Escala menor 9 notas",
+		"category": "Escalas Menores",
+		"level": "4",
+		"code": "@number: me-04\n@name: Escala menor 9 notas\n@description: Escala menor | 1-2-3m-4-5-6m-7m-8-9-8-7m-6m-5-4-3m-2-1 | corcheas\n@level: intermediate\n@bpm: 70\n@beatsPerMeasure: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +3\n0.5 +5\n0.5 +7\n0.5 +8\n0.5 +10\n0.5 +12\n0.5 +14\n0.5 +12\n0.5 +10\n0.5 +8\n0.5 +7\n0.5 +5\n0.5 +3\n0.5 +2\n2 =\n",
+		"name_en": "Minor scale 9 notes",
+		"description_en": "Minor scale | 1-2-3m-4-5-6m-7m-8-9-8-7m-6m-5-4-3m-2-1 | eighth notes"
+	},
+	{
+		"id": "3e9070f6",
+		"name": "Arpegio mayor 4 notas - AR",
+		"category": "Arpegios Mayores",
+		"level": "4",
+		"code": "@number: ma-03\n@name: Arpegio mayor 4 notas - AR\n@description: Arpegio mayor con agudo repetido | 1-3-5-8-8-8-5-3-1 | corcheas | 6/8\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +4\n0.5 +7\n1.5 +12\n1.5 +12\n0.5 +12\n0.5 +7\n0.5 +4\n1.5 =\n",
+		"name_en": "Major arpeggio 4 notes - AR",
+		"description_en": "Major arpeggio with repeated high note | 1-3-5-8-8-8-5-3-1 | eighth notes | 6/8"
+	},
+	{
+		"id": "2c47ece7",
+		"name": "Arpegio menor 4 notas - AR",
+		"category": "Arpegios Menores",
+		"level": "4",
+		"code": "@number: me-03\n@name: Arpegio menor 4 notas - AR\n@description: Arpegio menor con agudo repetido | 1-3m-5-8-8-8-5-3m-1 | corcheas | 6/8\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +3\n0.5 +7\n1.5 +12\n1.5 +12\n0.5 +12\n0.5 +7\n0.5 +3\n1.5 =\n",
+		"name_en": "Minor arpeggio 4 notes - AR",
+		"description_en": "Minor arpeggio with repeated high note | 1-3m-5-8-8-8-5-3m-1 | eighth notes | 6/8"
+	},
+	{
+		"id": "7059b881",
+		"name": "Melismas 01",
+		"category": "Melismas y Agilidad",
+		"level": "4",
+		"code": "@name: Melismas 01\n@description: Ejercicio de agilidad vocal y melismas - 01\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 2\n\n# Hint note\n2 = !hint\n\n# Frase 1\n0.25 =\n0.25 +2\n0.25 =\n0.25 +2\n0.75 =\n0.25 -3\n0.5 =\n1.25 +2\n0.25 r\n\n# Frase 2\n0.25 =\n0.25 +2\n0.25 =\n0.25 +2\n0.75 =\n0.25 -3\n0.25 =\n0.25 -3\n0.25 -5\n0.25 -7\n# Nota final (Resolución en Raíz)\n1 0\n",
+		"name_en": "Melismas 01",
+		"description_en": "Vocal agility and melisma exercise - 01"
+	},
+	{
+		"id": "d86a3306",
+		"name": "Arpegio mayor 1538 - AS",
+		"category": "Tecnica y Sostenido",
+		"level": "4",
+		"code": "@number: ma-05\n@name: Arpegio mayor 1538 - AS\n@description: Arpegio mayor con agudo sostenido | 1-5-3-8-3-5-1 | corcheas | 6/8\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +7\n0.5 +4\n3 +12\n0.5 +12\n0.5 +4\n0.5 +7\n1.5 =\n",
+		"name_en": "Major arpeggio 1538 - AS",
+		"description_en": "Major arpeggio with sustained high note | 1-5-3-8-3-5-1 | eighth notes | 6/8"
+	},
+	{
+		"id": "4f53e0ff",
+		"name": "Arpegio menor 1538 - AS",
+		"category": "Tecnica y Sostenido",
+		"level": "4",
+		"code": "@number: me-05\n@name: Arpegio menor 1538 - AS\n@description: Arpegio menor con agudo sostenido | 1-5-3m-8-3m-5-1 | corcheas | 6/8\n@level: intermediate\n@bpm: 60\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +7\n0.5 +3\n3 +12\n0.5 +12\n0.5 +3\n0.5 +7\n1.5 =\n",
+		"name_en": "Minor arpeggio 1538 - AS",
+		"description_en": "Minor arpeggio with sustained high note | 1-5-3m-8-3m-5-1 | eighth notes | 6/8"
+	},
+	{
+		"id": "1419c518",
+		"name": "Menor armónica - 9 notas en corcheas",
+		"category": "Escalas Menores",
+		"level": "5",
+		"code": "@name: Menor armónica - 9 notas en corcheas\n@description: Escala menor armónica 9 notas\n@level: advanced\n@bpm: 60\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +3\n0.5 +5\n0.5 +7\n0.5 +8\n0.5 +11\n0.5 +12\n0.5 +11\n0.5 +8\n0.5 +7\n0.5 +5\n0.5 +3\n0.5 +2\n0.5 =\n0.5 -1\n2 =\n",
+		"name_en": "Harmonic minor - 9 notes in eighth notes",
+		"description_en": "Harmonic minor scale 9 notes"
+	},
+	{
+		"id": "e328a9fb",
+		"name": "Arpegio mayor final en 3ra",
+		"category": "Arpegios Mayores",
+		"level": "5",
+		"code": "@name: Arpegio mayor final en 3ra\n@description: Arpegio mayor final en 3ra | 1-3m-5-8-5-3\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +4\n0.5 +7\n0.5 +12\n1 +7\n1.5 +4\n",
+		"name_en": "Major arpeggio ending on the 3rd",
+		"description_en": "Major arpeggio ending on the 3rd | 1-3m-5-8-5-3"
+	},
+	{
+		"id": "111529d5",
+		"name": "Arpegio mayor final en 5ta",
+		"category": "Arpegios Mayores",
+		"level": "5",
+		"code": "@name: Arpegio mayor final en 5ta\n@description: Arpegio mayor final en 5ta | 1-3-5-8-8-8-5\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +4\n0.5 +7\n0.5 +12\n0.5 +12\n0.5 +12\n1.5 +7\n",
+		"name_en": "Major arpeggio ending on the 5th",
+		"description_en": "Major arpeggio ending on the 5th | 1-3-5-8-8-8-5"
+	},
+	{
+		"id": "b7c18fe1",
+		"name": "Arpegio mayor doble bajada",
+		"category": "Arpegios Mayores",
+		"level": "5",
+		"code": "@name: Arpegio mayor doble bajada\n@description: Arpegio mayor  | 1-3-5--8-5-3-1--8-5-3-1\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +4\n0.5 +7\n0.5 r\n0.25 +12\n0.25 +7\n0.5 +4\n1 =\n0.25 +12\n0.25 +7\n0.5 +4\n1 =\n",
+		"name_en": "Major arpeggio double descent",
+		"description_en": "Major arpeggio  | 1-3-5--8-5-3-1--8-5-3-1"
+	},
+	{
+		"id": "cd388576",
+		"name": "Arpegio menor doble bajada",
+		"category": "Arpegios Mayores",
+		"level": "5",
+		"code": "@name: Arpegio menor doble bajada\n@description: Arpegio mayor  | 1-3-5--8-5-3-1--8-5-3-1\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +3\n0.5 +7\n0.5 r\n0.25 +12\n0.25 +7\n0.5 +3\n1 =\n0.25 +12\n0.25 +7\n0.5 +3\n1 =\n",
+		"name_en": "Minor arpeggio double descent",
+		"description_en": "Major arpeggio  | 1-3-5--8-5-3-1--8-5-3-1"
+	},
+	{
+		"id": "9f85fcb2",
+		"name": "Arpegio mayor 5 tonos",
+		"category": "Arpegios Mayores",
+		"level": "5",
+		"code": "@name: Arpegio mayor 5 tonos\n@description: Arpegio mayor 5 tonos | 1-3-5-8-10\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 2\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +4\n0.5 +7\n0.5 +12\n\n0.5 +16\n0.5 +12\n0.5 +16\n0.5 +12\n0.5 +16\n0.5 +12\n0.5 +7\n0.5 +4\n\n2 =\n",
+		"name_en": "Major arpeggio 5 tones",
+		"description_en": "Major arpeggio 5 tones | 1-3-5-8-10"
+	},
+	{
+		"id": "f19a3b3a",
+		"name": "Arpegio menor final en 3ra",
+		"category": "Arpegios Menores",
+		"level": "5",
+		"code": "@name: Arpegio menor final en 3ra\n@description: Arpegio menor final en 3ra | 1-3m-5-8-5-3\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +3\n0.5 +7\n0.5 +12\n1 +7\n1.5 +3\n",
+		"name_en": "Minor arpeggio ending on the 3rd",
+		"description_en": "Minor arpeggio ending on the 3rd | 1-3m-5-8-5-3"
+	},
+	{
+		"id": "7bda2396",
+		"name": "Arpegio menor final en 5ta",
+		"category": "Arpegios Menores",
+		"level": "5",
+		"code": "@name: Arpegio menor final en 5ta\n@description: Arpegio menor final en 5ta | 1-3m-5-8-8-8-5\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +3\n0.5 +7\n0.5 +12\n0.5 +12\n0.5 +12\n1.5 +7\n",
+		"name_en": "Minor arpeggio ending on the 5th",
+		"description_en": "Minor arpeggio ending on the 5th | 1-3m-5-8-8-8-5"
+	},
+	{
+		"id": "ff6679da",
+		"name": "Arpegio menor 5 tonos",
+		"category": "Arpegios Menores",
+		"level": "5",
+		"code": "@name: Arpegio menor 5 tonos\n@description: Arpegio menor 5 tonos | 1-3m-5-8-10m\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 2\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +3\n0.5 +7\n0.5 +12\n\n0.5 +15\n0.5 +12\n0.5 +15\n0.5 +12\n0.5 +15\n0.5 +12\n0.5 +7\n0.5 +3\n\n2 =\n",
+		"name_en": "Minor arpeggio 5 tones",
+		"description_en": "Minor arpeggio 5 tones | 1-3m-5-8-10m"
+	},
+	{
+		"id": "de13bbbe",
+		"name": "Árabe - 9 notas en corcheas",
+		"category": "Escalas",
+		"level": "5",
+		"code": "@name: Árabe - 9 notas en corcheas\n@description: Escala árabe extendida de 9 grados continuos en semicorcheas.\n@level: advanced\n@bpm: 60\n\n2 = !hint\n0.25 =\n0.25 +1\n0.25 +4\n0.25 +5\n0.25 +7\n0.25 +8\n0.25 +11\n0.25 +12\n0.25 +13\n0.25 +12\n0.25 +11\n0.25 +8\n0.25 +7\n0.25 +5\n0.25 +4\n0.25 +1\n2 =\n",
+		"name_en": "Arabic - 9 notes in eighth notes",
+		"description_en": "Escala árabe extendida de 9 grados continuos en sixteenth notes."
+	},
+	{
+		"id": "e8713c51",
+		"name": "Húngara - 9 notas en semicorcheas",
+		"category": "Escalas",
+		"level": "5",
+		"code": "@name: Húngara - 9 notas en semicorcheas\n@description: Escala húngara 9 notas en semicorcheas\n@level: advanced\n@bpm: 60\n\n# Escala húngara: 1, 2, ♭3, ♯4, 5, ♭6, 7 \n\n2 = !hint\n0.25 =\n0.25 +2\n0.25 +3\n0.25 +6\n0.25 +7\n0.25 +8\n0.25 +11\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +11\n0.25 +8\n0.25 +7\n0.25 +6\n0.25 +3\n0.25 +2\n2 =\n",
+		"name_en": "Hungarian - 9 notes en sixteenth notes",
+		"description_en": "Escala húngara 9 notes en sixteenth notes"
+	},
+	{
+		"id": "e7018389",
+		"name": "Arpegio mayor 6 tonos",
+		"category": "Arpegios Mayores",
+		"level": "6",
+		"code": "@name: Arpegio mayor 6 tonos\n@description: Arpegio mayor 6 tonos | 1-3-5-8-10-13\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +4\n0.5 +7\n\n0.5 +12\n0.5 +16\n0.5 +19\n0.5 +19\n0.5 +16\n0.5 +12\n\n0.5 +7\n0.5 +4\n0.5 =\n1.5 =\n",
+		"name_en": "Major arpeggio 6 tones",
+		"description_en": "Major arpeggio 6 tones | 1-3-5-8-10-13"
+	},
+	{
+		"id": "b3e2ba32",
+		"name": "Arpegio menor 6 tonos",
+		"category": "Arpegios Menores",
+		"level": "6",
+		"code": "@name: Arpegio menor 6 tonos\n@description: Arpegio menor 6 tonos | 1-3m-5-8-10m-13\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +3\n0.5 +7\n\n0.5 +12\n0.5 +15\n0.5 +19\n0.5 +19\n0.5 +15\n0.5 +12\n\n0.5 +7\n0.5 +3\n0.5 =\n1.5 =\n",
+		"name_en": "Minor arpeggio 6 tones",
+		"description_en": "Minor arpeggio 6 tones | 1-3m-5-8-10m-13"
+	},
+	{
+		"id": "61b65e1d",
+		"name": "Arpegio mayor con saltos",
+		"category": "Saltos y Octavas",
+		"level": "6",
+		"code": "@name: Arpegio mayor con saltos\n@description: Arpegio mayor con saltos | 1-3-1-8-1-5-8-1\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 6\n@subdivision: 8\n\n# Escala mayor: 1-3-5-8-10-12-11-9-7-5-4-2-1\n\n1.5 = !hint\n0.5 =  ~\n0.5 +4  ~\n0.5 =\n0.5 +12  ~\n0.5 =\n0.5 +7  ~\n0.5 +12\n1 =\n",
+		"name_en": "Major arpeggio with jumps",
+		"description_en": "Major arpeggio with jumps | 1-3-1-8-1-5-8-1"
+	},
+	{
+		"id": "f27e3268",
+		"name": "Arpegio menor con saltos",
+		"category": "Saltos y Octavas",
+		"level": "6",
+		"code": "@name: Arpegio menor con saltos\n@description: Arpegio mayor con saltos | 1-3-1-8-1-5-8-1\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 6\n@subdivision: 8\n\n\n1.5 = !hint\n0.5 =  ~\n0.5 +3  ~\n0.5 =\n0.5 +12  ~\n0.5 =\n0.5 +7  ~\n0.5 +12\n1 =\n",
+		"name_en": "Minor arpeggio with jumps",
+		"description_en": "Major arpeggio with jumps | 1-3-1-8-1-5-8-1"
+	},
+	{
+		"id": "c6085612",
+		"name": "Frigia - 9 notas con repeticiones",
+		"category": "Modos",
+		"level": "6",
+		"code": "@name: Frigia - 9 notas con repeticiones\n@description: Escala Frigia | 9 tonos con repeticiones\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n# I-bII–bIII-IV-V-bVI–bVII-VIII\n1 = !hint\n0.25 =\n0.25 +1\n0.25 +3\n0.25 +5\n0.25 +7\n0.25 +8\n0.25 +10\n0.25 +12\n0.25 +13\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +13\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +13\n0.25 +12\n0.25 +10\n0.25 +8\n0.25 +7\n0.25 +5\n0.25 +3\n0.25 +1\n1 =\n",
+		"name_en": "Phrygian - 9 notes with repeats",
+		"description_en": "Phrygian scale | 9 tones with repeats"
+	},
+	{
+		"id": "3a8fc8a1",
+		"name": "Dórica - 9 notas con repeticiones",
+		"category": "Modos",
+		"level": "6",
+		"code": "@name: Dórica - 9 notas con repeticiones\n@description: Escala Dórica | 9 tonos con repeticiones\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n# I-II-bIII-IV-V-VI-bVII-VIII\n1 = !hint\n0.25 =\n0.25 +2\n0.25 +3\n0.25 +5\n0.25 +7\n0.25 +9\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +9\n0.25 +7\n0.25 +5\n0.25 +3\n0.25 +2\n1 =\n",
+		"name_en": "Dorian - 9 notes with repeats",
+		"description_en": "Dorian scale | 9 tones with repeats"
+	},
+	{
+		"id": "c040f671",
+		"name": "Eólica - 9 notas con repeticiones",
+		"category": "Modos",
+		"level": "6",
+		"code": "@name: Eólica - 9 notas con repeticiones\n@description: Escala eólica (menor natural) | 9 tonos con repeticiones\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n# Eólico: 1, 2, b3, 4, 5, b6, b7\n1 = !hint\n0.25 =\n0.25 +2\n0.25 +3\n0.25 +5\n0.25 +7\n0.25 +8\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +8\n0.25 +7\n0.25 +5\n0.25 +3\n0.25 +2\n1 =\n",
+		"name_en": "Aeolian - 9 notes with repeats",
+		"description_en": "Aeolian scale (natural minor) | 9 tones with repeats"
+	},
+	{
+		"id": "3173c2a7",
+		"name": "Jónica - 9 notas con repeticiones",
+		"category": "Modos",
+		"level": "6",
+		"code": "@name: Jónica - 9 notas con repeticiones\n@description: Escala Jónica (mayor) | 9 tonos con repeticiones\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n1 = !hint\n0.25 =\n0.25 +2\n0.25 +4\n0.25 +5\n0.25 +7\n0.25 +9\n0.25 +11\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +11\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +11\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +11\n0.25 +9\n0.25 +7\n0.25 +5\n0.25 +4\n0.25 +2\n1 =\n",
+		"name_en": "Ionian - 9 notes with repeats",
+		"description_en": "Ionian scale (major) | 9 tones with repeats"
+	},
+	{
+		"id": "01ff52e9",
+		"name": "Lidia - 9 notas con repeticiones",
+		"category": "Modos",
+		"level": "6",
+		"code": "@name: Lidia - 9 notas con repeticiones\n@description: Escala Lidia | 9 tonos con repeticiones\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n# I-II-III-#IV-V-VI-VII-VIII\n1 = !hint\n0.25 =\n0.25 +2\n0.25 +4\n0.25 +6\n0.25 +7\n0.25 +9\n0.25 +11\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +11\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +11\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +11\n0.25 +9\n0.25 +7\n0.25 +6\n0.25 +4\n0.25 +2\n1 =\n",
+		"name_en": "Lydian - 9 notes with repeats",
+		"description_en": "Lydian scale | 9 tones with repeats"
+	},
+	{
+		"id": "6a13053d",
+		"name": "Locria - 9 notas con repeticiones",
+		"category": "Modos",
+		"level": "6",
+		"code": "@name: Locria - 9 notas con repeticiones\n@description: Escala locria | 9 tonos con repeticiones\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n# Locrio: 1, b2, b3, 4, b5, b6, b7\n# Eólico: 1, 2, b3, 4, 5, b6, b7\n1 = !hint\n0.25 =\n0.25 +1\n0.25 +3\n0.25 +5\n0.25 +6\n0.25 +8\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +8\n0.25 +6\n0.25 +5\n0.25 +3\n0.25 +1\n1 =\n",
+		"name_en": "Locrian - 9 notes with repeats",
+		"description_en": "Locriann scale | 9 tones with repeats"
+	},
+	{
+		"id": "eb4f1312",
+		"name": "Mixolidia - 9 notas con repeticiones",
+		"category": "Modos",
+		"level": "6",
+		"code": "@name: Mixolidia - 9 notas con repeticiones\n@description: Escala Mixolidia | 9 tonos con repeticiones\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n# Mixolidio: 1, 2, 3, 4, 5, 6, b7\n\n1 = !hint\n0.25 =\n0.25 +2\n0.25 +4\n0.25 +5\n0.25 +7\n0.25 +9\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +12\n0.25 +14\n0.25 +12\n0.25 +10\n0.25 +9\n0.25 +7\n0.25 +5\n0.25 +4\n0.25 +2\n1 =\n",
+		"name_en": "Mixolydian - 9 notes with repeats",
+		"description_en": "Mixolydian scale | 9 tones with repeats"
+	},
+	{
+		"id": "c6ec48ff",
+		"name": "Saltos de octava + arpegio mayor en descenso",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Saltos de octava + arpegio mayor en descenso\n@description: Ejercicio para apertura, belting y precisión de afinación\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 2\n@syllable: ia\n\n# Octave jump pattern\n2 = !hint\n.5 = .\n.5 +12 .\n.5 r\n#\n.5 = .\n.5 +12 .\n.25 +7 .\n.25 +4 .\n1 = .\n.5 +12 .\n.5 +12 .\n.5 +12 .\n.25 +7 .\n.25 +4 .\n.5 = .\n.5 +12 .\n.25 +7 .\n.25 +4 .\n.5 =\n",
+		"name_en": "Octave jumps + descending major arpeggio",
+		"description_en": "Exercise for openness, belting and tuning accuracy"
+	},
+	{
+		"id": "9b8ed25a",
+		"name": "Saltos 15-16-17-18",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Saltos 15-16-17-18\n@description: Saltos de notas - 1-5 (x3) 1-6 (x3) 1-7 (x3) 1-8 (x3)\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 2\n@subdivision: 4\n\n2 = !hint\n0.5 =  ~\n0.5 +7  ~\n0.5 =\n0.5 +7  ~\n0.5 =\n0.5 +7  ~\n1 =\n0.5 =  ~\n0.5 +9  ~\n0.5 =\n0.5 +9  ~\n0.5 =\n0.5 +9  ~\n1 =\n0.5 =  ~\n0.5 +11  ~\n0.5 =\n0.5 +11  ~\n0.5 =\n0.5 +11  ~\n1 =\n0.5 =  ~\n0.5 +12  ~\n0.5 =\n0.5 +12  ~\n0.5 =\n0.5 +12  ~\n1 =\n",
+		"name_en": "Jumps 15-16-17-18",
+		"description_en": "Note jumps - 1-5 (x3) 1-6 (x3) 1-7 (x3) 1-8 (x3)"
+	},
+	{
+		"id": "5e0b9912",
+		"name": "Escala mayor con saltos de 3ra-4ta",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Escala mayor con saltos de 3ra-4ta\n@description: Escala mayor | 1-3-5-8-10-12-11-9-7-5-4-2-1\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 6\n@subdivision: 8\n\n# Escala mayor: 1-3-5-8-10-12-11-9-7-5-4-2-1\n    \n1.5 = !hint\n0.5 =  ~\n0.5 +4  ~\n0.5 +7  ~\n0.5 +12  ~\n0.5 +16  ~\n0.5 +19  ~\n0.5 +17  ~\n0.5 +14  ~\n0.5 +11  ~\n0.5 +7  ~\n0.5 +5  ~\n0.5 +2  ~\n1.5 =\n",
+		"name_en": "Major scale with 3rd-4th jumps",
+		"description_en": "Major scale | 1-3-5-8-10-12-11-9-7-5-4-2-1"
+	},
+	{
+		"id": "32c6b678",
+		"name": "Escala menor con saltos de 3ra-4ta",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Escala menor con saltos de 3ra-4ta\n@description: Escala menor | 1-3-5-8-10-12-11-9-7-5-4-2-1\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 6\n@subdivision: 8\n\n# Escala mayor: 1-3m-5-8-10m-12-11-9-7m-5-4-2-1\n    \n1.5 = !hint\n0.5 =  ~\n0.5 +3  ~\n0.5 +7  ~\n0.5 +12  ~\n0.5 +15  ~\n0.5 +19  ~\n0.5 +17  ~\n0.5 +14  ~\n0.5 +10  ~\n0.5 +7  ~\n0.5 +5  ~\n0.5 +2  ~\n1.5 =\n",
+		"name_en": "Minor scale with 3rd-4th jumps",
+		"description_en": "Minor scale | 1-3-5-8-10-12-11-9-7-5-4-2-1"
+	},
+	{
+		"id": "e6fdbac6",
+		"name": "Escala mayor - una octava y media",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Escala mayor - una octava y media\n@description: Escala mayor una octava y media con agudo repetido\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +4\n0.5 +5\n0.5 +7\n0.5 +9\n0.5 +11\n0.5 +12\n0.5 +14\n0.5 +16\n0.5 +17\n0.5 +19\n0.5 +19\n0.5 +19\n0.5 +17\n0.5 +16\n0.5 +14\n0.5 +12\n0.5 +11\n0.5 +9\n0.5 +7\n0.5 +5\n0.5 +4\n0.5 +2\n2 =\n",
+		"name_en": "Major scale - an octave and a half",
+		"description_en": "Major scale, an octave and a half, repeated high note"
+	},
+	{
+		"id": "afe280d5",
+		"name": "Escala menor - una octava y media",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Escala menor - una octava y media\n@description: Escala menor una octava y media con agudo repetido\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +3\n0.5 +5\n0.5 +7\n0.5 +8\n0.5 +10\n0.5 +12\n0.5 +14\n0.5 +15\n0.5 +17\n0.5 +19\n0.5 +19\n0.5 +19\n0.5 +17\n0.5 +15\n0.5 +14\n0.5 +12\n0.5 +10\n0.5 +8\n0.5 +7\n0.5 +5\n0.5 +3\n0.5 +2\n2 =\n",
+		"name_en": "Minor scale - an octave and a half",
+		"description_en": "Minor scale, an octave and a half, repeated high note"
+	},
+	{
+		"id": "4e8601c9",
+		"name": "Arpegio mayor 7 tonos (2 octavas)",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Arpegio mayor 7 tonos (2 octavas)\n@description: Arpegio mayor 6 tonos | 1-3-5-8-10-13-15\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +4\n0.5 +7\n\n0.5 +12\n0.5 +16\n0.5 +19\n0.5 +24\n0.5 +19\n0.5 +16\n0.5 +12\n\n0.5 +7\n0.5 +4\n1.5 =\n",
+		"name_en": "Major arpeggio 7 tones (2 octaves)",
+		"description_en": "Major arpeggio 6 tones | 1-3-5-8-10-13-15"
+	},
+	{
+		"id": "24470250",
+		"name": "Arpegio menor 7 tonos (2 octavas)",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Arpegio menor 7 tonos (2 octavas)\n@description: Arpegio menor 7 tonos | 1-3m-5-8-10m-13-15\n@level: advanced\n@bpm: 70\n@beatsPerMeasure: 6\n@subdivision: 8\n@syllable: rr\n\n1.5 = !hint\n0.5 =\n0.5 +3\n0.5 +7\n\n0.5 +12\n0.5 +15\n0.5 +19\n0.5 +24\n0.5 +19\n0.5 +15\n0.5 +12\n\n0.5 +7\n0.5 +3\n1.5 =\n",
+		"name_en": "Minor arpeggio 7 tones (2 octaves)",
+		"description_en": "Minor arpeggio 7 tones | 1-3m-5-8-10m-13-15"
+	},
+	{
+		"id": "c179134e",
+		"name": "Escala mayor - dos octavas",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Escala mayor - dos octavas\n@description: Escala mayor  dos octavas con agudo repetido\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +4\n0.5 +5\n0.5 +7\n0.5 +9\n0.5 +11\n\n0.5 +12\n0.5 +14\n0.5 +16\n0.5 +17\n0.5 +19\n0.5 +21\n0.5 +23\n0.5 +24\n0.5 +23\n0.5 +21\n0.5 +23\n0.5 +24\n0.5 +23\n0.5 +21\n0.5 +19\n0.5 +17\n0.5 +16\n0.5 +14\n0.5 +12\n\n0.5 +11\n0.5 +9\n0.5 +7\n0.5 +5\n0.5 +4\n0.5 +2\n2 =\n",
+		"name_en": "Major scale - two octaves",
+		"description_en": "Major scale, two octaves, repeated high note"
+	},
+	{
+		"id": "a81f1e0d",
+		"name": "Escala menor - dos octavas",
+		"category": "Saltos y Octavas",
+		"level": "7",
+		"code": "@name: Escala menor - dos octavas\n@description: Escala menor dos octavas con agudo repetido\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 4\n@subdivision: 4\n@syllable: rr\n\n2 = !hint\n0.5 =\n0.5 +2\n0.5 +3\n0.5 +5\n0.5 +7\n0.5 +8\n0.5 +10\n\n0.5 +12\n0.5 +14\n0.5 +15\n0.5 +17\n0.5 +19\n0.5 +20\n0.5 +22\n0.5 +24\n0.5 +22\n0.5 +20\n0.5 +22\n0.5 +24\n0.5 +22\n0.5 +20\n0.5 +19\n0.5 +17\n0.5 +15\n0.5 +14\n\n0.5 +12\n0.5 +10\n0.5 +8\n0.5 +7\n0.5 +5\n0.5 +3\n0.5 +2\n2 =\n",
+		"name_en": "Minor scale - two octaves",
+		"description_en": "Minor scale, two octaves, repeated high note"
+	},
+	{
+		"id": "aee47ebc",
+		"name": "Melismas 02",
+		"category": "Melismas y Agilidad",
+		"level": "7",
+		"code": "@name: Melismas 02\n@description: Ejercicios para melismas 02\n@level: advanced\n@bpm: 60\n@beatsPerMeasure: 2\n\n# Hint note (Root)\n2 = !hint\n\n# Bloque 1 (Patrón 14/16 + 2/16 rítmico)\n.75 =\n0.125 -2\n0.125 -5\n0.75 =\n\n# Bloque 2 (Descenso)\n0.25 -2\n0.25 -5\n.25 r\n0.5 -5\n0.125 -7\n0.5 0\n0.375 r\n\n# Bloque 3 (Ascenso)\n0.25 +3\n0.75 +2\n0.75 =\n0.25 -2\n0.25 +2\n0.25 r\n0.5 +2\n0.125 =\n0.875 -2\n",
+		"name_en": "Melismas 02",
+		"description_en": "Melisma exercises 02"
+	}
+]

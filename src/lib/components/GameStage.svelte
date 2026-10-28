@@ -9,9 +9,9 @@
 	} from '$lib/game/game';
 	import type { Theme } from '$lib/game/theme';
 	import type { Sequence } from '$lib/music/generate';
-	import { scoreByRep } from '$lib/game/scoring';
+	import type { PerformanceSummary } from '$lib/game/scoring';
+	import CoachFeedback, { type CoachCandidate, type CoachExercise } from './CoachFeedback.svelte';
 	import { skinFor } from '$lib/game/collectibles';
-	import { findItem } from '$lib/character/assets.svelte';
 	import { noteLabel, settings, ZOOM_MAX, ZOOM_MIN } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
@@ -27,6 +27,13 @@
 		phase?: Phase;
 		/** Al terminar un ejercicio, si la voz parece entrar desfasada (la página señala la configuración). */
 		desync?: boolean;
+		/** Entrenador de IA del final del ejercicio: qué se practicó, qué ejercicios puede recomendar y qué pasa al elegir. */
+		coach?: {
+			exercise: CoachExercise;
+			candidates: CoachCandidate[];
+			onPick: (id: string) => void;
+			onCreate: (prompt: string) => void;
+		};
 		onStart: () => void;
 		onNext: () => void;
 	}
@@ -39,6 +46,7 @@
 		demo,
 		phase = $bindable('idle'),
 		desync = $bindable(false),
+		coach,
 		onStart,
 		onNext
 	}: Props = $props();
@@ -46,7 +54,7 @@
 	let canvas: HTMLCanvasElement;
 	let game = $state<Game | null>(null);
 	let status = $state<GameStatus | null>(null);
-	let repScores = $state<{ rep: number; collected: number; total: number }[]>([]);
+	let performance = $state<PerformanceSummary | null>(null);
 
 	onMount(() => {
 		let disposed = false;
@@ -57,9 +65,12 @@
 				status = s;
 				phase = s.phase;
 				if (s.phase === 'done' && created) {
-					repScores = scoreByRep(created.getStars());
 					desync = created.looksDesynced;
-				} else if (s.phase !== 'done') desync = false;
+					performance = created.performance;
+				} else if (s.phase !== 'done') {
+					desync = false;
+					performance = null;
+				}
 			});
 			created.setSequence(sequence, options);
 			game = created;
@@ -177,17 +188,9 @@
 			? '✦'
 			: ICONS[settings.collectible as keyof typeof ICONS]
 	);
-	/** Nombre de lo que se recoge (en la pantalla final): el del objeto propio o el de fábrica. */
-	const collectibleName = $derived(
-		settings.collectible.startsWith('custom:')
-			? (findItem(settings.collectible.slice('custom:'.length))?.name ?? '')
-			: t(`collectible.${settings.collectible}` as 'collectible.stars')
-	);
 </script>
 
-<div
-	class="relative h-full w-full overflow-hidden rounded-lg border border-border bg-sky shadow-xl"
->
+<div class="panel relative h-full w-full overflow-hidden bg-sky">
 	<canvas
 		bind:this={canvas}
 		class="block h-full w-full touch-none"
@@ -212,8 +215,10 @@
 		<div
 			class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3"
 		>
-			<div class="rounded-lg bg-black/30 px-3 py-2 text-white backdrop-blur-sm">
-				<div class="text-xs tracking-wide uppercase opacity-80">{title}</div>
+			<div
+				class="rounded-lg border-2 border-white/40 bg-[#1b2a6b]/55 px-3 py-2 text-white backdrop-blur-sm"
+			>
+				<div class="font-display text-xs tracking-wide uppercase opacity-90">{title}</div>
 				{#if status.reps}
 					<div class="text-sm">
 						{t('stage.rep', { i: status.rep + 1, n: status.reps })}
@@ -222,10 +227,10 @@
 				{/if}
 			</div>
 			<div
-				class="flex items-center gap-2 rounded-lg bg-black/30 px-3 py-2 text-white backdrop-blur-sm"
+				class="flex items-center gap-2 rounded-full border-2 border-white/50 bg-[#1b2a6b]/60 px-4 py-1.5 text-white backdrop-blur-sm"
 			>
-				<span class="text-2xl text-star">{icon}</span>
-				<span class="text-xl font-bold tabular-nums">{status.collected}</span>
+				<span class="text-2xl text-star drop-shadow">{icon}</span>
+				<span class="font-display text-xl font-bold tabular-nums">{status.collected}</span>
 				<span class="text-sm opacity-70">/ {status.total}</span>
 			</div>
 		</div>
@@ -311,25 +316,25 @@
 
 		{#if status.phase === 'done'}
 			<div class="absolute inset-0 grid place-items-center bg-black/35 p-4 backdrop-blur-[2px]">
-				<div class="w-full max-w-md rounded-lg bg-surface/95 p-6 text-center shadow-2xl">
+				<div
+					class="max-h-full w-full max-w-md overflow-y-auto rounded-lg bg-surface/95 p-6 text-center shadow-2xl"
+				>
 					<div class="text-sm text-muted uppercase">{t('stage.done')}</div>
-					<div class="my-2 text-5xl font-black">
+					<div class="my-2 font-display text-5xl font-bold">
 						<span class="text-star">{icon}</span>
 						{status.collected}<span class="text-2xl text-muted">/{status.total}</span>
 					</div>
-					<div class="mb-4 text-muted">
-						{settings.collectible.startsWith('custom:')
-							? t('stage.percentCustom', { p: pct, c: collectibleName })
-							: t('stage.percent', { p: pct, c: collectibleName })}
-					</div>
-					<div class="mb-5 flex h-16 items-end gap-1">
-						{#each repScores as r (r.rep)}
-							<div
-								class="flex-1 rounded-t-lg bg-accent/70"
-								style:height="{Math.max(6, (r.collected / r.total) * 100)}%"
-								title={t('stage.repTitle', { i: r.rep + 1, c: r.collected, t: r.total })}
-							></div>
-						{/each}
+					<div
+						class="mx-auto mb-5 flex max-w-xs items-center gap-3"
+						role="progressbar"
+						aria-valuemin="0"
+						aria-valuemax="100"
+						aria-valuenow={pct}
+					>
+						<div class="h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
+							<div class="h-full rounded-full bg-accent" style:width="{pct}%"></div>
+						</div>
+						<span class="w-12 text-right text-lg font-bold tabular-nums">{pct}%</span>
 					</div>
 					{#if desync}
 						<p
@@ -339,6 +344,16 @@
 							<span class="text-lg leading-none text-accent" aria-hidden="true">↗</span>
 							{t('sync.hint')}
 						</p>
+					{/if}
+					{#if coach && !demo && performance && performance.stars >= 8}
+						<CoachFeedback
+							summary={performance}
+							exercise={coach.exercise}
+							candidates={coach.candidates}
+							desynced={desync}
+							onPick={coach.onPick}
+							onCreate={coach.onCreate}
+						/>
 					{/if}
 					<div class="flex justify-center gap-3">
 						<button

@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import GameStage from '$lib/components/GameStage.svelte';
 	import RangePicker from '$lib/components/RangePicker.svelte';
+	import Onboarding from '$lib/components/Onboarding.svelte';
 	import CustomizeDialog from '$lib/components/CustomizeDialog.svelte';
 	import CreateExerciseDialog from '$lib/components/CreateExerciseDialog.svelte';
 	import VoiceExerciseDialog from '$lib/components/VoiceExerciseDialog.svelte';
@@ -10,7 +11,8 @@
 	import PopoverButton from '$lib/components/PopoverButton.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
 	import DrumControl from '$lib/components/DrumControl.svelte';
-	import { byLevel, exercises, exerciseText } from '$lib/exercises/catalog';
+	import { byLevel, exercises, exerciseText, library } from '$lib/exercises/catalog';
+	import { loadUnlocked, unlock, unlockedExercises } from '$lib/exercises/unlocked.svelte';
 	import { generateSequence } from '$lib/music/generate';
 	import { getContext, loadDrums, loadPiano } from '$lib/audio/engine';
 	import { patternsFor, type DrumPattern } from '$lib/audio/drums';
@@ -37,6 +39,7 @@
 	/** Tempo con el que arranca cada ejercicio. */
 	const DEFAULT_BPM = 90;
 	const PREFS_KEY = 'singmaker-prefs';
+	const ONBOARDED_KEY = 'singmaker-onboarded';
 	// Un tema por personaje, creado una sola vez. Los voladores van al cielo; los terrestres, al sendero.
 	const themes: Record<string, Theme> = {};
 	function themeFor(character: CharacterId): Theme {
@@ -50,6 +53,12 @@
 		return (themes[character] ??= createSkyTheme(character));
 	}
 
+	/** Texto legible sobre el color de cinturón del nivel (blanco, amarillo… o negro). */
+	function ink(hex: string): string {
+		const n = parseInt(hex.slice(1), 16);
+		const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+		return lum > 0.6 ? '#1b2240' : '#fff';
+	}
 	let selectedId = $state(byLevel()[0].exercises[0].id);
 	let low = $state(45); // A2 (tenor)
 	let high = $state(72); // C5
@@ -71,6 +80,10 @@
 	let customizing = $state(false);
 	let creating = $state(false);
 	let creatingByVoice = $state(false);
+	/** Descripción sugerida por el entrenador de IA para abrir el creador con el texto escrito. */
+	let suggestedPrompt = $state('');
+	/** Guía de inicio: se abre sola la primera vez y se repite desde el menú de configuración. */
+	let onboarding = $state(false);
 	let loaded = $state(false);
 	let phase = $state<Phase>('idle');
 
@@ -85,9 +98,11 @@
 		return scene ? withScene(base, scene) : base;
 	});
 	const running = $derived(phase === 'listen' || phase === 'countin' || phase === 'playing');
+	/** Lo que se ve en la lista: el catálogo y los ejercicios de la biblioteca ya desbloqueados. */
+	const visible = $derived([...exercises, ...unlockedExercises()]);
 	const exercise = $derived(
 		mine.list.find((e) => e.id === selectedId) ??
-			exercises.find((e) => e.id === selectedId) ??
+			visible.find((e) => e.id === selectedId) ??
 			exercises[0]
 	);
 	const text = $derived(exerciseText(exercise, settings.lang));
@@ -129,19 +144,20 @@
 	const levels = $derived(
 		byLevel(
 			query
-				? exercises.filter((e) =>
+				? visible.filter((e) =>
 						[e.name, e.name_en, e.category, e.parsed.meta.description, e.description_en]
 							.join(' ')
 							.toLowerCase()
 							.includes(query)
 					)
-				: exercises
+				: visible
 		)
 	);
 
 	onMount(() => {
 		loadSettings();
 		loadMine();
+		loadUnlocked();
 		loadMyDrums();
 		void loadCharacters();
 		void loadAssets();
@@ -158,6 +174,9 @@
 			if (typeof p.demo === 'boolean') demo = p.demo;
 		} catch {}
 		loaded = true;
+		try {
+			onboarding = !localStorage.getItem(ONBOARDED_KEY);
+		} catch {}
 		void loadPiano();
 		return () => detector?.stop();
 	});
@@ -175,6 +194,23 @@
 		document.documentElement.lang = snapshot.lang;
 		if (loaded) saveSettings();
 	});
+
+	function closeOnboarding() {
+		onboarding = false;
+		try {
+			localStorage.setItem(ONBOARDED_KEY, '1');
+		} catch {}
+	}
+
+	/** Termina la guía: deja seleccionado el primer ejercicio del nivel recomendado. */
+	function finishOnboarding(level: string) {
+		closeOnboarding();
+		const pick = byLevel(visible).find((l) => l.level === level)?.exercises[0];
+		if (pick) {
+			stop();
+			selectedId = pick.id;
+		}
+	}
 
 	/** Abre el micrófono (una vez) y mide el ruido ambiente. */
 	async function ensureMic(forceCalibration = false): Promise<PitchDetector | null> {
@@ -249,9 +285,49 @@
 		selectedId = addMine(code, prompt).id;
 		creating = false;
 		creatingByVoice = false;
+		suggestedPrompt = '';
 	}
 
 	/** Elige el ritmo de la lista y enciende la batería. */
+	/** Devolución del entrenador de IA: qué se practicó y entre qué ejercicios puede recomendar. */
+	const coach = $derived({
+		exercise: {
+			id: exercise.id,
+			name: text.name,
+			level: exercise.level === 'mine' ? 'custom' : exercise.level,
+			category: exercise.category === 'mine' ? 'custom' : exercise.category
+		},
+		// Del catálogo visible y de la biblioteca oculta, cerca del nivel actual (uno menos o hasta dos más).
+		candidates: [...visible, ...library.filter((e) => !visible.some((v) => v.id === e.id))]
+			.filter((e) => {
+				if (e.id === exercise.id) return false;
+				const here = Number(exercise.level);
+				return Number.isFinite(here)
+					? Number(e.level) >= here - 1 && Number(e.level) <= here + 2
+					: true;
+			})
+			.map((e) => {
+				const x = exerciseText(e, settings.lang);
+				return {
+					id: e.id,
+					name: x.name,
+					level: e.level,
+					category: e.category,
+					description: x.description.slice(0, 140)
+				};
+			}),
+		onPick: (id: string) => {
+			stop();
+			unlock(id);
+			selectedId = id;
+		},
+		onCreate: (prompt: string) => {
+			stop();
+			suggestedPrompt = prompt;
+			creating = true;
+		}
+	});
+
 	function pickRhythm(id: string) {
 		drumPick = { ...drumPick, [meter]: id };
 		drums = true;
@@ -270,7 +346,7 @@
 
 	function next() {
 		// Mismo orden que la lista: nivel → categoría.
-		const order = byLevel().flatMap((lv) => lv.categories.flatMap(([, list]) => list));
+		const order = byLevel(visible).flatMap((lv) => lv.categories.flatMap(([, list]) => list));
 		const i = order.findIndex((e) => e.id === selectedId);
 		selectedId = order[(i + 1) % order.length].id;
 	}
@@ -304,28 +380,26 @@
 {/snippet}
 
 <div class="flex h-dvh flex-col">
-	<header class="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+	<header class="bar flex items-center justify-between gap-3 px-4 py-2.5">
 		<div class="flex items-center gap-3">
-			<img src="/logo.png" alt="" class="-my-1 h-11 w-11" />
+			<img src="/logo.png" alt="" class="-my-1 h-12 w-12 drop-shadow-md" />
 			<div>
-				<h1 class="text-lg leading-tight font-black">Sing Maker</h1>
+				<h1 class="logo-text text-2xl leading-tight font-bold">Sing Maker</h1>
 				<p class="text-xs text-muted">{t('app.subtitle')}</p>
 			</div>
 		</div>
 		<div class="flex flex-wrap items-center justify-end gap-2 text-sm text-muted">
 			<RangePicker bind:low bind:high getDetector={() => ensureMic()} />
 			<button
-				class="flex h-10 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 hover:bg-surface-2"
+				class="round-btn gap-1.5 sm:w-auto sm:px-4"
+				title={t('header.customize')}
+				aria-label={t('header.customize')}
 				onclick={() => (customizing = true)}
 			>
-				<Icon name="palette" class="h-4 w-4 text-accent" />
-				{t('header.customize')}
+				<Icon name="palette" class="h-5 w-5 text-accent" />
+				<span class="hidden font-display font-semibold sm:inline">{t('header.customize')}</span>
 			</button>
-			<div
-				class="flex h-10 overflow-hidden rounded-lg border border-border bg-surface"
-				role="group"
-				aria-label={t('header.language')}
-			>
+			<div class="pill-group" role="group" aria-label={t('header.language')}>
 				{#each ['es', 'en'] as const as lang (lang)}
 					<button
 						class="rounded-none px-2.5 text-xs font-bold uppercase transition {settings.lang ===
@@ -340,9 +414,7 @@
 				{/each}
 			</div>
 			<button
-				class="grid h-10 w-10 place-items-center rounded-full border transition {demo
-					? 'border-border bg-surface text-muted hover:border-accent/50'
-					: 'border-accent bg-accent text-white'}"
+				class="round-btn {demo ? 'text-muted' : 'round-btn-on'}"
 				aria-pressed={!demo}
 				aria-label={demo ? t('mic.off') : t('mic.on')}
 				title={demo ? t('mic.off') : t('mic.on')}
@@ -350,7 +422,14 @@
 			>
 				<Icon name="mic" class="h-5 w-5" />
 			</button>
-			<ProfileMenu getDetector={micForCalibration} bind:highlight={desync} />
+			<ProfileMenu
+				getDetector={micForCalibration}
+				bind:highlight={desync}
+				onGuide={() => {
+					stop();
+					onboarding = true;
+				}}
+			/>
 		</div>
 	</header>
 
@@ -365,19 +444,17 @@
 
 	<div class="flex min-h-0 flex-1 flex-col gap-3 p-3 lg:flex-row">
 		<!-- Catálogo -->
-		<aside
-			class="flex max-h-64 min-h-0 flex-col rounded-lg border border-border bg-surface lg:max-h-none lg:w-72"
-		>
+		<aside class="panel flex max-h-64 min-h-0 flex-col lg:max-h-none lg:w-72">
 			<div class="space-y-2 border-b border-border p-3">
 				<div class="flex gap-2">
 					<button
-						class="flex-1 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-110"
+						class="flex-1 rounded-lg bg-accent px-2 py-2 text-sm font-semibold whitespace-nowrap text-white hover:brightness-110"
 						onclick={() => (creating = true)}
 					>
 						✨ {t('create.button')}
 					</button>
 					<button
-						class="flex-1 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/15"
+						class="flex-1 rounded-lg border-2 border-accent/40 bg-accent/10 px-2 py-2 font-display text-sm font-semibold whitespace-nowrap text-accent hover:bg-accent/15"
 						onclick={() => {
 							stop();
 							creatingByVoice = true;
@@ -462,20 +539,23 @@
 				{/if}
 				{#each levels as lv (lv.level)}
 					<details
-						class="group rounded-lg bg-surface-2/60"
+						class="group level-card"
 						open={!!query || lv.exercises.some((e) => e.id === selectedId)}
 					>
 						<summary
-							class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 select-none hover:bg-surface-2"
+							class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
+							style:--ribbon={lv.color}
+							style:--ribbon-fg={ink(lv.color)}
 						>
-							<span
-								class="h-3 w-3 shrink-0 rounded-full border border-black/20"
-								style:background={lv.color}
-							></span>
+							<span class="ribbon-dot" aria-hidden="true">{lv.level}</span>
 							<span class="font-bold">{t('catalog.level')} {lv.level}</span>
-							<span class="text-sm text-muted">· {tDynamic(`level.${lv.level}`, lv.name)}</span>
-							<span class="ml-auto text-xs text-muted">{lv.exercises.length}</span>
-							<span class="text-muted transition group-open:rotate-90">›</span>
+							<span class="truncate text-sm font-semibold"
+								>{tDynamic(`level.${lv.level}`, lv.name)}</span
+							>
+							<span class="ml-auto rounded-full bg-black/15 px-2 text-xs font-bold"
+								>{lv.exercises.length}</span
+							>
+							<span class="transition group-open:rotate-90">›</span>
 						</summary>
 						<div class="px-1 pb-2">
 							{#each lv.categories as [category, list] (category)}
@@ -486,10 +566,8 @@
 								</div>
 								{#each list as e (e.id)}
 									<button
-										class="block w-full rounded-lg px-2 py-1.5 text-left text-sm transition {e.id ===
-										selectedId
-											? 'bg-accent font-semibold text-white'
-											: 'hover:bg-surface-2'}"
+										class="ex-card {e.id === selectedId ? 'ex-card-on' : ''}"
+										aria-current={e.id === selectedId}
 										onclick={() => {
 											stop();
 											selectedId = e.id;
@@ -517,15 +595,14 @@
 					{demo}
 					bind:phase
 					bind:desync
+					{coach}
 					onStart={start}
 					onNext={next}
 				/>
 			</div>
 
 			<!-- Controles: todos centrados; tempo y tolerancia a la izquierda, piano y metrónomo a la derecha -->
-			<div
-				class="flex items-center justify-center gap-2 rounded-lg border border-border bg-surface p-3 text-sm sm:gap-3"
-			>
+			<div class="panel flex items-center justify-center gap-2 p-3 text-sm sm:gap-3">
 				<PopoverButton icon="gauge" label="{t('controls.tempo')} · {bpm} bpm">
 					<label class="block">
 						<span class="mb-2 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
@@ -616,9 +693,13 @@
 	<CreateExerciseDialog
 		range={{ low, high }}
 		{meter}
+		initialPrompt={suggestedPrompt}
 		onPractice={practiceCreated}
 		onDrum={practiceDrum}
-		onClose={() => (creating = false)}
+		onClose={() => {
+			creating = false;
+			suggestedPrompt = '';
+		}}
 	/>
 {/if}
 
@@ -628,6 +709,16 @@
 		getDetector={() => ensureMic()}
 		onPractice={practiceCreated}
 		onClose={() => (creatingByVoice = false)}
+	/>
+{/if}
+
+{#if onboarding}
+	<Onboarding
+		bind:low
+		bind:high
+		getDetector={micForCalibration}
+		onFinish={finishOnboarding}
+		onClose={closeOnboarding}
 	/>
 {/if}
 

@@ -12,8 +12,13 @@
 	/** `highlight`: señala el menú (se detectó un desfase de voz); se apaga al abrirlo. */
 	let {
 		getDetector,
-		highlight = $bindable(false)
-	}: { getDetector: () => Promise<PitchDetector | null>; highlight?: boolean } = $props();
+		highlight = $bindable(false),
+		onGuide
+	}: {
+		getDetector: () => Promise<PitchDetector | null>;
+		highlight?: boolean;
+		onGuide: () => void;
+	} = $props();
 
 	let open = $state(false);
 	let calibrating = $state(false);
@@ -80,6 +85,16 @@
 			>
 				<Icon name="mic" class="h-4 w-4 text-accent" />
 				{t('sync.item')}
+			</button>
+			<button
+				class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2"
+				onclick={() => {
+					open = false;
+					onGuide();
+				}}
+			>
+				<span class="grid h-4 w-4 place-items-center text-accent" aria-hidden="true">?</span>
+				{t('onb.reopen')}
 			</button>
 		</div>
 	{/if}

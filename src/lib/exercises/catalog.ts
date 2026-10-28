@@ -2,6 +2,7 @@
 // /vocal-scales de voicexplorer. El resto del catálogo original quedó archivado fuera de git.
 import { z } from 'zod';
 import raw from '$lib/data/exercises.json';
+import libraryRaw from '$lib/data/exercises-library.json';
 import { parse, type ParseResult } from '$lib/music/parser';
 import { meterLabel } from '$lib/music/meter';
 
@@ -20,6 +21,15 @@ export type Exercise = z.infer<typeof ExerciseSchema> & { parsed: ParseResult };
 export const exercises: Exercise[] = z
 	.array(ExerciseSchema)
 	.parse(raw)
+	.map((e) => ({ ...e, parsed: parse(e.code) }));
+
+/**
+ * Biblioteca oculta: 51 ejercicios de los niveles 2 a 7 que no aparecen en la lista. El entrenador de IA
+ * (y el onboarding) los recomiendan y, al aceptarlos, se desbloquean (ver unlocked.svelte.ts).
+ */
+export const library: Exercise[] = z
+	.array(ExerciseSchema)
+	.parse(libraryRaw)
 	.map((e) => ({ ...e, parsed: parse(e.code) }));
 
 /** Orden pedagógico de las categorías. */

@@ -10,8 +10,13 @@
 	--color-accent: #5c7bfa;
 	--color-star: #ffc928;
 	--color-sky: #7cc4f2;
+	/* Estilo juego: borde de los marcos y "labio" de los botones con relieve. */
+	--color-accent-dark: #3a55c8;
+	--color-frame: #c9d8f7;
+	--color-frame-dark: #9fb4e6;
 
 	--font-sans: 'Nunito', ui-rounded, system-ui, sans-serif;
+	--font-display: 'Fredoka', 'Nunito', ui-rounded, system-ui, sans-serif;
 
 	/* Todo con esquinas de 8px. */
 	--radius-sm: 8px;
@@ -27,6 +32,21 @@ body {
 	color: var(--color-fg);
 	font-family: var(--font-sans);
 	height: 100%;
+}
+
+/* Fondo de cielo con puntitos suaves, como el de los menús de los juegos. */
+body {
+	background:
+		radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.55) 1.5px, transparent 2px) 0 0 / 22px
+			22px,
+		linear-gradient(180deg, #cfe6ff 0%, #e6f1ff 40%, #f1f5fd 100%) fixed;
+}
+
+h1,
+h2,
+h3,
+h4 {
+	font-family: var(--font-display);
 }
 
 @layer base {
@@ -119,4 +139,205 @@ body {
 .vx-slider:active::-moz-range-thumb {
 	background-color: var(--color-accent);
 	cursor: grabbing;
+}
+
+/* ---------- Estilo juego (base) ----------
+   Marcos gruesos, botones con relieve que se hunden al tocarlos y tipografía redondeada. Se aplica a
+   los botones y diálogos existentes por su clase, para no tocar cada pantalla. */
+
+/* Marco de panel: sidebar, barra de controles, ventana del juego. */
+.panel {
+	background: var(--color-surface);
+	border: 3px solid var(--color-frame);
+	border-radius: 12px;
+	box-shadow:
+		0 4px 0 var(--color-frame-dark),
+		0 10px 22px rgb(40 70 150 / 0.16);
+}
+
+.bar {
+	background: rgb(255 255 255 / 0.72);
+	backdrop-filter: blur(6px);
+	border-bottom: 3px solid var(--color-frame);
+}
+
+/* Diálogos: el mismo marco, más marcado. */
+[role='dialog'] {
+	border: 3px solid var(--color-frame) !important;
+	border-radius: 14px !important;
+	box-shadow:
+		0 6px 0 var(--color-frame-dark),
+		0 26px 50px rgb(20 30 80 / 0.32) !important;
+}
+
+/* Botón principal (acento sobre blanco, salvo las filas de lista que van alineadas a la izquierda). */
+button.bg-accent.text-white:not(.text-left),
+label.bg-accent.text-white {
+	background-image: linear-gradient(180deg, rgb(255 255 255 / 0.24), rgb(255 255 255 / 0) 55%);
+	box-shadow:
+		0 4px 0 var(--color-accent-dark),
+		0 7px 12px rgb(40 60 150 / 0.25);
+	text-shadow: 0 1px 0 rgb(0 0 0 / 0.22);
+	font-family: var(--font-display);
+	font-weight: 600;
+	letter-spacing: 0.01em;
+	transition:
+		transform 80ms,
+		box-shadow 80ms,
+		filter 150ms;
+}
+button.bg-accent.text-white:not(.text-left):active:not(:disabled) {
+	transform: translateY(3px);
+	box-shadow: 0 1px 0 var(--color-accent-dark);
+}
+button.bg-accent.text-white:not(.text-left):disabled {
+	box-shadow: none;
+	filter: saturate(0.5);
+}
+
+/* Botón secundario (blanco o gris con borde) y botones redondos de la barra de controles. */
+button.border-border.bg-surface,
+button.border-border.bg-surface-2,
+button.bg-surface-2.font-semibold {
+	border-width: 2px;
+	border-color: var(--color-frame);
+	box-shadow: 0 3px 0 var(--color-frame-dark);
+	transition:
+		transform 80ms,
+		box-shadow 80ms,
+		background-color 150ms;
+}
+button.border-border.bg-surface:active:not(:disabled),
+button.border-border.bg-surface-2:active:not(:disabled),
+button.bg-surface-2.font-semibold:active:not(:disabled) {
+	transform: translateY(2px);
+	box-shadow: 0 1px 0 var(--color-frame-dark);
+}
+
+/* Cabecera: logo con relieve, botones redondos y selector de idioma en píldora. */
+.logo-text {
+	color: #fff;
+	-webkit-text-stroke: 5px var(--color-accent-dark);
+	paint-order: stroke fill;
+	text-shadow: 0 3px 0 var(--color-accent-dark);
+	letter-spacing: 0.02em;
+}
+.round-btn {
+	display: inline-flex;
+	height: 2.75rem;
+	min-width: 2.75rem;
+	align-items: center;
+	justify-content: center;
+	border-radius: 9999px !important;
+	border: 3px solid var(--color-frame);
+	background: var(--color-surface);
+	box-shadow: 0 4px 0 var(--color-frame-dark);
+	transition:
+		transform 80ms,
+		box-shadow 80ms;
+}
+.round-btn:hover {
+	background: var(--color-surface-2);
+}
+.round-btn:active {
+	transform: translateY(3px);
+	box-shadow: 0 1px 0 var(--color-frame-dark);
+}
+.round-btn-on {
+	background: var(--color-accent);
+	border-color: var(--color-accent-dark);
+	color: #fff;
+	box-shadow: 0 4px 0 var(--color-accent-dark);
+}
+.round-btn-on:hover {
+	background: var(--color-accent);
+	filter: brightness(1.08);
+}
+.pill-group {
+	display: flex;
+	height: 2.75rem;
+	overflow: hidden;
+	border-radius: 9999px;
+	border: 3px solid var(--color-frame);
+	background: var(--color-surface);
+	box-shadow: 0 4px 0 var(--color-frame-dark);
+}
+.pill-group button {
+	border-radius: 0 !important;
+	padding-inline: 0.8rem;
+	font-family: var(--font-display);
+}
+
+/* Selector de ejercicios: cada nivel es una cinta de color y cada ejercicio una tarjeta. */
+.level-card {
+	border-radius: 10px;
+	background: var(--color-surface-2);
+	border: 2px solid var(--color-frame);
+	overflow: hidden;
+}
+.ribbon {
+	background-image: linear-gradient(180deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 60%);
+	background-color: var(--ribbon, var(--color-accent));
+	color: var(--ribbon-fg, #fff);
+	text-shadow: none;
+	font-family: var(--font-display);
+	box-shadow: inset 0 -3px 0 rgb(0 0 0 / 0.18);
+}
+.ribbon:hover {
+	filter: brightness(1.06);
+}
+.ribbon-dot {
+	display: grid;
+	height: 1.5rem;
+	width: 1.5rem;
+	flex-shrink: 0;
+	place-items: center;
+	border-radius: 9999px;
+	background: #fff;
+	color: var(--color-fg);
+	font-size: 0.8rem;
+	font-weight: 700;
+	text-shadow: none;
+	box-shadow: 0 2px 0 rgb(0 0 0 / 0.25);
+}
+.ex-card {
+	display: block;
+	width: 100%;
+	margin-top: 0.25rem;
+	border-radius: 8px;
+	border: 2px solid var(--color-frame);
+	background: var(--color-surface);
+	padding: 0.4rem 0.6rem;
+	text-align: left;
+	font-size: 0.875rem;
+	font-weight: 600;
+	box-shadow: 0 2px 0 var(--color-frame-dark);
+	transition:
+		transform 80ms,
+		box-shadow 80ms,
+		background-color 150ms;
+}
+.ex-card:hover {
+	background: #f3f6ff;
+}
+.ex-card:active {
+	transform: translateY(2px);
+	box-shadow: none;
+}
+.ex-card-on {
+	background: var(--color-accent) !important;
+	border-color: var(--color-accent-dark);
+	color: #fff;
+	box-shadow: 0 2px 0 var(--color-accent-dark);
+}
+
+/* Números y títulos grandes con la tipografía del juego. */
+.font-display {
+	font-family: var(--font-display);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	button {
+		transition: none !important;
+	}
 }

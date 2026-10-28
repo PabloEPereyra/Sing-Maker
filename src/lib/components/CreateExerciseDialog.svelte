@@ -25,6 +25,7 @@
 	let {
 		range,
 		meter: currentMeter,
+		initialPrompt = '',
 		onPractice,
 		onDrum,
 		onClose
@@ -32,6 +33,8 @@
 		range: { low: number; high: number };
 		/** Compás del ejercicio que se está practicando: el de los patrones de batería por defecto. */
 		meter: MeterId;
+		/** Descripción ya escrita (la recomendación del entrenador de IA). */
+		initialPrompt?: string;
 		onPractice: (code: string, prompt: string) => void;
 		onDrum: (result: DrumResult, meter: MeterId) => void;
 		onClose: () => void;
@@ -39,7 +42,8 @@
 
 	let tab = $state<'exercise' | 'drums'>('exercise');
 
-	let prompt = $state('');
+	// svelte-ignore state_referenced_locally
+	let prompt = $state(initialPrompt);
 	let loading = $state(false);
 	let error = $state('');
 	let details = $state<string[]>([]);

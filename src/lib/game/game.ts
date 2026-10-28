@@ -12,6 +12,8 @@ import {
 	HIT_WINDOW_SEC,
 	isHit,
 	looksDesynced,
+	analyzePerformance,
+	type PerformanceSummary,
 	type PitchSample,
 	type Star
 } from './scoring';
@@ -170,6 +172,11 @@ export class Game {
 	/** ¿La voz parece entrar desfasada respecto del ejercicio que terminó? */
 	get looksDesynced(): boolean {
 		return this.desynced;
+	}
+
+	/** Cómo salió el ejercicio (números simples) para el entrenador de IA. */
+	get performance(): PerformanceSummary {
+		return analyzePerformance(this.stars, this.run);
 	}
 
 	setCollectible(skin: CollectibleSkin): void {
