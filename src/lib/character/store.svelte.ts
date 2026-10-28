@@ -89,15 +89,18 @@ export async function addCharacter(
 		id: `c${Date.now().toString(36)}`,
 		createdAt: Date.now()
 	};
-	await run('readwrite', (s) => s.put(full));
-	characters.list = [...characters.list, full];
-	return full;
+	// Los registros que vienen de la lista reactiva son proxies: IndexedDB solo guarda copias limpias.
+	const plain = $state.snapshot(full) as CharacterRecord;
+	await run('readwrite', (s) => s.put(plain));
+	characters.list = [...characters.list, plain];
+	return plain;
 }
 
 /** Reemplaza un personaje guardado (editado). */
 export async function updateCharacter(rec: CharacterRecord): Promise<void> {
-	await run('readwrite', (s) => s.put(rec));
-	characters.list = characters.list.map((c) => (c.id === rec.id ? rec : c));
+	const plain = $state.snapshot(rec) as CharacterRecord;
+	await run('readwrite', (s) => s.put(plain));
+	characters.list = characters.list.map((c) => (c.id === plain.id ? plain : c));
 }
 
 export async function removeCharacter(id: string): Promise<void> {

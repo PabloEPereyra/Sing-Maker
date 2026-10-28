@@ -367,7 +367,48 @@ export function cutCell(
 		box: { x1: cell.x1 + x1, y1: cell.y1 + y1, x2: cell.x1 + x2, y2: cell.y1 + y2 },
 		mask: { w: mw, h: mh, data }
 	};
-	return cutObject(src, object, background, cell);
+	return dropSpecks(cutObject(src, object, background, cell));
+}
+
+/**
+ * Borra las motas sueltas: grupos de píxeles opacos sin conexión con la figura y mucho más chicos que ella
+ * (restos de la pose vecina o del fondo que el color dejó pasar).
+ */
+export function dropSpecks(r: Raster, fraction = 0.004): Raster {
+	const { width: w, height: h } = r;
+	const label = new Int32Array(w * h).fill(-1);
+	const sizes: number[] = [];
+	const members: number[][] = [];
+	for (let start = 0; start < w * h; start++) {
+		if (label[start] >= 0 || r.data[start * 4 + 3] <= 16) continue;
+		const id = sizes.length;
+		const stack = [start];
+		const list: number[] = [];
+		label[start] = id;
+		while (stack.length) {
+			const i = stack.pop()!;
+			list.push(i);
+			const x = i % w;
+			for (const j of [
+				x > 0 ? i - 1 : -1,
+				x < w - 1 ? i + 1 : -1,
+				i >= w ? i - w : -1,
+				i < w * (h - 1) ? i + w : -1
+			]) {
+				if (j >= 0 && label[j] < 0 && r.data[j * 4 + 3] > 16) {
+					label[j] = id;
+					stack.push(j);
+				}
+			}
+		}
+		sizes.push(list.length);
+		members.push(list);
+	}
+	const biggest = Math.max(0, ...sizes);
+	sizes.forEach((n, id) => {
+		if (n < biggest * fraction) for (const i of members[id]) r.data[i * 4 + 3] = 0;
+	});
+	return r;
 }
 
 /** Espeja un raster de izquierda a derecha. */

@@ -5,6 +5,7 @@ import {
 	chromaObjects,
 	cutCell,
 	cutObject,
+	dropSpecks,
 	flipHorizontal,
 	gridCells,
 	estimateBackground,
@@ -357,5 +358,23 @@ describe('importar un personaje (.zip)', () => {
 		]);
 		const files = await readZip(zip);
 		expect([...files.keys()].sort()).toEqual(['a-move.png', 'character.json']);
+	});
+});
+
+describe('limpiar motas', () => {
+	it('borra un grupo chico desconectado y deja la figura', () => {
+		const r = newRaster(100, 100);
+		const paint = (x: number, y: number, w: number, h: number) => {
+			for (let j = 0; j < h; j++)
+				for (let i = 0; i < w; i++)
+					r.data.set([200, 100, 50, 255], ((y + j) * r.width + x + i) * 4);
+		};
+		paint(10, 10, 60, 60); // figura (3600 px)
+		paint(85, 85, 3, 3); // mota (9 px, menos de 14)
+		paint(72, 30, 6, 6); // pieza chica pero > 0,4 % (36 px): se queda
+		dropSpecks(r);
+		expect(r.data[(86 * 100 + 86) * 4 + 3]).toBe(0);
+		expect(r.data[(40 * 100 + 40) * 4 + 3]).toBe(255);
+		expect(r.data[(32 * 100 + 74) * 4 + 3]).toBe(255);
 	});
 });
