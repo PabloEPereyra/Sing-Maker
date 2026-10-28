@@ -1,5 +1,6 @@
 // Objetos para recolectar, independientes del tema: se elige uno en "Personalizar".
 // Las estrellas se dibujan con código; las notas y las zanahorias usan hojas de sprites.
+import { findItem, type ItemRecord } from '$lib/character/assets.svelte';
 import type { CollectibleId } from '$lib/settings.svelte';
 import type { CollectibleState } from './theme';
 
@@ -148,9 +149,91 @@ function spriteSkin(id: CollectibleId, scale: number, opts: SpriteOptions = {}):
 	};
 }
 
-export const COLLECTIBLES: Record<CollectibleId, CollectibleSkin> = {
+export const COLLECTIBLES: Record<'stars' | 'notes' | 'carrots', CollectibleSkin> = {
 	stars,
 	notes: spriteSkin('notes', 2.3),
 	// Derecha e inclinada se alternan entre notas; la de brillos aparece al recogerla.
 	carrots: spriteSkin('carrots', 2.5, { variants: [0, 1], collected: 2 })
 };
+
+// ---------- objetos creados con IA ----------
+
+const customSkins = new Map<string, CollectibleSkin>();
+
+/**
+ * Objeto propio: una hoja de 3 cuadros (normal, inclinado y brillante) guardada en el dispositivo. Se
+ * alternan los dos primeros entre notas y el tercero aparece al recogerlo, igual que las zanahorias.
+ */
+export function customCollectible(rec: ItemRecord): CollectibleSkin {
+	const cached = customSkins.get(rec.id);
+	if (cached) return cached;
+	let img: HTMLImageElement | null = null;
+	const { frames, frameWidth, frameHeight } = rec.sheet;
+	const skin: CollectibleSkin = {
+		id: `custom:${rec.id}`,
+		async load() {
+			if (img) return;
+			const url = URL.createObjectURL(rec.sheet.blob);
+			try {
+				img = await new Promise<HTMLImageElement>((resolve, reject) => {
+					const el = new Image();
+					el.onload = () => resolve(el);
+					el.onerror = reject;
+					el.src = url;
+				});
+			} finally {
+				URL.revokeObjectURL(url);
+			}
+		},
+		draw(g, x, y, size, state, age, time, variant) {
+			if (!img) return;
+			const pool = frames > 1 ? [0, 1] : [0];
+			let frame = pool[((variant % pool.length) + pool.length) % pool.length];
+			// Objetos de 3 cuadros (creados antes): el tercero es el brillante. Si no, el brillo se dibuja acá.
+			if (state === 'collected' && frames > 2) frame = 2;
+			const h = size * 2.5;
+			const w = (frameWidth / frameHeight) * h;
+			const blit = (cx: number, cy: number, k: number) =>
+				g.drawImage(
+					img!,
+					frame * frameWidth,
+					0,
+					frameWidth,
+					frameHeight,
+					cx - (w * k) / 2,
+					cy - (h * k) / 2,
+					w * k,
+					h * k
+				);
+			g.save();
+			if (state === 'collected') {
+				const t = Math.min(1, age / 0.6);
+				g.globalAlpha = 1 - t;
+				if (frames <= 2) {
+					g.shadowColor = 'rgba(255,225,90,0.95)';
+					g.shadowBlur = 26;
+				}
+				blit(x, y - t * 50, 1 + t * 0.5);
+				sparkles(g, x, y, t);
+			} else if (state === 'missed') {
+				g.globalAlpha = 0.6;
+				g.filter = 'grayscale(1)';
+				blit(x, y, 0.85);
+			} else {
+				blit(x, y + Math.sin(time * 4 + x * 0.05) * 2, 1);
+			}
+			g.restore();
+		}
+	};
+	customSkins.set(rec.id, skin);
+	return skin;
+}
+
+/** El objeto elegido en "Personalizar": uno de fábrica o uno propio (si ya no existe, las estrellas). */
+export function skinFor(id: CollectibleId): CollectibleSkin {
+	if (id.startsWith('custom:')) {
+		const rec = findItem(id.slice('custom:'.length));
+		return rec ? customCollectible(rec) : COLLECTIBLES.stars;
+	}
+	return COLLECTIBLES[id as 'stars' | 'notes' | 'carrots'] ?? COLLECTIBLES.stars;
+}

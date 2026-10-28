@@ -38,6 +38,8 @@ const dataUrl = z
 export const CharacterRequestSchema = z.discriminatedUnion('action', [
 	z.object({
 		action: z.literal('brief'),
+		/** Qué se crea: un personaje, un objeto para recoger o un fondo. */
+		kind: z.enum(['character', 'item', 'scene']).default('character'),
 		prompt: z.string().max(600).default(''),
 		image: dataUrl.optional(),
 		lang: z.enum(['es', 'en']).default('es')
@@ -55,6 +57,7 @@ export const CharacterRequestSchema = z.discriminatedUnion('action', [
 		flight: z.string().max(300).optional(),
 		/** Retoque: se edita esta imagen (el personaje actual) aplicando `change`, en vez de dibujar uno nuevo. */
 		reference: dataUrl.optional(),
+		asset: z.enum(['character', 'item']).default('character'),
 		change: z.string().max(300).optional(),
 		/** El estilo de dibujo cambió: se redibuja el mismo personaje en el estilo nuevo. */
 		restyle: z.boolean().optional()
@@ -69,7 +72,7 @@ export const CharacterRequestSchema = z.discriminatedUnion('action', [
 	}),
 	z.object({
 		action: z.literal('strip'),
-		kind: z.enum(['move', 'jump', 'stand']),
+		kind: z.enum(['move', 'jump', 'stand', 'item']),
 		visual: z.string().min(3).max(600),
 		style: z.enum(STYLES).default('cute3d'),
 		movement: z.enum(['walk', 'fly']),
@@ -77,7 +80,14 @@ export const CharacterRequestSchema = z.discriminatedUnion('action', [
 		reference: dataUrl
 	}),
 	z.object({ action: z.literal('segment'), image: dataUrl, noun: z.string().min(1).max(80) }),
-	z.object({ action: z.literal('facing'), image: dataUrl })
+	z.object({ action: z.literal('facing'), image: dataUrl }),
+	z.object({
+		action: z.literal('scene'),
+		visual: z.string().min(3).max(600),
+		style: z.enum(STYLES).default('cute3d'),
+		movement: z.enum(['walk', 'fly'])
+	}),
+	z.object({ action: z.literal('ground'), image: dataUrl })
 ]);
 export type CharacterRequest = z.infer<typeof CharacterRequestSchema>;
 
@@ -107,8 +117,28 @@ const BriefSchema = z.object({
 });
 export type Brief = z.infer<typeof BriefSchema>;
 
-function briefSystem(lang: 'es' | 'en'): string {
+function briefSystem(
+	lang: 'es' | 'en',
+	kind: 'character' | 'item' | 'scene' = 'character'
+): string {
 	const language = lang === 'es' ? 'Spanish' : 'English';
+	const common = `Answer with JSON only:
+- status: "ok" when you can picture it clearly; "clarify" when the request is too vague or contradictory; "refuse" for real people, famous copyrighted characters, brands, violence, sexual or hateful content.
+- message: for "clarify" ask ONE short question in ${language} with 2-3 concrete suggestions; for "refuse" a short polite reason in ${language}; for "ok" an empty string.
+- name: a short friendly name in ${language} (max 3 words), empty if not ok.`;
+	if (kind === 'item')
+		return `You turn a request into a brief for a collectible item of a kids-friendly vocal-training game: the small object the player collects while singing (a star, a carrot, a coin, a music note, a fruit, a gem...).
+${common}
+- noun: the object as a short ENGLISH noun phrase for an object-segmentation model (e.g. "golden coin", "red apple"); empty if not ok.
+- visual: ENGLISH visual description of the single object for an image generator: shape, colors, distinctive details. Only the object (no background, no hands, no style words). Max 40 words. Empty if not ok.
+- flight: always an empty string.
+When a photo is attached, describe THAT object (if it has several, the most prominent).`;
+	if (kind === 'scene')
+		return `You turn a request into a brief for the background scenery of a kids-friendly side-scrolling vocal-training game.
+${common}
+- noun: always an empty string.
+- visual: ENGLISH description of the scenery for an image generator: setting, time of day, colors, mood, a few landmarks. No characters, no text. Max 50 words. Empty if not ok.
+- flight: always an empty string.`;
 	return `You turn a request into a brief for a game character. The character is the hero of a kids-friendly vocal-training game: it runs, jumps or flies over a scenery.
 Answer with JSON only:
 - status: "ok" when you can picture ONE specific character; "clarify" when the request is too vague or has several unrelated subjects (e.g. "something nice", "a thing"); "refuse" for real people, famous copyrighted characters, brands, violence, sexual or hateful content.
@@ -121,14 +151,19 @@ When a photo is attached, describe THAT subject (if it has several, pick the mos
 }
 
 export async function makeBrief(
-	req: { prompt: string; image?: string; lang: 'es' | 'en' },
+	req: {
+		prompt: string;
+		image?: string;
+		lang: 'es' | 'en';
+		kind?: 'character' | 'item' | 'scene';
+	},
 	config: LlmConfig,
 	fetchImpl: typeof fetch = fetch
 ): Promise<Brief> {
 	if (!req.prompt.trim() && !req.image) throw new GenerateError('Empty request.', 400);
 	const text = req.prompt.trim() || 'Use the subject of the photo.';
 	const messages: Message[] = [
-		{ role: 'system', content: briefSystem(req.lang) },
+		{ role: 'system', content: briefSystem(req.lang, req.kind) },
 		{
 			role: 'user',
 			content: req.image
@@ -246,12 +281,16 @@ export function mediaConfigFromEnv(
 	};
 }
 
+const ITEM_POSES =
+	'TWO poses of the SAME small item, each upright and centered in its own cell: (1) normal; (2) tilted about 15 degrees to one side. No glow, no sparkles, no halo, nothing around the item';
+
 const POSES = (flight?: string): Record<Movement, Record<StripKind, string>> => ({
 	walk: {
 		move: 'a looping RUN CYCLE (contact, down, passing, up poses; the last frame flows back into the first), running to the right',
 		jump: 'a JUMP sequence of 6 poses in order: crouched anticipation, pushing off the ground, rising with body stretched, apex of the jump, falling with legs reaching down, landing and absorbing the impact',
 		stand:
-			'TWO poses: (1) standing relaxed in side view facing right; (2) standing facing the viewer, front view, one hand waving hello'
+			'TWO poses: (1) standing relaxed in side view facing right; (2) standing facing the viewer, front view, one hand waving hello',
+		item: ITEM_POSES
 	},
 	fly: {
 		move: flight?.trim()
@@ -259,7 +298,8 @@ const POSES = (flight?: string): Record<Movement, Record<StripKind, string>> => 
 			: 'a looping FLAPPING FLIGHT cycle (wings up, mid, down, mid; the last frame flows back into the first), flying to the right',
 		jump: '',
 		stand:
-			'TWO poses: (1) standing in side view facing right, relaxed, keeping all its accessories and gear; (2) standing facing the viewer, front view, friendly greeting'
+			'TWO poses: (1) standing in side view facing right, relaxed, keeping all its accessories and gear; (2) standing facing the viewer, front view, friendly greeting',
+		item: ITEM_POSES
 	}
 });
 
@@ -275,7 +315,13 @@ export function heroEditPrompt(
 	return `Edit the reference image: keep EXACTLY the same character (${visual}), the same art style (${STYLE_PROMPT[style]}), the same side view facing RIGHT, the same framing and the same ${BACKDROP} background; change ONLY this: ${change}. Whole body fully visible and not cropped, no shadows, no ground, no text.`;
 }
 
-export function heroPrompt(visual: string, style: StyleId): string {
+export function heroPrompt(
+	visual: string,
+	style: StyleId,
+	asset: 'character' | 'item' = 'character'
+): string {
+	if (asset === 'item')
+		return `Game collectible icon of ${visual}. ${STYLE_PROMPT[style]}. A single object centered, the whole object visible and not cropped, on a ${BACKDROP} background with no shadows, no ground, no hands, no text.`;
 	return `Character design of ${visual}. ${STYLE_PROMPT[style]}. Full body, a single character centered, side view facing RIGHT (the front of the character or vehicle points toward the right edge), whole body fully visible and not cropped, on a ${BACKDROP} background with no shadows, no ground, no text.`;
 }
 
@@ -287,6 +333,8 @@ export function stripPrompt(
 	flight?: string
 ): string {
 	const { cols, rows, ask } = STRIPS[kind];
+	if (kind === 'item')
+		return `Sprite sheet of the SAME item as the reference image (${visual}), laid out as ONE row of ${cols} equal cells, exactly one pose per cell, left to right. Each pose sits fully inside its own cell, centered, with generous empty space on all sides: nothing may touch or cross the edges of its cell or touch another pose. Same size and same art style in every pose. ${ITEM_POSES}. ${STYLE_PROMPT[style]}. The whole object is visible and not cropped. ${BACKDROP} background everywhere, no grid lines, no borders, no shadows, no text, no numbers.`;
 	const layout =
 		rows === 1
 			? `ONE row of ${cols} equal cells`
@@ -383,8 +431,14 @@ function upstreamError(status: number, body: string): GenerateError {
 }
 
 /** Tamaño pedido para cada imagen: el personaje solo, cuadrado; las hojas de poses, en la proporción de su grilla. */
-export const SIZE = { hero: '1024x1024', grid: '1536x1024', stand: '1536x768' } as const;
-export const sizeFor = (kind: StripKind): string => (kind === 'stand' ? SIZE.stand : SIZE.grid);
+export const SIZE = {
+	hero: '1024x1024',
+	grid: '1536x1024',
+	stand: '1536x768',
+	scene: '1536x864'
+} as const;
+export const sizeFor = (kind: StripKind): string =>
+	kind === 'stand' || kind === 'item' ? SIZE.stand : SIZE.grid;
 
 // ---------- Spark: ¿hacia dónde mira? ----------
 
@@ -466,4 +520,52 @@ Answer with JSON only:
 		{ role: 'user', content: req.instruction }
 	];
 	return askJson(messages, config, fetchImpl, RefineSchema, REFINE_JSON_SCHEMA, 'character_refine');
+}
+
+// ---------- fondos ----------
+
+/** Fondo de juego de desplazamiento lateral: con sendero (caminantes) o solo cielo (voladores). */
+export function scenePrompt(visual: string, style: StyleId, movement: Movement): string {
+	const where =
+		movement === 'walk'
+			? 'A flat path or ground runs horizontally along the lower part of the picture and everything below its top edge is path or ground; the area above it is the scenery.'
+			: 'Open sky scenery with no ground visible at the bottom.';
+	return `Wide 16:9 side-scrolling video game background, no characters, no creatures in the foreground, no text, no UI. Scene: ${visual}. ${STYLE_PROMPT[style]}. ${where} The center band stays calm and uncluttered, soft and low contrast, so notes and stars drawn over it stay readable. The left and right edges match so the image repeats seamlessly.`;
+}
+
+export const GROUND_JSON_SCHEMA = {
+	type: 'object',
+	additionalProperties: false,
+	required: ['ground'],
+	properties: { ground: { type: 'number' } }
+};
+const GroundSchema = z.object({ ground: z.number() });
+
+/** En qué fracción del alto (0 arriba, 1 abajo) empieza el suelo por donde camina el personaje; 0,5–0,95. */
+export async function detectGround(
+	image: string,
+	config: LlmConfig,
+	fetchImpl: typeof fetch = fetch
+): Promise<number> {
+	const messages: Message[] = [
+		{
+			role: 'user',
+			content: [
+				{
+					type: 'text',
+					text: 'This is the background of a side-scrolling game. At what fraction of the image height (0 = top edge, 1 = bottom edge) is the top edge of the flat ground or path where a character would stand and walk? Answer with a number between 0.5 and 0.95.'
+				},
+				{ type: 'image_url', image_url: { url: image } }
+			]
+		}
+	];
+	const { ground } = await askJson(
+		messages,
+		config,
+		fetchImpl,
+		GroundSchema,
+		GROUND_JSON_SCHEMA,
+		'ground'
+	);
+	return Math.min(0.95, Math.max(0.5, ground));
 }

@@ -32,6 +32,8 @@ export type StyleId = (typeof STYLES)[number];
 export const STRIPS = {
 	move: { cols: 3, rows: 2, ask: 6, min: 4, max: 6 },
 	jump: { cols: 3, rows: 2, ask: 6, min: 3, max: 6 },
-	stand: { cols: 2, rows: 1, ask: 2, min: 2, max: 2 }
+	stand: { cols: 2, rows: 1, ask: 2, min: 2, max: 2 },
+	/** Objeto a recoger: normal e inclinado (el brillo de "recogido" lo pone el juego, por código). */
+	item: { cols: 2, rows: 1, ask: 2, min: 2, max: 2 }
 } as const;
 export type StripKind = keyof typeof STRIPS;

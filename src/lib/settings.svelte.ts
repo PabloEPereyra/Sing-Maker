@@ -3,7 +3,7 @@ import { midiToNote, midiToSolfege } from '$lib/music/notes';
 
 export type Lang = 'es' | 'en';
 export type Notation = 'solfege' | 'american';
-export type CollectibleId = 'stars' | 'notes' | 'carrots';
+export type CollectibleId = 'stars' | 'notes' | 'carrots' | `custom:${string}`;
 /** Voladores (tema Cielo, eligen árbol de partida) y terrestres (tema Sendero); `custom:<id>` = creado con IA. */
 export type CharacterId = 'bird' | 'bunny' | `custom:${string}`;
 export type StartId = 'tree1' | 'tree2';
@@ -27,6 +27,9 @@ export const settings = $state<{
 	collectible: CollectibleId;
 	character: CharacterId;
 	start: StartId;
+	/** Fondo creado con IA para caminantes / voladores (id del fondo; vacío = el de fábrica). */
+	backgroundWalk: string;
+	backgroundFly: string;
 	/** Se suma a la latencia estimada: positivo si la voz se ve atrasada. */
 	latencyMs: number;
 	/** Zoom del escenario (1 = normal). */
@@ -38,7 +41,9 @@ export const settings = $state<{
 	character: 'bird',
 	start: 'tree1',
 	latencyMs: 0,
-	zoom: 1
+	zoom: 1,
+	backgroundWalk: '',
+	backgroundFly: ''
 });
 
 export function loadSettings(): void {
@@ -48,7 +53,13 @@ export function loadSettings(): void {
 		const s = JSON.parse(localStorage.getItem(KEY) ?? '{}');
 		if (s.lang === 'es' || s.lang === 'en') settings.lang = s.lang;
 		if (s.notation === 'solfege' || s.notation === 'american') settings.notation = s.notation;
-		if (['stars', 'notes', 'carrots'].includes(s.collectible)) settings.collectible = s.collectible;
+		if (
+			['stars', 'notes', 'carrots'].includes(s.collectible) ||
+			(typeof s.collectible === 'string' && /^custom:\w+$/.test(s.collectible))
+		)
+			settings.collectible = s.collectible;
+		for (const key of ['backgroundWalk', 'backgroundFly'] as const)
+			if (typeof s[key] === 'string' && /^\w{0,20}$/.test(s[key])) settings[key] = s[key];
 		if (
 			s.character === 'bird' ||
 			s.character === 'bunny' ||

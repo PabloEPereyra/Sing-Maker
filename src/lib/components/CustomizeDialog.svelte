@@ -23,8 +23,14 @@
 	import { ImportError, importCharacter } from '$lib/character/import';
 	import CharacterThumb from './CharacterThumb.svelte';
 	import CreateCharacterDialog from './CreateCharacterDialog.svelte';
+	import CreateItemDialog from './CreateItemDialog.svelte';
+	import CreateSceneDialog from './CreateSceneDialog.svelte';
+	import SceneThumb from './SceneThumb.svelte';
+	import { assets, removeItem, removeScene } from '$lib/character/assets.svelte';
 
 	let creating = $state(false);
+	let creatingItem = $state(false);
+	let creatingScene = $state(false);
 	let editing = $state<CharacterRecord | null>(null);
 	let importing = $state(false);
 	let importError = $state('');
@@ -112,6 +118,26 @@
 			meta: c.meta
 		});
 		settings.character = customId(copy.id);
+	}
+
+	/** Fondos propios que sirven para el personaje elegido (los de caminantes tienen sendero). */
+	const sceneList = $derived(assets.scenes.filter((s) => s.movement === (flyer ? 'fly' : 'walk')));
+	const activeScene = $derived(flyer ? settings.backgroundFly : settings.backgroundWalk);
+
+	function selectScene(id: string) {
+		if (flyer) settings.backgroundFly = id;
+		else settings.backgroundWalk = id;
+	}
+
+	async function removeCustomItem(id: string) {
+		if (settings.collectible === `custom:${id}`) settings.collectible = 'stars';
+		await removeItem(id);
+	}
+
+	async function removeCustomScene(id: string) {
+		if (settings.backgroundWalk === id) settings.backgroundWalk = '';
+		if (settings.backgroundFly === id) settings.backgroundFly = '';
+		await removeScene(id);
 	}
 
 	async function remove(id: string) {
@@ -304,13 +330,109 @@
 					<span class="text-sm font-semibold">{t(o.label)}</span>
 				</button>
 			{/each}
+			{#each assets.items as it (it.id)}
+				<div class="group/item relative">
+					<button
+						class="flex w-full flex-col items-center gap-2 rounded-lg border-2 p-3 transition {settings.collectible ===
+						`custom:${it.id}`
+							? 'border-accent bg-accent/10'
+							: 'border-border hover:border-accent/50'}"
+						aria-pressed={settings.collectible === `custom:${it.id}`}
+						onclick={() => (settings.collectible = `custom:${it.id}`)}
+					>
+						<div class="grid h-16 w-full place-items-center rounded-lg bg-sky/60">
+							<CharacterThumb sheet={it.sheet} class="h-12" />
+						</div>
+						<span class="max-w-full truncate text-sm font-semibold">{it.name}</span>
+					</button>
+					<button
+						class="absolute top-1 right-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+						aria-label={t('item.delete')}
+						title={t('item.delete')}
+						onclick={() => removeCustomItem(it.id)}>✕</button
+					>
+				</div>
+			{/each}
+			<button
+				class="flex min-h-28 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 p-2 text-center text-xs font-semibold text-accent transition hover:bg-accent/10"
+				onclick={() => (creatingItem = true)}
+			>
+				<span class="text-xl">✨</span>
+				{t('item.createCard')}
+			</button>
 		</div>
-		<p class="mt-4 text-xs text-muted">{t('customize.more')}</p>
+
+		<!-- Escenario: el de fábrica o fondos creados con IA para este tipo de personaje -->
+		<h4 class="mt-5 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
+			{t('scene.section')}
+		</h4>
+		<div class="grid grid-cols-3 gap-3">
+			<button
+				class="flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition {activeScene ===
+				''
+					? 'border-accent bg-accent/10'
+					: 'border-border hover:border-accent/50'}"
+				aria-pressed={activeScene === ''}
+				onclick={() => selectScene('')}
+			>
+				<div
+					class="grid h-16 w-full place-items-center rounded-lg {flyer
+						? 'bg-sky/60'
+						: 'bg-green-100'}"
+				>
+					<span class="text-2xl">{flyer ? '☁️' : '🌲'}</span>
+				</div>
+				<span class="text-sm font-semibold">{t('scene.original')}</span>
+			</button>
+			{#each sceneList as sc (sc.id)}
+				<div class="group/item relative">
+					<button
+						class="flex w-full flex-col items-center gap-2 rounded-lg border-2 p-3 transition {activeScene ===
+						sc.id
+							? 'border-accent bg-accent/10'
+							: 'border-border hover:border-accent/50'}"
+						aria-pressed={activeScene === sc.id}
+						onclick={() => selectScene(sc.id)}
+					>
+						<SceneThumb image={sc.image} class="h-16" />
+						<span class="max-w-full truncate text-sm font-semibold">{sc.name}</span>
+					</button>
+					<button
+						class="absolute top-1 right-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
+						aria-label={t('scene.delete')}
+						title={t('scene.delete')}
+						onclick={() => removeCustomScene(sc.id)}>✕</button
+					>
+				</div>
+			{/each}
+			<button
+				class="flex min-h-28 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 p-2 text-center text-xs font-semibold text-accent transition hover:bg-accent/10"
+				onclick={() => (creatingScene = true)}
+			>
+				<span class="text-xl">✨</span>
+				{t('scene.createCard')}
+			</button>
+		</div>
 	</div>
 </div>
 
 {#if creating}
 	<CreateCharacterDialog onClose={() => (creating = false)} onCreated={() => (creating = false)} />
+{/if}
+
+{#if creatingItem}
+	<CreateItemDialog
+		onClose={() => (creatingItem = false)}
+		onCreated={() => (creatingItem = false)}
+	/>
+{/if}
+
+{#if creatingScene}
+	<CreateSceneDialog
+		movement={flyer ? 'fly' : 'walk'}
+		onClose={() => (creatingScene = false)}
+		onCreated={() => (creatingScene = false)}
+	/>
 {/if}
 
 {#if editing}

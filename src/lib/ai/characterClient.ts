@@ -16,8 +16,16 @@ async function call<T>(body: Record<string, unknown>): Promise<T> {
 }
 
 export const characterApi = {
-	brief: (prompt: string, lang: 'es' | 'en', image?: string) =>
-		call<Brief>({ action: 'brief', prompt, lang, image }),
+	brief: (
+		prompt: string,
+		lang: 'es' | 'en',
+		image?: string,
+		kind: 'character' | 'item' | 'scene' = 'character'
+	) => call<Brief>({ action: 'brief', prompt, lang, image, kind }),
+	scene: (visual: string, style: StyleId, movement: Movement) =>
+		call<{ image: string }>({ action: 'scene', visual, style, movement }).then((r) => r.image),
+	ground: (image: string) =>
+		call<{ ground: number }>({ action: 'ground', image }).then((r) => r.ground),
 	objects: (image: string, lang: 'es' | 'en') =>
 		call<{ objects: { noun: string; label: string }[] }>({ action: 'objects', image, lang }).then(
 			(r) => r.objects
@@ -26,7 +34,12 @@ export const characterApi = {
 		visual: string,
 		style: StyleId,
 		movement: Movement,
-		opts: { reference?: string; change?: string; restyle?: boolean } = {}
+		opts: {
+			reference?: string;
+			change?: string;
+			restyle?: boolean;
+			asset?: 'character' | 'item';
+		} = {}
 	) =>
 		call<{ image: string }>({ action: 'hero', visual, style, movement, ...opts }).then(
 			(r) => r.image

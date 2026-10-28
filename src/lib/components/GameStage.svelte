@@ -10,7 +10,8 @@
 	import type { Theme } from '$lib/game/theme';
 	import type { Sequence } from '$lib/music/generate';
 	import { scoreByRep } from '$lib/game/scoring';
-	import { COLLECTIBLES } from '$lib/game/collectibles';
+	import { skinFor } from '$lib/game/collectibles';
+	import { findItem } from '$lib/character/assets.svelte';
 	import { noteLabel, settings, ZOOM_MAX, ZOOM_MIN } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
@@ -132,7 +133,7 @@
 	// Objeto a recolectar elegido en "Personalizar".
 	$effect(() => {
 		const g = game;
-		const skin = COLLECTIBLES[settings.collectible];
+		const skin = skinFor(settings.collectible);
 		skin.load().then(() => g?.setCollectible(skin));
 	});
 
@@ -162,7 +163,17 @@
 		status && status.total ? Math.round((status.collected / status.total) * 100) : 0
 	);
 	const ICONS = { stars: '★', notes: '♪', carrots: '🥕' } as const;
-	const icon = $derived(ICONS[settings.collectible]);
+	const icon = $derived(
+		settings.collectible.startsWith('custom:')
+			? '✦'
+			: ICONS[settings.collectible as keyof typeof ICONS]
+	);
+	/** Nombre de lo que se recoge (en la pantalla final): el del objeto propio o el de fábrica. */
+	const collectibleName = $derived(
+		settings.collectible.startsWith('custom:')
+			? (findItem(settings.collectible.slice('custom:'.length))?.name ?? '')
+			: t(`collectible.${settings.collectible}` as 'collectible.stars')
+	);
 </script>
 
 <div
@@ -298,10 +309,9 @@
 						{status.collected}<span class="text-2xl text-muted">/{status.total}</span>
 					</div>
 					<div class="mb-4 text-muted">
-						{t('stage.percent', {
-							p: pct,
-							c: t(`collectible.${settings.collectible}`)
-						})}
+						{settings.collectible.startsWith('custom:')
+							? t('stage.percentCustom', { p: pct, c: collectibleName })
+							: t('stage.percent', { p: pct, c: collectibleName })}
 					</div>
 					<div class="mb-5 flex h-16 items-end gap-1">
 						{#each repScores as r (r.rep)}

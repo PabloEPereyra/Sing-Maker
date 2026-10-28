@@ -4,11 +4,13 @@
 import {
 	CharacterRequestSchema,
 	detectFacing,
+	detectGround,
 	generateImage,
 	heroEditPrompt,
 	heroPrompt,
 	listObjects,
 	makeBrief,
+	scenePrompt,
 	refineBrief,
 	mediaConfigFromEnv,
 	segmentImage,
@@ -53,7 +55,7 @@ export async function onRequestPost({
 					image: await generateImage(
 						input.reference && (input.change || input.restyle)
 							? heroEditPrompt(input.visual, input.style, input.change ?? '', input.restyle)
-							: heroPrompt(input.visual, input.style),
+							: heroPrompt(input.visual, input.style, input.asset),
 						media,
 						{ size: SIZE.hero, reference: input.reference }
 					)
@@ -68,6 +70,16 @@ export async function onRequestPost({
 						{ size: sizeFor(input.kind), reference: input.reference }
 					)
 				});
+			case 'scene':
+				return json({
+					image: await generateImage(
+						scenePrompt(input.visual, input.style, input.movement),
+						media,
+						{ size: SIZE.scene }
+					)
+				});
+			case 'ground':
+				return json({ ground: await detectGround(input.image, config) });
 			case 'facing':
 				return json({ facing: await detectFacing(input.image, config) });
 			case 'segment':

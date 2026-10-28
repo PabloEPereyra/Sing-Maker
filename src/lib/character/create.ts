@@ -112,7 +112,9 @@ export async function cutSubject(
 	photo: Raster,
 	noun: string,
 	/** La imagen tiene fondo liso (la generó Muse Image sobre verde): se rescatan los accesorios que SAM deja afuera. */
-	solidBackground = false
+	solidBackground = false,
+	/** Personajes: se espeja si miran a la izquierda. Los objetos no tienen frente. */
+	alignFacing = true
 ): Promise<{ cutout: Raster; reference: string }> {
 	const objects = await segment(photo, noun, solidBackground);
 	if (!objects.length)
@@ -127,7 +129,7 @@ export async function cutSubject(
 	let reference = compositeOnColor(square, GREEN);
 	let result = cutout;
 	// Todas las poses salen del modelo siguiendo esta referencia: si mira a la izquierda, se espeja.
-	if ((await facingOf(reference)) === 'left') {
+	if (alignFacing && (await facingOf(reference)) === 'left') {
 		reference = flipHorizontal(reference);
 		result = flipHorizontal(cutout);
 	}
@@ -228,7 +230,7 @@ async function makeStrip(kind: StripKind, input: CreateInput, reference: string)
 			// SAM marca las poses (semillas) y, en paralelo, Spark mira hacia dónde apuntan.
 			const [seeds, facing] = await Promise.all([
 				segment(raster, input.noun, false),
-				kind === 'stand' ? Promise.resolve('unclear' as const) : facingOf(raster)
+				kind === 'stand' || kind === 'item' ? Promise.resolve('unclear' as const) : facingOf(raster)
 			]);
 			// Cada pose se recorta dentro de su celda: lo que cruce el borde de la celda no cuenta.
 			let frames = gridCells(raster, background, cols, rows)
@@ -366,6 +368,46 @@ export async function refineCharacter(
 		return { input: next, created: { ...created, [scope]: strip } };
 	} catch (e) {
 		onProgress(scope, 'failed', (e as Error).message);
+		throw e;
+	}
+}
+
+export interface ItemInput {
+	visual: string;
+	noun: string;
+	style: StyleId;
+	/** Imagen de referencia (objeto sobre verde): de una foto recortada con SAM; si falta se dibuja una. */
+	reference?: string;
+}
+
+/** Crea un objeto para recoger: diseño (o foto recortada) -> hoja de 3 poses (normal, inclinado, brillante). */
+export async function createItem(input: ItemInput, onProgress: Progress): Promise<Strip> {
+	let reference = input.reference;
+	if (!reference) {
+		onProgress('hero', 'working');
+		try {
+			const design = await dataUrlToRaster(
+				await characterApi.hero(input.visual, input.style, 'walk', { asset: 'item' }),
+				1024
+			);
+			reference = (await cutSubject(design, input.noun, true, false)).reference;
+			onProgress('hero', 'done');
+		} catch (e) {
+			onProgress('hero', 'failed', (e as Error).message);
+			throw e;
+		}
+	} else onProgress('hero', 'done');
+	onProgress('item', 'working');
+	try {
+		const strip = await makeStrip(
+			'item',
+			{ movement: 'fly', visual: input.visual, noun: input.noun, style: input.style },
+			reference
+		);
+		onProgress('item', 'done');
+		return strip;
+	} catch (e) {
+		onProgress('item', 'failed', (e as Error).message);
 		throw e;
 	}
 }

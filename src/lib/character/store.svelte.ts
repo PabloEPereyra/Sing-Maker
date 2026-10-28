@@ -1,9 +1,8 @@
 // Personajes creados con IA, guardados en el dispositivo (IndexedDB: son imágenes, no caben en
 // localStorage). Cada personaje guarda sus tiras de cuadros como PNG con transparencia.
+import { idbRun } from './idb';
 import type { Movement, StyleId } from './spec';
 
-const DB_NAME = 'singmaker';
-const STORE = 'characters';
 /** Tope de personajes propios (cada uno pesa ~1–2 MB). */
 export const MAX_CHARACTERS = 12;
 
@@ -44,32 +43,8 @@ export const characters = $state<{ list: CharacterRecord[]; loaded: boolean }>({
 	loaded: false
 });
 
-function open(): Promise<IDBDatabase> {
-	return new Promise((resolve, reject) => {
-		const req = indexedDB.open(DB_NAME, 1);
-		req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id' });
-		req.onsuccess = () => resolve(req.result);
-		req.onerror = () => reject(req.error);
-	});
-}
-
-function run<T>(mode: IDBTransactionMode, work: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-	return open().then(
-		(db) =>
-			new Promise<T>((resolve, reject) => {
-				const tx = db.transaction(STORE, mode);
-				const req = work(tx.objectStore(STORE));
-				tx.oncomplete = () => {
-					db.close();
-					resolve(req.result);
-				};
-				tx.onerror = tx.onabort = () => {
-					db.close();
-					reject(tx.error);
-				};
-			})
-	);
-}
+const run = <T>(mode: IDBTransactionMode, work: (s: IDBObjectStore) => IDBRequest<T>) =>
+	idbRun('characters', mode, work);
 
 export async function loadCharacters(): Promise<void> {
 	try {

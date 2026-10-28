@@ -470,7 +470,8 @@
 		hero: 'char.step.hero',
 		move: 'char.step.move',
 		jump: 'char.step.jump',
-		stand: 'char.step.stand'
+		stand: 'char.step.stand',
+		item: 'char.step.item'
 	} as const;
 	const CHECKER =
 		'background-image: linear-gradient(45deg,#0000000f 25%,transparent 25%,transparent 75%,#0000000f 75%),linear-gradient(45deg,#0000000f 25%,transparent 25%,transparent 75%,#0000000f 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px;';

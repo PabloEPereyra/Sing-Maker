@@ -22,6 +22,8 @@
 	import { createSkyTheme } from '$lib/game/themes/sky';
 	import { createPathTheme } from '$lib/game/themes/path';
 	import { createCustomTheme } from '$lib/game/themes/custom';
+	import { withScene } from '$lib/game/themes/scene';
+	import { findScene, loadAssets } from '$lib/character/assets.svelte';
 	import {
 		CUSTOM_PREFIX,
 		findCharacter,
@@ -83,7 +85,13 @@
 	let stage: GameStage;
 	let detector: PitchDetector | null = null;
 
-	const theme = $derived(themeFor(settings.character, settings.start));
+	/** El tema del personaje elegido, con el fondo propio que se haya elegido para su tipo (si hay). */
+	const theme = $derived.by(() => {
+		const base = themeFor(settings.character, settings.start);
+		const id = base.movement === 'walk' ? settings.backgroundWalk : settings.backgroundFly;
+		const scene = id ? findScene(id) : undefined;
+		return scene ? withScene(base, scene) : base;
+	});
 	const running = $derived(phase === 'listen' || phase === 'countin' || phase === 'playing');
 	const exercise = $derived(
 		mine.list.find((e) => e.id === selectedId) ??
@@ -144,6 +152,7 @@
 		loadMine();
 		loadMyDrums();
 		void loadCharacters();
+		void loadAssets();
 		try {
 			const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
 			if (typeof p.low === 'number') low = p.low;
