@@ -97,6 +97,25 @@ const SHEETS = [
 		anchor: 'feet',
 		despill: 'green'
 	},
+	// Coneja nueva: correr (8 cuadros) y saltar (6 cuadros, de la salida a la caída).
+	{
+		src: 'assets/path/bunny-run.png',
+		out: 'static/themes/path/bunny-run',
+		frames: 8,
+		height: 240,
+		split: 'auto',
+		anchor: 'feet',
+		despill: 'green'
+	},
+	{
+		src: 'assets/path/bunny-jump.png',
+		out: 'static/themes/path/bunny-jump',
+		frames: 6,
+		height: 240,
+		split: 'auto',
+		anchor: 'feet',
+		despill: 'green'
+	},
 	// Zanahorias: 0 derecha, 1 inclinada (se alternan entre notas), 2 con brillos (al recogerla).
 	{
 		src: 'assets/collectibles/carrots-sheet.png',

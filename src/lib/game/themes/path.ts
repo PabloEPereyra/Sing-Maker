@@ -11,13 +11,14 @@ interface SpriteMeta {
 
 type Sheet = { img: HTMLImageElement; meta: SpriteMeta };
 
-/** Cuadros de bunny-move: 0–3 caminar, 4 agachada, 5 recogida (bajando), 6 estirada (subiendo). */
-const WALK = [0, 1, 2, 3];
-const CROUCH = 4;
-const FALLING = 5;
-const RISING = 6;
-/** Cuadros por segundo del paso. */
-const WALK_FPS = 8;
+/** bunny-run: 8 cuadros de carrera (ciclo completo). */
+const RUN_FRAMES = 8;
+/** bunny-jump: 0 recogida (salida y aterrizaje), 1–2 subiendo, 3–4 en el aire/bajando, 5 estirada. */
+const TAKEOFF = 0;
+const RISING = 2;
+const FALLING = 4;
+/** Cuadros por segundo de la carrera. */
+const WALK_FPS = 12;
 /** Tiempo (s) que se ve la pose agachada al aterrizar. */
 const LANDING_SEC = 0.09;
 /** Velocidad del fondo respecto de las plataformas (paralaje). */
@@ -29,7 +30,8 @@ const SPRITE_SCALE = 1.3;
 
 export function createPathTheme(): Theme {
 	let rest: Sheet | null = null;
-	let move: Sheet | null = null;
+	let run: Sheet | null = null;
+	let jump: Sheet | null = null;
 	let front: Sheet | null = null;
 	let background: HTMLImageElement | null = null;
 
@@ -71,9 +73,10 @@ export function createPathTheme(): Theme {
 		movement: 'walk',
 
 		async load() {
-			[rest, move, front, background] = await Promise.all([
+			[rest, run, jump, front, background] = await Promise.all([
 				loadSheet('bunny-rest'),
-				loadSheet('bunny-move'),
+				loadSheet('bunny-run'),
+				loadSheet('bunny-jump'),
 				loadSheet('bunny-front'),
 				loadImage('/themes/path/background.jpg')
 			]);
@@ -133,7 +136,7 @@ export function createPathTheme(): Theme {
 		},
 
 		drawCharacter(g, x, y, size, time, state: CharacterState) {
-			if (!rest || !move) return;
+			if (!rest || !run || !jump) return;
 			// El motor pasa el centro del cuerpo; los pies quedan a 0,42 del tamaño hacia abajo.
 			const feetY = y + size * 0.42;
 			const h = size * SPRITE_SCALE;
@@ -151,11 +154,11 @@ export function createPathTheme(): Theme {
 				const breathe = 1 + Math.sin(time * 2.2) * 0.008;
 				blit(g, rest, 0, x, feetY, h * breathe);
 			} else if (state.airborne) {
-				blit(g, move, state.vy < 0 ? RISING : FALLING, x, feetY, h);
+				blit(g, jump, state.vy < 0 ? RISING : FALLING, x, feetY, h);
 			} else if (state.sinceLanding < LANDING_SEC) {
-				blit(g, move, CROUCH, x, feetY, h);
+				blit(g, jump, TAKEOFF, x, feetY, h);
 			} else if (state.moving) {
-				blit(g, move, WALK[Math.floor(time * WALK_FPS) % WALK.length], x, feetY, h);
+				blit(g, run, Math.floor(time * WALK_FPS) % RUN_FRAMES, x, feetY, h);
 			} else {
 				blit(g, rest, 0, x, feetY, h);
 			}
