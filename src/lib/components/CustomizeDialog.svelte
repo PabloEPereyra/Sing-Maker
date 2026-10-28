@@ -163,7 +163,7 @@
 	onclick={(e) => e.target === e.currentTarget && onClose()}
 >
 	<div
-		class="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl"
+		class="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-xl"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="customize-title"
@@ -180,7 +180,7 @@
 		<h4 class="mt-4 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
 			{t('customize.character')}
 		</h4>
-		<div class="grid grid-cols-2 gap-3">
+		<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 			{#each CHARACTERS as c (c.id)}
 				<button
 					class="flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition {settings.character ===
@@ -197,10 +197,7 @@
 					<span class="-mt-1.5 text-xs text-muted">{t(c.kind)}</span>
 				</button>
 			{/each}
-		</div>
-
-		<!-- Personajes creados con IA -->
-		<div class="mt-3 grid grid-cols-2 gap-3">
+			<!-- Personajes creados con IA -->
 			{#each characters.list as c (c.id)}
 				<div class="group/item relative">
 					<button
@@ -277,7 +274,7 @@
 			<h4 class="mt-5 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
 				{t('customize.start')}
 			</h4>
-			<div class="grid grid-cols-2 gap-3">
+			<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 				{#each STARTS as o (o.id)}
 					<button
 						class="flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition {settings.start ===
@@ -299,7 +296,7 @@
 		<h4 class="mt-5 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
 			{t('customize.collectible')}
 		</h4>
-		<div class="grid grid-cols-3 gap-3">
+		<div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
 			{#each OPTIONS as o (o.id)}
 				<button
 					class="flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition {settings.collectible ===
@@ -366,7 +363,7 @@
 		<h4 class="mt-5 mb-2 text-xs font-semibold tracking-widest text-muted uppercase">
 			{t('scene.section')}
 		</h4>
-		<div class="grid grid-cols-3 gap-3">
+		<div class="grid grid-cols-3 gap-3 sm:grid-cols-4">
 			<button
 				class="flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition {activeScene ===
 				''
