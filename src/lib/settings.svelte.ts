@@ -4,8 +4,8 @@ import { midiToNote, midiToSolfege } from '$lib/music/notes';
 export type Lang = 'es' | 'en';
 export type Notation = 'solfege' | 'american';
 export type CollectibleId = 'stars' | 'notes' | 'carrots';
-/** Voladores (tema Cielo, eligen árbol de partida) y terrestres (tema Sendero). */
-export type CharacterId = 'bird' | 'bunny';
+/** Voladores (tema Cielo, eligen árbol de partida) y terrestres (tema Sendero); `custom:<id>` = creado con IA. */
+export type CharacterId = 'bird' | 'bunny' | `custom:${string}`;
 export type StartId = 'tree1' | 'tree2';
 
 /** Corrección del retraso de la voz (ms, con signo) y límites del zoom del escenario. */
@@ -49,7 +49,12 @@ export function loadSettings(): void {
 		if (s.lang === 'es' || s.lang === 'en') settings.lang = s.lang;
 		if (s.notation === 'solfege' || s.notation === 'american') settings.notation = s.notation;
 		if (['stars', 'notes', 'carrots'].includes(s.collectible)) settings.collectible = s.collectible;
-		if (s.character === 'bird' || s.character === 'bunny') settings.character = s.character;
+		if (
+			s.character === 'bird' ||
+			s.character === 'bunny' ||
+			(typeof s.character === 'string' && /^custom:\w+$/.test(s.character))
+		)
+			settings.character = s.character;
 		if (s.start === 'tree1' || s.start === 'tree2') settings.start = s.start;
 		if (typeof s.latencyMs === 'number')
 			settings.latencyMs = Math.max(LATENCY_MIN_MS, Math.min(LATENCY_MAX_MS, s.latencyMs));

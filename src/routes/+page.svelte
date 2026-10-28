@@ -21,6 +21,13 @@
 	import { autopilot, type GameOptions, type Phase } from '$lib/game/game';
 	import { createSkyTheme } from '$lib/game/themes/sky';
 	import { createPathTheme } from '$lib/game/themes/path';
+	import { createCustomTheme } from '$lib/game/themes/custom';
+	import {
+		CUSTOM_PREFIX,
+		findCharacter,
+		isCustomId,
+		loadCharacters
+	} from '$lib/character/store.svelte';
 	import {
 		loadSettings,
 		saveSettings,
@@ -31,11 +38,19 @@
 	import type { Theme } from '$lib/game/theme';
 	import { t, tDynamic } from '$lib/i18n';
 
+	/** Tempo con el que arranca cada ejercicio. */
+	const DEFAULT_BPM = 90;
 	const PREFS_KEY = 'singmaker-prefs';
 	// Un tema por combinación de personaje y punto de partida, creado una sola vez. Los voladores
 	// van al cielo (con árbol de partida); los terrestres, al sendero.
 	const themes: Record<string, Theme> = {};
 	function themeFor(character: CharacterId, start: StartId): Theme {
+		if (isCustomId(character)) {
+			// Personaje creado con IA: se arma cuando carga la lista guardada; mientras tanto, el pájaro.
+			const rec = findCharacter(character.slice(CUSTOM_PREFIX.length));
+			if (rec) return (themes[`${character}-${start}`] ??= createCustomTheme(rec, start));
+			return (themes['bird-tree1'] ??= createSkyTheme('bird', 'tree1'));
+		}
 		if (character === 'bunny') return (themes.bunny ??= createPathTheme());
 		const key = `${character}-${start}`;
 		return (themes[key] ??= createSkyTheme(character, start));
@@ -44,8 +59,8 @@
 	let selectedId = $state(byLevel()[0].exercises[0].id);
 	let low = $state(45); // A2 (tenor)
 	let high = $state(72); // C5
-	/** Tempo elegido (bpm). Al cambiar de ejercicio vuelve al del ejercicio, redondeado de a 5. */
-	let bpm = $state(80);
+	/** Tempo elegido (bpm). Al cambiar de ejercicio vuelve al tempo por defecto. */
+	let bpm = $state(DEFAULT_BPM);
 	const BPM_MIN = 60;
 	const BPM_MAX = 150;
 	let guide = $state(true);
@@ -77,8 +92,9 @@
 	);
 	const text = $derived(exerciseText(exercise, settings.lang));
 	$effect(() => {
-		const own = exercise.parsed.meta.bpm;
-		bpm = Math.max(BPM_MIN, Math.min(BPM_MAX, Math.round(own / 5) * 5));
+		// Depende del ejercicio elegido: cada vez que cambia, el tempo vuelve al por defecto.
+		void exercise.id;
+		bpm = DEFAULT_BPM;
 	});
 	const sequence = $derived(
 		generateSequence(exercise.parsed.notes, {
@@ -97,7 +113,8 @@
 		...patternsFor(meter),
 		...myDrums.list.filter((p) => p.meter === meter)
 	]);
-	const customIds = $derived(new Set(myDrums.list.map((p) => p.id)));
+	const builtinPatterns = $derived(patternsFor(meter));
+	const minePatterns = $derived(myDrums.list.filter((p) => p.meter === meter));
 	const drumPattern = $derived(patterns.find((p) => p.id === drumPick[meter]) ?? patterns[0]);
 	const options: GameOptions = $derived({
 		bpm,
@@ -126,6 +143,7 @@
 		loadSettings();
 		loadMine();
 		loadMyDrums();
+		void loadCharacters();
 		try {
 			const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
 			if (typeof p.low === 'number') low = p.low;
@@ -232,6 +250,13 @@
 		creatingByVoice = false;
 	}
 
+	/** Elige el ritmo de la lista y enciende la batería. */
+	function pickRhythm(id: string) {
+		drumPick = { ...drumPick, [meter]: id };
+		drums = true;
+		void loadDrums();
+	}
+
 	/** Guarda el patrón de batería creado con IA y lo deja sonando en el ejercicio. */
 	function practiceDrum(result: DrumResult, patternMeter: MeterId) {
 		stop();
@@ -254,6 +279,28 @@
 		return `${((value - min) / (max - min)) * 100}%`;
 	}
 </script>
+
+<!-- Fila de la lista de ritmos: elegir el patrón (y encender la batería); los creados se pueden borrar -->
+{#snippet rhythmRow(p: DrumPattern, removable: boolean)}
+	<div class="group/item flex items-center gap-1">
+		<button
+			class="block min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm transition {p.id ===
+			drumPattern.id
+				? 'bg-accent font-semibold text-white'
+				: 'hover:bg-surface-2'}"
+			aria-pressed={p.id === drumPattern.id}
+			onclick={() => pickRhythm(p.id)}>{p.name}</button
+		>
+		{#if removable}
+			<button
+				class="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 group-hover/item:opacity-100 hover:bg-surface-2 hover:text-red-600 focus-visible:opacity-100"
+				aria-label={t('create.delete')}
+				title={t('create.delete')}
+				onclick={() => removeMyDrum(p.id)}>✕</button
+			>
+		{/if}
+	</div>
+{/snippet}
 
 <div class="flex h-dvh flex-col">
 	<header class="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
@@ -380,6 +427,35 @@
 									>
 								</div>
 							{/each}
+						</div>
+					</details>
+				{/if}
+				{#if !query}
+					<details class="group rounded-lg bg-surface-2/60">
+						<summary
+							class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 select-none hover:bg-surface-2"
+						>
+							<Icon name="drum" class="h-4 w-4 shrink-0 text-accent" />
+							<span class="font-bold">{t('rhythms.title')}</span>
+							<span class="text-sm text-muted">· {meter}</span>
+							<span class="ml-auto truncate text-xs text-muted">{drumPattern.name}</span>
+							<span class="text-muted transition group-open:rotate-90">›</span>
+						</summary>
+						<div class="px-1 pb-2">
+							<div
+								class="px-2 pt-2 pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase"
+							>
+								{t('rhythms.builtin')}
+							</div>
+							{#each builtinPatterns as p (p.id)}{@render rhythmRow(p, false)}{/each}
+							{#if minePatterns.length}
+								<div
+									class="px-2 pt-2 pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase"
+								>
+									✨ {t('rhythms.mine')}
+								</div>
+								{#each minePatterns as p (p.id)}{@render rhythmRow(p, true)}{/each}
+							{/if}
 						</div>
 					</details>
 				{/if}
@@ -520,24 +596,15 @@
 				>
 					<Icon name="piano" class="h-5 w-5" />
 				</button>
-				<!-- Batería y su patrón, según el compás del ejercicio; /2 = a la mitad de velocidad -->
+				<!-- Batería (el ritmo se elige en la lista «Ritmos»); el corredor = a la mitad de velocidad -->
 				<DrumControl
 					enabled={drums}
 					half={drumsHalf}
-					{patterns}
-					value={drumPattern.id}
-					custom={customIds}
 					onToggle={() => {
 						drums = !drums;
 						if (drums) void loadDrums();
 					}}
-					onPick={(id) => {
-						drumPick = { ...drumPick, [meter]: id };
-						drums = true;
-						void loadDrums();
-					}}
 					onHalf={() => (drumsHalf = !drumsHalf)}
-					onRemove={removeMyDrum}
 				/>
 			</div>
 		</main>

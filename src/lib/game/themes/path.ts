@@ -1,7 +1,7 @@
 // Tema "Sendero": una coneja que camina por un bosque. Es un personaje terrestre: las notas son
 // plataformas (troncos con musgo), salta en arco entre ellas y en los silencios baja al sendero.
 import type { CharacterState, Theme } from '../theme';
-import { drawHintPerch, drawPerchLabel, drawScrollingBackground, loadImage } from './common';
+import { drawPerchLabel, drawScrollingBackground, loadImage } from './common';
 
 interface SpriteMeta {
 	frames: number;
@@ -107,13 +107,24 @@ export function createPathTheme(): Theme {
 		},
 
 		drawPerch(g, x, y, width, info) {
-			if (info.hint) {
-				drawHintPerch(g, x, y, width, info.past);
-				return;
-			}
-			// Plataforma: un tronco con musgo arriba, donde apoya los pies.
+			// Plataforma: un tronco con musgo arriba, donde apoya los pies. La de la nota guía es una
+			// plataforma vacía (solo el contorno), donde la coneja "canta" sola.
 			const top = info.footY;
 			const th = 11;
+			if (info.hint) {
+				g.save();
+				g.globalAlpha = info.past ? 0.3 : 0.85;
+				g.fillStyle = 'rgba(255,255,255,0.22)';
+				g.strokeStyle = '#ffffff';
+				g.lineWidth = 2.5;
+				g.beginPath();
+				g.roundRect(x, top, width, th, th / 2);
+				g.fill();
+				g.stroke();
+				g.restore();
+				drawPerchLabel(g, x, y, info.label, info.past, 'rgba(30,50,20,0.6)');
+				return;
+			}
 			g.save();
 			g.globalAlpha = info.past ? 0.55 : 1;
 			g.fillStyle = 'rgba(40,30,10,0.18)';

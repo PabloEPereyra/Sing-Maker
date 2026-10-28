@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Calibración del retraso de la voz: el micrófono, el piano y la pantalla no están perfectamente
 	// sincronizados (más aún con auriculares Bluetooth). Se puede ajustar a mano, o medir: suenan
-	// 8 clics, se canta una sílaba corta ("ta") en cada uno y la mediana de lo que tarda en detectarse
+	// 4 clics de cuenta regresiva y 8 clics más, se canta una sílaba corta ("ta") en cada uno de esos 8 y la mediana de lo que tarda en detectarse
 	// la voz respecto del clic queda como corrección. Es el mismo camino que usa el juego.
 	import { onDestroy } from 'svelte';
 	import { getContext, tick } from '$lib/audio/engine';
@@ -14,17 +14,21 @@
 		onClose
 	}: { getDetector: () => Promise<PitchDetector | null>; onClose: () => void } = $props();
 
+	/** Clics de la cuenta regresiva (no se canta) y clics donde se canta "ta". */
+	const COUNTDOWN = 4;
 	const CLICKS = 8;
 	const INTERVAL_SEC = 0.75;
 	const LEAD_SEC = 1.2;
-	/** Se descartan los primeros clics (todavía no se agarró el pulso). */
-	const SKIP = 2;
+	/** Se descarta el primer clic cantado (todavía no se agarró el pulso). */
+	const SKIP = 1;
 	const MIN_ONSETS = 4;
 	const WINDOW_BEFORE_SEC = 0.25;
 	const WINDOW_AFTER_SEC = 0.6;
 
 	type Step = 'idle' | 'measuring' | 'done' | 'failed' | 'noMic';
 	let step = $state<Step>('idle');
+	/** Número de la cuenta regresiva que se ve (4…1); null fuera de ella. */
+	let countdown = $state<number | null>(null);
 	let raf = 0;
 
 	const median = (xs: number[]) => {
@@ -42,15 +46,19 @@
 		step = 'measuring';
 		const ctx = getContext();
 		const first = ctx.currentTime + LEAD_SEC;
-		const clicks = Array.from({ length: CLICKS }, (_, i) => first + i * INTERVAL_SEC);
-		clicks.forEach((c, i) => tick(c, i % 4 === 0));
+		const all = Array.from({ length: COUNTDOWN + CLICKS }, (_, i) => first + i * INTERVAL_SEC);
+		all.forEach((c, i) => tick(c, i % 4 === 0));
+		const clicks = all.slice(COUNTDOWN);
 		const end = clicks[CLICKS - 1] + WINDOW_AFTER_SEC;
 		const onsets: number[] = [];
 		let voiced = false;
 		const loop = () => {
 			const now = ctx.currentTime;
 			const on = detector.read().midi !== null;
-			if (on && !voiced) onsets.push(now);
+			// Durante la cuenta regresiva no se mide nada.
+			const sounded = all.slice(0, COUNTDOWN).filter((c) => c <= now).length;
+			countdown = sounded < COUNTDOWN ? Math.max(1, COUNTDOWN + 1 - sounded) : null;
+			if (on && !voiced && now >= clicks[0] - WINDOW_BEFORE_SEC) onsets.push(now);
 			voiced = on;
 			if (now < end) {
 				raf = requestAnimationFrame(loop);
@@ -61,6 +69,7 @@
 				const o = onsets.find((x) => x >= c - WINDOW_BEFORE_SEC && x <= c + WINDOW_AFTER_SEC);
 				if (o !== undefined) delays.push(o - c);
 			}
+			countdown = null;
 			if (delays.length < MIN_ONSETS) {
 				step = 'failed';
 				return;
@@ -118,7 +127,9 @@
 				<p class="text-sm text-muted">{t('sync.measureHelp')}</p>
 			</div>
 			{#if step === 'measuring'}
-				<p class="mt-3 text-sm font-semibold text-accent" role="status">{t('sync.singNow')}</p>
+				<p class="mt-3 text-sm font-semibold text-accent" role="status">
+					{countdown !== null ? t('sync.countdown', { n: countdown }) : t('sync.singNow')}
+				</p>
 			{:else if step === 'done'}
 				<p class="mt-3 text-sm" role="status">{t('sync.done', { ms: settings.latencyMs })}</p>
 			{:else if step === 'failed'}

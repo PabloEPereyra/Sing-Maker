@@ -212,7 +212,7 @@
 
 		<!-- Zoom -->
 		<div
-			class="absolute bottom-4 left-3 flex items-center overflow-hidden rounded-lg bg-black/30 text-white backdrop-blur-sm"
+			class="absolute right-3 bottom-4 flex items-center overflow-hidden rounded-lg bg-black/30 text-white backdrop-blur-sm"
 			role="group"
 			aria-label={t('zoom.label')}
 		>
@@ -245,7 +245,7 @@
 				></div>
 			</div>
 			<div
-				class="pointer-events-none absolute right-3 bottom-4 rounded-lg bg-black/30 px-2 py-1 text-sm text-white"
+				class="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-lg bg-black/30 px-3 py-1 text-sm text-white backdrop-blur-sm"
 			>
 				{status.sungMidi === null ? '—' : noteLabel(status.sungMidi)}
 			</div>

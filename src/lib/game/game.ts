@@ -393,9 +393,12 @@ export class Game {
 
 	private updatePitch(time: number, dt: number): void {
 		this.now = time;
-		this.sung = this.source ? this.source(time) : null;
+		const voice = this.source ? this.source(time) : null;
+		// Mientras suena la nota guía el personaje la "canta" solo (ya no es la voz de la persona).
+		const guide = this.noteAt(time);
+		this.sung = guide?.isHint ? guide.midi : voice;
 		this.history.push({ time, midi: this.sung });
-		this.run.push({ time, midi: this.sung });
+		this.run.push({ time, midi: voice });
 		while (this.history.length && this.history[0].time < time - 4) this.history.shift();
 		this.updateBird(dt);
 	}
@@ -495,7 +498,7 @@ export class Game {
 		let onPlatform = false;
 		if (this.sung !== null) {
 			const n = this.noteAt(this.now);
-			onPlatform = n !== null && !n.isHint && Math.abs(this.sung - n.midi) <= this.opts.tolerance;
+			onPlatform = n !== null && Math.abs(this.sung - n.midi) <= this.opts.tolerance;
 			target = Math.max(ground, onPlatform ? n!.midi : this.sung);
 		}
 

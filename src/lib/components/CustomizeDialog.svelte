@@ -8,6 +8,19 @@
 		type StartId
 	} from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
+	import {
+		characters,
+		CUSTOM_PREFIX,
+		customId,
+		findCharacter,
+		isCustomId,
+		removeCharacter
+	} from '$lib/character/store.svelte';
+	import { downloadCharacter } from '$lib/character/export';
+	import CharacterThumb from './CharacterThumb.svelte';
+	import CreateCharacterDialog from './CreateCharacterDialog.svelte';
+
+	let creating = $state(false);
 
 	let { onClose }: { onClose: () => void } = $props();
 
@@ -47,7 +60,16 @@
 	];
 
 	/** El punto de partida (árbol) solo existe para los voladores; los terrestres salen del sendero. */
-	const flyer = $derived(settings.character === 'bird');
+	const flyer = $derived(
+		isCustomId(settings.character)
+			? findCharacter(settings.character.slice(CUSTOM_PREFIX.length))?.movement === 'fly'
+			: settings.character === 'bird'
+	);
+
+	async function remove(id: string) {
+		if (settings.character === customId(id)) settings.character = 'bird';
+		await removeCharacter(id);
+	}
 
 	const STARTS: { id: StartId; label: 'start.tree1' | 'start.tree2' }[] = [
 		{ id: 'tree1', label: 'start.tree1' },
@@ -101,6 +123,53 @@
 					<span class="-mt-1.5 text-xs text-muted">{t(c.kind)}</span>
 				</button>
 			{/each}
+		</div>
+
+		<!-- Personajes creados con IA -->
+		<div class="mt-3 grid grid-cols-2 gap-3">
+			{#each characters.list as c (c.id)}
+				<div class="group/item relative">
+					<button
+						class="flex w-full flex-col items-center gap-2 rounded-lg border-2 p-3 transition {settings.character ===
+						customId(c.id)
+							? 'border-accent bg-accent/10'
+							: 'border-border hover:border-accent/50'}"
+						aria-pressed={settings.character === customId(c.id)}
+						onclick={() => (settings.character = customId(c.id))}
+					>
+						<div
+							class="grid h-20 w-full place-items-center rounded-lg {c.movement === 'fly'
+								? 'bg-sky/60'
+								: 'bg-green-100'}"
+						>
+							<CharacterThumb sheet={c.stand} class="h-16" />
+						</div>
+						<span class="max-w-full truncate text-sm font-semibold">{c.name}</span>
+						<span class="-mt-1.5 text-xs text-muted"
+							>{t(c.movement === 'fly' ? 'character.flyer' : 'character.walker')}</span
+						>
+					</button>
+					<button
+						class="absolute top-1.5 left-1.5 grid h-7 w-7 place-items-center rounded-lg bg-surface/80 text-muted opacity-0 group-hover/item:opacity-100 hover:text-accent focus-visible:opacity-100"
+						aria-label={t('char.export')}
+						title={t('char.exportHelp')}
+						onclick={() => downloadCharacter(c)}>⬇</button
+					>
+					<button
+						class="absolute top-1.5 right-1.5 grid h-7 w-7 place-items-center rounded-lg bg-surface/80 text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100"
+						aria-label={t('char.delete')}
+						title={t('char.delete')}
+						onclick={() => remove(c.id)}>✕</button
+					>
+				</div>
+			{/each}
+			<button
+				class="flex min-h-36 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 p-3 text-sm font-semibold text-accent transition hover:bg-accent/10"
+				onclick={() => (creating = true)}
+			>
+				<span class="text-2xl">✨</span>
+				{t('char.createCard')}
+			</button>
 		</div>
 
 		{#if flyer}
@@ -164,3 +233,7 @@
 		<p class="mt-4 text-xs text-muted">{t('customize.more')}</p>
 	</div>
 </div>
+
+{#if creating}
+	<CreateCharacterDialog onClose={() => (creating = false)} onCreated={() => (creating = false)} />
+{/if}

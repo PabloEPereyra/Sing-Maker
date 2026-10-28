@@ -21,7 +21,7 @@ export function drawPerchLabel(
 	g.restore();
 }
 
-/** Nota guía: línea punteada con ♪; suena pero no se canta. */
+/** Nota guía (personajes voladores): línea suave con ♪; suena y el personaje la "canta" solo. */
 export function drawHintPerch(
 	g: CanvasRenderingContext2D,
 	x: number,
@@ -30,15 +30,21 @@ export function drawHintPerch(
 	past: boolean
 ): void {
 	g.save();
-	g.globalAlpha = past ? 0.25 : 0.6;
-	g.strokeStyle = '#ffffff';
-	g.lineWidth = 3;
-	g.setLineDash([8, 8]);
+	g.globalAlpha = past ? 0.25 : 0.75;
+	g.lineCap = 'round';
+	// Un trazo azulado debajo para que se lea sobre las nubes blancas.
+	g.strokeStyle = 'rgba(50,100,180,0.25)';
+	g.lineWidth = 7;
 	g.beginPath();
-	g.moveTo(x, y);
-	g.lineTo(x + width, y);
+	g.moveTo(x + 3, y + 1);
+	g.lineTo(x + width - 3, y + 1);
 	g.stroke();
-	g.setLineDash([]);
+	g.strokeStyle = '#ffffff';
+	g.lineWidth = 4;
+	g.beginPath();
+	g.moveTo(x + 3, y);
+	g.lineTo(x + width - 3, y);
+	g.stroke();
 	g.fillStyle = '#ffffff';
 	g.font = 'bold 18px system-ui, sans-serif';
 	g.fillText('♪', x + 4, y - 8);

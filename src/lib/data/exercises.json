@@ -4,7 +4,7 @@
 		"name": "Nota simple sostenida",
 		"category": "Tecnica y Sostenido",
 		"level": "1",
-		"code": "@name: Nota simple sostenida\n@description: Sostén la nota con \"mm\" para practicar tu afinación\n@level: basic\n@bpm: 60\n@syllable: mm\n\n# Just hold the root note\n4 =\n",
+		"code": "@name: Nota simple sostenida\n@description: Sostén la nota con \"mm\" para practicar tu afinación\n@level: basic\n@bpm: 60\n@syllable: mm\n\n# Guide note (1 beat), then hold the root note (3 beats)\n1 = !hint\n3 =\n",
 		"name_en": "Sustained note",
 		"description_en": "Hold the note on \"mm\" to practice your tuning"
 	},

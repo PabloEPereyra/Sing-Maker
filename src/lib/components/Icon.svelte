@@ -1,14 +1,26 @@
 <script lang="ts">
-	// Iconos de la interfaz. Piano y batería son copias de los de vocalizator (src/lib/icons/);
+	// Iconos de la interfaz. Piano y batería son copias de los de vocalizator (src/lib/icons/); running es
+	// «user-fast-running» de Flaticon Uicons (solid rounded);
 	// gauge y ruler son los trazos de Lucide (circle-gauge, ruler-dimension-line).
 	import piano from '$lib/icons/piano.svg?raw';
 	import drum from '$lib/icons/drum.svg?raw';
+	import running from '$lib/icons/running.svg?raw';
 
 	type Name =
-		'play' | 'pause' | 'stop' | 'piano' | 'drum' | 'palette' | 'retry' | 'mic' | 'gauge' | 'ruler';
+		| 'play'
+		| 'pause'
+		| 'stop'
+		| 'piano'
+		| 'drum'
+		| 'running'
+		| 'palette'
+		| 'retry'
+		| 'mic'
+		| 'gauge'
+		| 'ruler';
 	let { name, class: cls = 'h-5 w-5' }: { name: Name; class?: string } = $props();
 
-	const RAW: Partial<Record<Name, string>> = { piano, drum };
+	const RAW: Partial<Record<Name, string>> = { piano, drum, running };
 </script>
 
 {#if name === 'gauge' || name === 'ruler'}
