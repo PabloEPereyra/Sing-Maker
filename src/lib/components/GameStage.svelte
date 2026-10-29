@@ -16,6 +16,7 @@
 	import { skinFor } from '$lib/game/collectibles';
 	import { noteLabel, settings, ZOOM_MAX, ZOOM_MIN } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
+	import DifficultyBadge from './DifficultyBadge.svelte';
 	import Icon from './Icon.svelte';
 
 	interface Props {
@@ -215,6 +216,9 @@
 					? Math.round(status.progress * 100)
 					: 0
 	);
+	/** Nivel de afinación en juego y su nombre (para el tooltip de la insignia). */
+	const diff = $derived(nearestDifficulty(options.tolerance));
+	const diffLabel = $derived(t('diff.chip', { name: t(`diff.${diff}`) }));
 	const pct = $derived(
 		status && status.total ? Math.round((status.collected / status.total) * 100) : 0
 	);
@@ -274,18 +278,19 @@
 					<span class="hud-text">{repsDone}/{status.reps}</span>
 				</div>
 			</div>
-			<div class="flex flex-col items-end gap-1.5">
-				<div
-					class="flex items-center gap-2 rounded-full border-2 border-white/50 bg-[#1b2a6b]/60 px-4 py-1.5 text-white backdrop-blur-sm"
+			<div class="flex items-center justify-end gap-3 pt-0.5">
+				<span
+					class="hud-3d pointer-events-auto inline-flex"
+					role="img"
+					title={diffLabel}
+					aria-label={diffLabel}
 				>
-					<span class="text-2xl text-star drop-shadow">{icon}</span>
-					<span class="font-display text-xl font-bold tabular-nums">{status.collected}</span>
-					<span class="text-sm opacity-70">/ {status.total}</span>
-				</div>
-				<div
-					class="rounded-full bg-[#1b2a6b]/45 px-3 py-0.5 text-[11px] font-semibold text-white/90 backdrop-blur-sm"
-				>
-					{t('diff.chip', { name: t(`diff.${nearestDifficulty(options.tolerance)}`) })}
+					<DifficultyBadge level={diff} class="h-9 w-9" />
+				</span>
+				<div class="hud-score flex items-center gap-1.5">
+					<span class="hud-3d text-3xl leading-none text-star">{icon}</span>
+					<span class="text-3xl tabular-nums">{status.collected}</span>
+					<span class="text-base opacity-80">/ {status.total}</span>
 				</div>
 			</div>
 		</div>

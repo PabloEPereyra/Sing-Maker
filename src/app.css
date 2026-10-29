@@ -590,3 +590,19 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 		animation-name: guide-flash-soft;
 	}
 }
+
+/* Puntuación y diamante de dificultad: sin contenedor, solo relieve que "sale" de la pantalla. */
+.hud-3d {
+	filter: drop-shadow(0 2px 0 rgb(20 30 80 / 0.55)) drop-shadow(0 5px 5px rgb(10 15 50 / 0.4));
+}
+.hud-score {
+	font-family: var(--font-display);
+	font-weight: 700;
+	color: #fff;
+	-webkit-text-stroke: 5px var(--color-accent-dark);
+	paint-order: stroke fill;
+	text-shadow: 0 3px 0 rgb(20 30 80 / 0.55);
+}
+.hud-score > .hud-3d {
+	-webkit-text-stroke: 0;
+}

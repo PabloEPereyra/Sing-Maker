@@ -7,6 +7,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { DIFFICULTIES } from '$lib/game/difficulty';
 	import { t } from '$lib/i18n';
+	import DifficultyBadge from './DifficultyBadge.svelte';
 	import Icon from './Icon.svelte';
 	import MicCalibration from './MicCalibration.svelte';
 	import SyncCalibration from './SyncCalibration.svelte';
@@ -88,15 +89,17 @@
 			</div>
 			<div class="menu-row-static">
 				{@render head('ruler', t('diff.title'))}
-				<div class="pill-group !h-9 w-full" role="group" aria-label={t('diff.title')}>
+				<div class="pill-group !h-14 w-full" role="group" aria-label={t('diff.title')}>
 					{#each DIFFICULTIES as d (d.id)}
 						<button
-							class="flex-1 px-1 text-xs font-semibold transition {settings.difficulty === d.id
+							class="flex flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs font-semibold transition {settings.difficulty ===
+							d.id
 								? 'bg-accent text-white'
 								: 'hover:bg-surface-2'}"
 							aria-pressed={settings.difficulty === d.id}
 							onclick={() => (settings.difficulty = d.id)}
 						>
+							<DifficultyBadge level={d.id} class="h-5 w-5" />
 							{t(`diff.${d.id}`)}
 						</button>
 					{/each}
