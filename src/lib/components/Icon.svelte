@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Iconos de la interfaz. Piano y batería son copias de los de vocalizator (src/lib/icons/); running es
 	// «user-fast-running» de Flaticon Uicons (solid rounded);
-	// gauge y ruler son los trazos de Lucide (circle-gauge, ruler-dimension-line).
+	// back es «left» (solid rounded) de Flaticon Uicons; gauge, ruler y los de contorno (mic-line, clock, help, volume, volume-off, globe) son trazos de Lucide.
 	import piano from '$lib/icons/piano.svg?raw';
 	import drum from '$lib/icons/drum.svg?raw';
 	import running from '$lib/icons/running.svg?raw';
@@ -18,13 +18,29 @@
 		| 'retry'
 		| 'mic'
 		| 'gauge'
-		| 'ruler';
+		| 'ruler'
+		| 'mic-line'
+		| 'clock'
+		| 'help'
+		| 'volume'
+		| 'volume-off'
+		| 'globe';
 	let { name, class: cls = 'h-5 w-5' }: { name: Name; class?: string } = $props();
 
 	const RAW: Partial<Record<Name, string>> = { piano, drum, running };
+	const STROKE: Name[] = [
+		'gauge',
+		'ruler',
+		'mic-line',
+		'clock',
+		'help',
+		'volume',
+		'volume-off',
+		'globe'
+	];
 </script>
 
-{#if name === 'gauge' || name === 'ruler'}
+{#if STROKE.includes(name)}
 	<svg
 		class={cls}
 		viewBox="0 0 24 24"
@@ -39,7 +55,32 @@
 			<path d="M15.6 2.7a10 10 0 1 0 5.7 5.7" />
 			<circle cx="12" cy="12" r="2" />
 			<path d="M13.4 10.6 19 5" />
-		{:else}
+		{:else if name === 'mic-line'}
+			<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+			<path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+			<path d="M12 19v3" />
+		{:else if name === 'clock'}
+			<circle cx="12" cy="12" r="10" />
+			<path d="M12 6v6l4 2" />
+		{:else if name === 'help'}
+			<circle cx="12" cy="12" r="10" />
+			<path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3" />
+			<path d="M12 17h.01" />
+		{:else if name === 'volume'}
+			<path d="M11 5 6 9H2v6h4l5 4V5Z" />
+			<path d="M15.5 8.5a5 5 0 0 1 0 7" />
+			<path d="M19 5a10 10 0 0 1 0 14" />
+		{:else if name === 'volume-off'}
+			<path d="M11 5 6 9H2v6h4l5 4V5Z" />
+			<path d="m22 9-6 6" />
+			<path d="m16 9 6 6" />
+		{:else if name === 'globe'}
+			<circle cx="12" cy="12" r="10" />
+			<path d="M2 12h20" />
+			<path
+				d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"
+			/>
+		{:else if name === 'ruler'}
 			<path d="M10 15v-3" />
 			<path d="M14 15v-3" />
 			<path d="M18 15v-3" />
@@ -69,7 +110,9 @@
 				d="M12 2a3.5 3.5 0 0 0-3.5 3.5v6a3.5 3.5 0 0 0 7 0v-6A3.5 3.5 0 0 0 12 2Zm-6.5 9a1 1 0 0 0-1 1 7.5 7.5 0 0 0 6.5 7.4V21H8.5a1 1 0 1 0 0 2h7a1 1 0 1 0 0-2H13v-1.6a7.5 7.5 0 0 0 6.5-7.4 1 1 0 1 0-2 0 5.5 5.5 0 0 1-11 0 1 1 0 0 0-1-1Z"
 			/>
 		{:else if name === 'back'}
-			<path d="M10 4 3 11l7 7v-4.2c4.5 0 7.3 1 9 4.2-.6-5.4-3.4-9.6-9-10.4V4Z" />
+			<path
+				d="M10 22Q8.8 22 7.92 21.12L1.2 14.8Q0 13.68 0 12Q0 10.32 1.2 9.2L7.92 2.8Q8.56 2.16 9.44 2Q10.32 1.84 11.16 2.2Q12 2.56 12.48 3.28Q12.96 4 13.04 4.88V6.96H20Q21.68 6.96 22.84 8.16Q24 9.36 24 10.96V12.96Q24 14.64 22.84 15.8Q21.68 16.96 20 16.96H13.04V19.04Q13.04 20 12.52 20.72Q12 21.44 11.12 21.76Q10.64 22 10 22Z"
+			/>
 		{:else if name === 'stop'}
 			<rect x="6" y="6" width="12" height="12" rx="2" />
 		{:else if name === 'retry'}

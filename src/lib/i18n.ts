@@ -4,7 +4,7 @@ import { settings } from '$lib/settings.svelte';
 
 const es = {
 	'app.subtitle': 'Ejercicios vocales a tu medida',
-	'create.button': 'Crear con IA',
+	'create.button': 'Crear ejercicio',
 	'voice.button': 'Con la voz',
 	'voice.title': 'Crear cantando',
 	'voice.intro':
@@ -53,6 +53,10 @@ const es = {
 	'dictation.empty': 'No se entendió nada. Probá de nuevo, un poco más cerca del micrófono.',
 	'dictation.noMic': 'No se pudo usar el micrófono para dictar.',
 	'create.title': 'Crear un ejercicio',
+	'create.tabVoice': 'Con la voz',
+	'rhythms.speed': 'Velocidad de la batería',
+	'rhythms.speedNormal': 'Normal',
+	'rhythms.speedHalf': 'Mitad',
 	'create.intro':
 		'Describí el ejercicio que querés: tipo, escala, ritmo, estilo o dificultad. Se adapta a tu rango de voz.',
 	'create.placeholder': 'Ej.: arpegio menor con saltos de octava en staccato, rápido',
@@ -187,8 +191,7 @@ const es = {
 	'diff.suggest':
 		'También puedes repetir este ejercicio en modo {name}: con esta tanda habrías acertado cerca del {pct}%.',
 	'diff.try': 'Probar en modo {name}',
-	'sfx.on': 'Sonidos de la interfaz: sí',
-	'sfx.off': 'Sonidos de la interfaz: no',
+	'sfx.label': 'Sonidos de la interfaz',
 	'tip.ok': 'Entendido',
 	'tip.skipAll': 'No más pistas',
 	'tip.play': 'Pulsa ▶ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
@@ -415,7 +418,7 @@ type Key = keyof typeof es;
 
 const en: Record<Key, string> = {
 	'app.subtitle': 'Vocal exercises made to measure',
-	'create.button': 'Create with AI',
+	'create.button': 'Create exercise',
 	'voice.button': 'With your voice',
 	'voice.title': 'Create by singing',
 	'voice.intro':
@@ -464,6 +467,10 @@ const en: Record<Key, string> = {
 	'dictation.empty': 'Nothing was understood. Try again, a bit closer to the microphone.',
 	'dictation.noMic': 'The microphone could not be used for dictation.',
 	'create.title': 'Create an exercise',
+	'create.tabVoice': 'With your voice',
+	'rhythms.speed': 'Drum speed',
+	'rhythms.speedNormal': 'Normal',
+	'rhythms.speedHalf': 'Half',
 	'create.intro':
 		'Describe the exercise you want: type, scale, rhythm, style or difficulty. It adapts to your voice range.',
 	'create.placeholder': 'E.g.: minor arpeggio with staccato octave leaps, fast',
@@ -598,8 +605,7 @@ const en: Record<Key, string> = {
 	'diff.suggest':
 		'You can also repeat this exercise in {name} mode: with this run you would have hit about {pct}%.',
 	'diff.try': 'Try {name} mode',
-	'sfx.on': 'Interface sounds: on',
-	'sfx.off': 'Interface sounds: off',
+	'sfx.label': 'Interface sounds',
 	'tip.ok': 'Got it',
 	'tip.skipAll': 'No more tips',
 	'tip.play': 'Press ▶ to start: a guide note plays, then you sing following the character.',

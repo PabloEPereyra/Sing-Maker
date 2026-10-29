@@ -6,7 +6,7 @@
 	import TipBubble from '$lib/components/TipBubble.svelte';
 	import CustomizeDialog from '$lib/components/CustomizeDialog.svelte';
 	import CreateExerciseDialog from '$lib/components/CreateExerciseDialog.svelte';
-	import VoiceExerciseDialog from '$lib/components/VoiceExerciseDialog.svelte';
+
 	import { addMine, loadMine, mine, removeMine } from '$lib/exercises/mine.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import PopoverButton from '$lib/components/PopoverButton.svelte';
@@ -90,7 +90,7 @@
 	let search = $state('');
 	let customizing = $state(false);
 	let creating = $state(false);
-	let creatingByVoice = $state(false);
+
 	/** Descripción sugerida por el entrenador de IA para abrir el creador con el texto escrito. */
 	let suggestedPrompt = $state('');
 	/** Guía de inicio: se abre sola la primera vez y se repite desde el menú de configuración. */
@@ -232,13 +232,7 @@
 		lastPhase = now;
 	});
 	const tip = $derived(
-		loaded &&
-			phase === 'idle' &&
-			!onboarding &&
-			!placement &&
-			!creating &&
-			!creatingByVoice &&
-			!customizing
+		loaded && phase === 'idle' && !onboarding && !placement && !creating && !customizing
 			? nextTip()
 			: undefined
 	);
@@ -375,7 +369,7 @@
 		stop();
 		selectedId = addMine(code, prompt).id;
 		creating = false;
-		creatingByVoice = false;
+
 		suggestedPrompt = '';
 	}
 
@@ -494,14 +488,11 @@
 
 <!-- Fila de la lista de ritmos: elegir el patrón (y encender la batería); los creados se pueden borrar -->
 {#snippet rhythmRow(p: DrumPattern, removable: boolean)}
-	<div class="group/item flex items-center gap-1">
+	<div class="group/item mt-1 flex items-center gap-1">
 		<button
-			class="block min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm transition {p.id ===
-			drumPattern.id
-				? 'bg-accent font-semibold text-white'
-				: 'hover:bg-surface-2'}"
+			class="ex-card !mt-0 min-w-0 flex-1 {p.id === drumPattern.id ? 'ex-card-on' : ''}"
 			aria-pressed={p.id === drumPattern.id}
-			onclick={() => pickRhythm(p.id)}>{p.name}</button
+			onclick={() => pickRhythm(p.id)}><span class="min-w-0 flex-1 truncate">{p.name}</span></button
 		>
 		{#if removable}
 			<button
@@ -537,20 +528,7 @@
 				<Icon name="palette" class="h-5 w-5 text-accent" />
 				<span class="hidden font-display font-semibold sm:inline">{t('header.customize')}</span>
 			</button>
-			<div class="pill-group" role="group" aria-label={t('header.language')}>
-				{#each ['es', 'en'] as const as lang (lang)}
-					<button
-						class="rounded-none px-2.5 text-xs font-bold uppercase transition {settings.lang ===
-						lang
-							? 'bg-accent text-white'
-							: 'hover:bg-surface-2'}"
-						aria-pressed={settings.lang === lang}
-						onclick={() => (settings.lang = lang)}
-					>
-						{lang}
-					</button>
-				{/each}
-			</div>
+
 			<button
 				class="round-btn {demo ? 'text-muted' : 'round-btn-on'}"
 				aria-pressed={!demo}
@@ -581,24 +559,16 @@
 		<!-- Catálogo -->
 		<aside class="panel flex max-h-64 min-h-0 flex-col lg:max-h-none lg:w-72" inert={!!placement}>
 			<div class="space-y-2 border-b border-border p-3">
-				<div class="flex gap-2">
-					<button
-						class="flex-1 rounded-lg bg-accent px-2 py-2 text-sm font-semibold whitespace-nowrap text-white hover:brightness-110"
-						data-tip="create"
-						onclick={() => (creating = true)}
-					>
-						✨ {t('create.button')}
-					</button>
-					<button
-						class="flex-1 rounded-lg border-2 border-accent/40 bg-accent/10 px-2 py-2 font-display text-sm font-semibold whitespace-nowrap text-accent hover:bg-accent/15"
-						onclick={() => {
-							stop();
-							creatingByVoice = true;
-						}}
-					>
-						🎤 {t('voice.button')}
-					</button>
-				</div>
+				<button
+					class="w-full rounded-lg bg-accent px-2 py-2 text-sm font-semibold whitespace-nowrap text-white hover:brightness-110"
+					data-tip="create"
+					onclick={() => {
+						stop();
+						creating = true;
+					}}
+				>
+					✨ {t('create.button')}
+				</button>
 				<input
 					type="search"
 					placeholder={t('catalog.search')}
@@ -608,30 +578,33 @@
 			</div>
 			<div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
 				{#if mine.list.length && !query}
-					<details class="group rounded-lg bg-accent/10" open>
+					<details class="group level-card" open>
 						<summary
-							class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 select-none hover:bg-accent/15"
+							class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
+							style:--ribbon="#8b5cf6"
 						>
-							<span class="text-sm">✨</span>
-							<span class="font-bold">{t('create.mine')}</span>
-							<span class="ml-auto text-xs text-muted">{mine.list.length}</span>
-							<span class="text-muted transition group-open:rotate-90">›</span>
+							<span class="ribbon-dot" aria-hidden="true">✨</span>
+							<span class="truncate">{t('create.mine')}</span>
+							<span class="ml-auto rounded-full bg-black/15 px-2 text-xs font-bold"
+								>{mine.list.length}</span
+							>
+							<span class="transition group-open:rotate-90">›</span>
 						</summary>
 						<div class="px-1 pb-2">
 							{#each mine.list as e (e.id)}
-								<div class="group/item flex items-center gap-1">
+								<div class="group/item mt-1 flex items-center gap-1">
 									<button
-										class="block min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm transition {e.id ===
-										selectedId
-											? 'bg-accent font-semibold text-white'
-											: 'hover:bg-surface-2'}"
+										class="ex-card !mt-0 min-w-0 flex-1 {e.id === selectedId ? 'ex-card-on' : ''}"
+										aria-current={e.id === selectedId}
 										title={e.parsed.meta.description}
 										onclick={() => {
 											stop();
 											selectedId = e.id;
 										}}
 									>
-										{exerciseText(e, settings.lang).name}
+										<span class="min-w-0 flex-1 truncate"
+											>{exerciseText(e, settings.lang).name}</span
+										>
 									</button>
 									<button
 										class="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 group-hover/item:opacity-100 hover:bg-surface-2 hover:text-red-600"
@@ -645,17 +618,40 @@
 					</details>
 				{/if}
 				{#if !query}
-					<details class="group rounded-lg bg-surface-2/60">
+					<details class="group level-card">
 						<summary
-							class="flex cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 select-none hover:bg-surface-2"
+							class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
+							style:--ribbon="#14b8a6"
 						>
-							<Icon name="drum" class="h-4 w-4 shrink-0 text-accent" />
-							<span class="font-bold">{t('rhythms.title')}</span>
-							<span class="text-sm text-muted">· {meter}</span>
-							<span class="ml-auto truncate text-xs text-muted">{drumPattern.name}</span>
-							<span class="text-muted transition group-open:rotate-90">›</span>
+							<span class="ribbon-dot" aria-hidden="true"
+								><Icon name="drum" class="h-3.5 w-3.5" /></span
+							>
+							<span class="truncate">{t('rhythms.title')}</span>
+							<span class="shrink-0 text-sm font-semibold opacity-90">· {meter}</span>
+							<span class="ml-auto truncate text-xs font-semibold opacity-90"
+								>{drumPattern.name}</span
+							>
+							<span class="transition group-open:rotate-90">›</span>
 						</summary>
 						<div class="px-1 pb-2">
+							<div class="px-2 pt-2 pb-1">
+								<div class="mb-1 text-[11px] font-bold tracking-wide text-muted uppercase">
+									{t('rhythms.speed')}
+								</div>
+								<div class="pill-group !h-8 w-full" role="group" aria-label={t('rhythms.speed')}>
+									{#each [[false, 'rhythms.speedNormal'], [true, 'rhythms.speedHalf']] as const as [half, label] (label)}
+										<button
+											class="flex-1 px-1 text-xs font-semibold transition {drumsHalf === half
+												? 'bg-accent text-white'
+												: 'hover:bg-surface-2'}"
+											aria-pressed={drumsHalf === half}
+											onclick={() => (drumsHalf = half)}
+										>
+											{t(label)}
+										</button>
+									{/each}
+								</div>
+							</div>
 							<div
 								class="px-2 pt-2 pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase"
 							>
@@ -741,82 +737,83 @@
 					bind:desync
 					{coach}
 					placementDone={placement ? placementDone : undefined}
+					{controls}
 					onTryHarder={tryHarder}
 					onStart={start}
 					onNext={next}
 				/>
 			</div>
 
-			<!-- Controles: todos centrados; tempo y tolerancia a la izquierda, piano y metrónomo a la derecha -->
-			<div class="panel flex items-center justify-center gap-2 p-3 text-sm sm:gap-3">
-				<PopoverButton icon="gauge" tip="tempo" label="{t('controls.tempo')} · {bpm} bpm">
-					<label class="block">
-						<span class="mb-2 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
-						<input
-							type="range"
-							min={BPM_MIN}
-							max={BPM_MAX}
-							step="5"
-							bind:value={bpm}
-							class="vx-slider w-full"
-							style:--fill={fill(bpm, BPM_MIN, BPM_MAX)}
-						/>
-					</label>
-				</PopoverButton>
+			<!-- Controles: dentro del escenario, abajo (ver GameStage) -->
+			{#snippet controls()}
+				<div class="flex items-center justify-center gap-2 text-sm sm:gap-3">
+					<PopoverButton icon="gauge" tip="tempo" label="{t('controls.tempo')} · {bpm} bpm">
+						<label class="block">
+							<span class="mb-2 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
+							<input
+								type="range"
+								min={BPM_MIN}
+								max={BPM_MAX}
+								step="5"
+								bind:value={bpm}
+								class="vx-slider w-full"
+								style:--fill={fill(bpm, BPM_MIN, BPM_MAX)}
+							/>
+						</label>
+					</PopoverButton>
 
-				<button
-					class="grid h-12 w-12 place-items-center rounded-full border border-border bg-surface-2 text-fg hover:bg-border"
-					aria-label={t('controls.stop')}
-					title={t('controls.stop')}
-					onclick={stop}
-				>
-					<Icon name="back" class="h-5 w-5" />
-				</button>
-				<button
-					data-tip="play"
-					class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
-					aria-label={running
-						? t('controls.pause')
-						: phase === 'paused'
-							? t('controls.resume')
-							: t('controls.play')}
-					title={running
-						? t('controls.pause')
-						: phase === 'paused'
-							? t('controls.resume')
-							: t('controls.play')}
-					onclick={togglePlay}
-				>
-					{#if running}
-						<Icon name="pause" class="h-6 w-6" />
-					{:else}
-						<Icon name="play" class="ml-0.5 h-7 w-7" />
-					{/if}
-				</button>
+					<button
+						class="grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
+						aria-label={t('controls.stop')}
+						title={t('controls.stop')}
+						onclick={stop}
+					>
+						<Icon name="back" class="h-5 w-5" />
+					</button>
+					<button
+						data-tip="play"
+						class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
+						aria-label={running
+							? t('controls.pause')
+							: phase === 'paused'
+								? t('controls.resume')
+								: t('controls.play')}
+						title={running
+							? t('controls.pause')
+							: phase === 'paused'
+								? t('controls.resume')
+								: t('controls.play')}
+						onclick={togglePlay}
+					>
+						{#if running}
+							<Icon name="pause" class="h-6 w-6" />
+						{:else}
+							<Icon name="play" class="ml-0.5 h-7 w-7" />
+						{/if}
+					</button>
 
-				<button
-					class="grid h-11 w-11 place-items-center rounded-full border transition {guide
-						? 'border-accent bg-accent text-white'
-						: 'border-border bg-surface text-muted hover:border-accent/50'}"
-					aria-pressed={guide}
-					data-tip="guide"
-					aria-label={t('controls.guide')}
-					title={t('controls.guide')}
-					onclick={() => (guide = !guide)}
-				>
-					<Icon name="piano" class="h-5 w-5" />
-				</button>
-				<!-- Batería (el ritmo se elige en la lista «Ritmos»); el corredor = a la mitad de velocidad -->
-				<DrumControl
-					enabled={drums}
-					half={drumsHalf}
-					onToggle={() => {
-						drums = !drums;
-						if (drums) void loadDrums();
-					}}
-					onHalf={() => (drumsHalf = !drumsHalf)}
-				/>
-			</div>
+					<button
+						class="grid h-11 w-11 place-items-center rounded-full border transition {guide
+							? 'border-accent bg-accent text-white'
+							: 'border-border bg-surface text-muted hover:border-accent/50'}"
+						aria-pressed={guide}
+						data-tip="guide"
+						aria-label={t('controls.guide')}
+						title={t('controls.guide')}
+						onclick={() => (guide = !guide)}
+					>
+						<Icon name="piano" class="h-5 w-5" />
+					</button>
+					<!-- Batería (el ritmo se elige en la lista «Ritmos»); el corredor = a la mitad de velocidad -->
+					<DrumControl
+						enabled={drums}
+						onToggle={() => {
+							drums = !drums;
+							if (drums) void loadDrums();
+						}}
+					/>
+				</div>
+			{/snippet}
 		</main>
 	</div>
 </div>
@@ -824,6 +821,7 @@
 {#if creating}
 	<CreateExerciseDialog
 		range={{ low, high }}
+		getDetector={() => ensureMic()}
 		{meter}
 		initialPrompt={suggestedPrompt}
 		onPractice={practiceCreated}
@@ -832,15 +830,6 @@
 			creating = false;
 			suggestedPrompt = '';
 		}}
-	/>
-{/if}
-
-{#if creatingByVoice}
-	<VoiceExerciseDialog
-		range={{ low, high }}
-		getDetector={() => ensureMic()}
-		onPractice={practiceCreated}
-		onClose={() => (creatingByVoice = false)}
 	/>
 {/if}
 

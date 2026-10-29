@@ -5,7 +5,7 @@
 	import { onMount } from 'svelte';
 	import type { PitchDetector } from '$lib/audio/pitch';
 	import { settings } from '$lib/settings.svelte';
-	import { centsOf, DIFFICULTIES } from '$lib/game/difficulty';
+	import { DIFFICULTIES } from '$lib/game/difficulty';
 	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
 	import MicCalibration from './MicCalibration.svelte';
@@ -63,45 +63,31 @@
 
 	{#if open}
 		<div
-			class="absolute top-full right-0 z-40 mt-2 w-72 rounded-lg border border-border bg-surface p-1.5 text-fg shadow-xl"
+			class="absolute top-full right-0 z-40 mt-2 w-72 rounded-lg border-2 border-frame bg-surface p-2 text-fg shadow-xl"
 		>
-			<div class="px-2.5 pt-1.5 pb-1 text-xs font-semibold tracking-widest text-muted uppercase">
+			<div class="px-2.5 pt-1 pb-1.5 text-xs font-semibold tracking-widest text-muted uppercase">
 				{t('profile.title')}
 			</div>
-			<button
-				class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2"
-				onclick={() => {
-					open = false;
-					calibrating = true;
-				}}
-			>
-				<Icon name="mic" class="h-4 w-4 text-accent" />
-				{t('mic.calibrateItem')}
-			</button>
-			<button
-				class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2"
-				onclick={() => {
-					open = false;
-					syncing = true;
-				}}
-			>
-				<Icon name="mic" class="h-4 w-4 text-accent" />
-				{t('sync.item')}
-			</button>
-			<button
-				class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2"
-				onclick={() => {
-					open = false;
-					onGuide();
-				}}
-			>
-				<span class="grid h-4 w-4 place-items-center text-accent" aria-hidden="true">?</span>
-				{t('onb.reopen')}
-			</button>
-			<div class="px-2.5 pt-2 pb-1">
-				<div class="mb-1 text-xs font-semibold tracking-widest text-muted uppercase">
-					{t('diff.title')}
+
+			<!-- Ajustes con varias opciones: el mismo encabezado (icono y nombre) y un selector debajo -->
+			<div class="menu-row-static">
+				{@render head('globe', t('header.language'))}
+				<div class="pill-group !h-9 w-full" role="group" aria-label={t('header.language')}>
+					{#each ['es', 'en'] as const as lang (lang)}
+						<button
+							class="flex-1 px-1 text-xs font-semibold uppercase transition {settings.lang === lang
+								? 'bg-accent text-white'
+								: 'hover:bg-surface-2'}"
+							aria-pressed={settings.lang === lang}
+							onclick={() => (settings.lang = lang)}
+						>
+							{lang}
+						</button>
+					{/each}
 				</div>
+			</div>
+			<div class="menu-row-static">
+				{@render head('ruler', t('diff.title'))}
 				<div class="pill-group !h-9 w-full" role="group" aria-label={t('diff.title')}>
 					{#each DIFFICULTIES as d (d.id)}
 						<button
@@ -115,23 +101,63 @@
 						</button>
 					{/each}
 				</div>
-				<p class="mt-1 text-[11px] text-muted">
-					{t('diff.help', { cents: centsOf(settings.difficulty) })}
-				</p>
 			</div>
+
+			<!-- Interruptor -->
 			<button
-				class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2"
-				aria-pressed={settings.sfx}
+				class="menu-row"
+				role="switch"
+				aria-checked={settings.sfx}
 				onclick={() => (settings.sfx = !settings.sfx)}
 			>
-				<span class="grid h-4 w-4 place-items-center text-accent" aria-hidden="true"
-					>{settings.sfx ? '♪' : '✕'}</span
-				>
-				{settings.sfx ? t('sfx.on') : t('sfx.off')}
+				<Icon name={settings.sfx ? 'volume' : 'volume-off'} class="h-5 w-5 shrink-0 text-accent" />
+				<span class="flex-1">{t('sfx.label')}</span>
+				<span class="menu-switch" data-on={settings.sfx}><span></span></span>
+			</button>
+
+			<div class="my-1.5 h-px bg-border"></div>
+
+			<!-- Acciones: todas con icono de contorno y el mismo alto -->
+			<button
+				class="menu-row"
+				onclick={() => {
+					open = false;
+					calibrating = true;
+				}}
+			>
+				<Icon name="mic-line" class="h-5 w-5 shrink-0 text-accent" />
+				{t('mic.calibrateItem')}
+			</button>
+			<button
+				class="menu-row"
+				onclick={() => {
+					open = false;
+					syncing = true;
+				}}
+			>
+				<Icon name="clock" class="h-5 w-5 shrink-0 text-accent" />
+				{t('sync.item')}
+			</button>
+			<button
+				class="menu-row"
+				onclick={() => {
+					open = false;
+					onGuide();
+				}}
+			>
+				<Icon name="help" class="h-5 w-5 shrink-0 text-accent" />
+				{t('onb.reopen')}
 			</button>
 		</div>
 	{/if}
 </div>
+
+{#snippet head(icon: 'globe' | 'ruler', label: string)}
+	<div class="flex items-center gap-2.5 text-sm">
+		<Icon name={icon} class="h-5 w-5 shrink-0 text-accent" />
+		{label}
+	</div>
+{/snippet}
 
 {#if syncing}
 	<SyncCalibration {getDetector} onClose={() => (syncing = false)} />

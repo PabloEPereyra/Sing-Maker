@@ -16,12 +16,15 @@
 		range,
 		getDetector,
 		onPractice,
-		onClose
+		onClose,
+		embedded = false
 	}: {
 		range: { low: number; high: number };
 		getDetector: () => Promise<PitchDetector | null>;
 		onPractice: (code: string, prompt: string) => void;
 		onClose: () => void;
+		/** Dentro de otro diálogo (la pestaña «Con la voz» del creador de ejercicios): sin marco propio. */
+		embedded?: boolean;
 	} = $props();
 
 	const MAX_SEC = 15;
@@ -150,7 +153,7 @@
 	}
 
 	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') onClose();
+		if (e.key === 'Escape' && !embedded) onClose();
 	}
 
 	onDestroy(() => {
@@ -161,132 +164,140 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div
-	class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
-	role="presentation"
-	onclick={(e) => e.target === e.currentTarget && onClose()}
->
-	<div
-		class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-xl"
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="voice-title"
-	>
-		<div class="flex items-center justify-between">
-			<h3 id="voice-title" class="text-lg font-bold">🎤 {t('voice.title')}</h3>
+{#snippet body()}
+	{#if step !== 'review'}
+		<p class="mt-1 text-sm text-muted">{t('voice.intro')}</p>
+		<div class="mt-4 rounded-lg border border-border bg-base p-3">
+			<svg viewBox="0 0 100 100" preserveAspectRatio="none" class="h-28 w-full">
+				<path
+					d={trace}
+					fill="none"
+					class="stroke-accent"
+					stroke-width="2.5"
+					vector-effect="non-scaling-stroke"
+				/>
+			</svg>
+			<div class="mt-2 flex items-center justify-between text-sm">
+				<span class="text-muted tabular-nums">
+					{step === 'recording' ? `${elapsed.toFixed(1)} s / ${MAX_SEC} s` : t('voice.ready')}
+				</span>
+				{#if step === 'recording'}
+					<button
+						class="inline-flex items-center gap-2 rounded-lg bg-red-500 px-5 py-2 font-semibold text-white"
+						onclick={finish}
+					>
+						<span class="h-2.5 w-2.5 animate-pulse rounded-full bg-white"></span>
+						{t('voice.stop')}
+					</button>
+				{:else}
+					<button class="rounded-lg bg-accent px-5 py-2 font-semibold text-white" onclick={record}
+						>● {t('voice.record')}</button
+					>
+				{/if}
+			</div>
+		</div>
+	{:else if ex}
+		<div class="mt-3 flex flex-wrap items-end gap-3">
+			<label class="flex min-w-48 flex-1 flex-col gap-1 text-xs text-muted">
+				{t('voice.name')}
+				<input
+					bind:value={ex.name}
+					maxlength="60"
+					class="rounded-lg border border-border bg-base px-3 py-1.5 text-sm text-fg outline-none focus:border-accent"
+				/>
+			</label>
+			<label class="flex w-44 flex-col gap-1 text-xs text-muted">
+				{t('voice.tempo')} · {ex.bpm} bpm
+				<input type="range" min="60" max="150" step="5" bind:value={ex.bpm} />
+			</label>
+		</div>
+		<p class="mt-3 mb-1.5 text-xs text-muted">{t('voice.review')}</p>
+		<PianoRoll bind:notes={ex.notes} beatsPerMeasure={ex.beatsPerMeasure} {root} />
+		{#if errors.length}
+			<ul class="mt-2 list-disc pl-5 text-xs text-red-600">
+				{#each errors as e, i (i)}<li>{e}</li>{/each}
+			</ul>
+		{/if}
+		{#if import.meta.env.DEV}
+			<!-- Solo en desarrollo: los cuadros de tono y volumen, para analizar una grabación que salió mal -->
 			<button
-				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2"
-				aria-label={t('range.close')}
-				onclick={onClose}>✕</button
+				class="mt-1 block text-xs text-muted underline"
+				onclick={() => {
+					const a = document.createElement('a');
+					a.download = 'singmaker-grabacion.json';
+					a.href = URL.createObjectURL(
+						new Blob([JSON.stringify({ frames, root, result: ex })], {
+							type: 'application/json'
+						})
+					);
+					a.click();
+					URL.revokeObjectURL(a.href);
+				}}>↓ datos de la grabación (diagnóstico)</button
+			>
+		{/if}
+		<div class="mt-3 flex flex-wrap justify-end gap-2">
+			<button
+				class="mr-auto rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {listening
+					? 'border-accent text-accent'
+					: ''}"
+				onclick={listen}
+				>{listening ? '■' : '▶'} {listening ? t('create.stopListen') : t('create.listen')}</button
+			>
+			<button
+				class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"
+				onclick={() => {
+					stopPreview();
+					step = 'idle';
+					frames = [];
+				}}>● {t('voice.again')}</button
+			>
+			<button
+				class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 disabled:opacity-50"
+				disabled={arranging}
+				onclick={arrange}>✨ {arranging ? t('create.working') : t('voice.arrange')}</button
+			>
+			<button
+				class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+				disabled={errors.length > 0}
+				onclick={practice}>{t('create.practice')}</button
 			>
 		</div>
+	{/if}
 
-		{#if step !== 'review'}
-			<p class="mt-1 text-sm text-muted">{t('voice.intro')}</p>
-			<div class="mt-4 rounded-lg border border-border bg-base p-3">
-				<svg viewBox="0 0 100 100" preserveAspectRatio="none" class="h-28 w-full">
-					<path
-						d={trace}
-						fill="none"
-						class="stroke-accent"
-						stroke-width="2.5"
-						vector-effect="non-scaling-stroke"
-					/>
-				</svg>
-				<div class="mt-2 flex items-center justify-between text-sm">
-					<span class="text-muted tabular-nums">
-						{step === 'recording' ? `${elapsed.toFixed(1)} s / ${MAX_SEC} s` : t('voice.ready')}
-					</span>
-					{#if step === 'recording'}
-						<button
-							class="inline-flex items-center gap-2 rounded-lg bg-red-500 px-5 py-2 font-semibold text-white"
-							onclick={finish}
-						>
-							<span class="h-2.5 w-2.5 animate-pulse rounded-full bg-white"></span>
-							{t('voice.stop')}
-						</button>
-					{:else}
-						<button class="rounded-lg bg-accent px-5 py-2 font-semibold text-white" onclick={record}
-							>● {t('voice.record')}</button
-						>
-					{/if}
-				</div>
-			</div>
-		{:else if ex}
-			<div class="mt-3 flex flex-wrap items-end gap-3">
-				<label class="flex min-w-48 flex-1 flex-col gap-1 text-xs text-muted">
-					{t('voice.name')}
-					<input
-						bind:value={ex.name}
-						maxlength="60"
-						class="rounded-lg border border-border bg-base px-3 py-1.5 text-sm text-fg outline-none focus:border-accent"
-					/>
-				</label>
-				<label class="flex w-44 flex-col gap-1 text-xs text-muted">
-					{t('voice.tempo')} · {ex.bpm} bpm
-					<input type="range" min="60" max="150" step="5" bind:value={ex.bpm} />
-				</label>
-			</div>
-			<p class="mt-3 mb-1.5 text-xs text-muted">{t('voice.review')}</p>
-			<PianoRoll bind:notes={ex.notes} beatsPerMeasure={ex.beatsPerMeasure} {root} />
-			{#if errors.length}
-				<ul class="mt-2 list-disc pl-5 text-xs text-red-600">
-					{#each errors as e, i (i)}<li>{e}</li>{/each}
-				</ul>
-			{/if}
-			{#if import.meta.env.DEV}
-				<!-- Solo en desarrollo: los cuadros de tono y volumen, para analizar una grabación que salió mal -->
-				<button
-					class="mt-1 block text-xs text-muted underline"
-					onclick={() => {
-						const a = document.createElement('a');
-						a.download = 'singmaker-grabacion.json';
-						a.href = URL.createObjectURL(
-							new Blob([JSON.stringify({ frames, root, result: ex })], {
-								type: 'application/json'
-							})
-						);
-						a.click();
-						URL.revokeObjectURL(a.href);
-					}}>↓ datos de la grabación (diagnóstico)</button
-				>
-			{/if}
-			<div class="mt-3 flex flex-wrap justify-end gap-2">
-				<button
-					class="mr-auto rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {listening
-						? 'border-accent text-accent'
-						: ''}"
-					onclick={listen}
-					>{listening ? '■' : '▶'} {listening ? t('create.stopListen') : t('create.listen')}</button
-				>
-				<button
-					class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"
-					onclick={() => {
-						stopPreview();
-						step = 'idle';
-						frames = [];
-					}}>● {t('voice.again')}</button
-				>
-				<button
-					class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 disabled:opacity-50"
-					disabled={arranging}
-					onclick={arrange}>✨ {arranging ? t('create.working') : t('voice.arrange')}</button
-				>
-				<button
-					class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-					disabled={errors.length > 0}
-					onclick={practice}>{t('create.practice')}</button
-				>
-			</div>
-		{/if}
+	{#if error}
+		<div
+			role="alert"
+			class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+		>
+			{error}
+		</div>
+	{/if}
+{/snippet}
 
-		{#if error}
-			<div
-				role="alert"
-				class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-			>
-				{error}
+{#if embedded}
+	<div class="mt-3">{@render body()}</div>
+{:else}
+	<div
+		class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
+		role="presentation"
+		onclick={(e) => e.target === e.currentTarget && onClose()}
+	>
+		<div
+			class="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-xl"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="voice-title"
+		>
+			<div class="flex items-center justify-between">
+				<h3 id="voice-title" class="text-lg font-bold">🎤 {t('voice.title')}</h3>
+				<button
+					class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2"
+					aria-label={t('range.close')}
+					onclick={onClose}>✕</button
+				>
 			</div>
-		{/if}
+
+			{@render body()}
+		</div>
 	</div>
-</div>
+{/if}

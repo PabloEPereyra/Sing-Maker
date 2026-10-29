@@ -20,10 +20,13 @@
 	import type { MeterId } from '$lib/music/meter';
 	import CreateDrumPanel from './CreateDrumPanel.svelte';
 	import PianoRoll from './PianoRoll.svelte';
+	import VoiceExerciseDialog from './VoiceExerciseDialog.svelte';
+	import type { PitchDetector } from '$lib/audio/pitch';
 	import Icon from './Icon.svelte';
 
 	let {
 		range,
+		getDetector,
 		meter: currentMeter,
 		initialPrompt = '',
 		onPractice,
@@ -31,6 +34,9 @@
 		onClose
 	}: {
 		range: { low: number; high: number };
+		/** Micrófono para la pestaña «Con la voz». */
+		getDetector: () => Promise<PitchDetector | null>;
+
 		/** Compás del ejercicio que se está practicando: el de los patrones de batería por defecto. */
 		meter: MeterId;
 		/** Descripción ya escrita (la recomendación del entrenador de IA). */
@@ -40,7 +46,7 @@
 		onClose: () => void;
 	} = $props();
 
-	let tab = $state<'exercise' | 'drums'>('exercise');
+	let tab = $state<'exercise' | 'voice' | 'drums'>('exercise');
 
 	// svelte-ignore state_referenced_locally
 	let prompt = $state(initialPrompt);
@@ -234,7 +240,7 @@
 			class="mt-3 flex rounded-lg border border-border bg-surface-2 p-0.5 text-sm"
 			role="tablist"
 		>
-			{#each [['exercise', 'create.tabExercise'], ['drums', 'create.tabDrums']] as const as [id, label] (id)}
+			{#each [['exercise', 'create.tabExercise'], ['voice', 'create.tabVoice'], ['drums', 'create.tabDrums']] as const as [id, label] (id)}
 				<button
 					class="flex-1 rounded-md px-3 py-1.5 font-semibold {tab === id
 						? 'bg-accent text-white'
@@ -250,6 +256,8 @@
 		</div>
 		{#if tab === 'drums'}
 			<CreateDrumPanel meter={currentMeter} onUse={onDrum} />
+		{:else if tab === 'voice'}
+			<VoiceExerciseDialog embedded {range} {getDetector} {onPractice} {onClose} />
 		{:else}
 			<p class="mt-1 text-sm text-muted">{t('create.intro')}</p>
 

@@ -38,6 +38,8 @@
 		};
 		/** Si se pasa, reemplaza el panel de fin de nivel (lo usa la prueba de nivel); recibe el porcentaje. */
 		placementDone?: Snippet<[number]>;
+		/** Controles de reproducción (tempo, play, piano…): se dibujan dentro del escenario, abajo. */
+		controls?: Snippet;
 		/** Repetir el ejercicio en un nivel de afinación más estricto. */
 		onTryHarder?: (level: Difficulty) => void;
 		onStart: () => void;
@@ -54,6 +56,7 @@
 		desync = $bindable(false),
 		coach,
 		placementDone,
+		controls,
 		onTryHarder,
 		onStart,
 		onNext
@@ -216,7 +219,7 @@
 	></canvas>
 
 	{#if demo}
-		<div class="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-3">
+		<div class="pointer-events-none absolute inset-x-0 bottom-[5.5rem] flex justify-center px-28">
 			<div
 				class="rounded-lg bg-black/40 px-3 py-1.5 text-center text-sm font-semibold text-white backdrop-blur-sm"
 			>
@@ -259,7 +262,7 @@
 
 		<!-- Zoom -->
 		<div
-			class="absolute right-3 bottom-4 flex items-center overflow-hidden rounded-lg bg-black/30 text-white backdrop-blur-sm"
+			class="absolute right-3 bottom-[5.5rem] flex items-center overflow-hidden rounded-lg bg-black/30 text-white backdrop-blur-sm"
 			role="group"
 			aria-label={t('zoom.label')}
 		>
@@ -419,5 +422,13 @@
 				{/if}
 			</div>
 		{/if}
+	{/if}
+
+	{#if controls}
+		<div class="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-2">
+			<div class="pointer-events-auto">
+				{@render controls()}
+			</div>
+		</div>
 	{/if}
 </div>
