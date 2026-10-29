@@ -1,13 +1,13 @@
 <script lang="ts">
 	// Guía de inicio paso a paso: micrófono, rango, retraso de la voz y una prueba de oído que
-	// recomienda el nivel donde empezar. Cada paso reutiliza las pantallas de siempre (medir rango,
+	// lleva a una prueba de nivel jugada que recomienda por dónde empezar. Cada paso reutiliza las pantallas de siempre (medir rango,
 	// sincronizar, calibrar) y se puede saltar o repetir desde el menú de configuración.
-	import { onDestroy } from 'svelte';
-	import { byLevel } from '$lib/exercises/catalog';
-	import { getContext, loadPiano, playNote } from '$lib/audio/engine';
+	import { exercises } from '$lib/exercises/catalog';
+	import { PASS_PERCENT } from '$lib/exercises/placement';
 	import type { PitchDetector } from '$lib/audio/pitch';
 	import { noteLabel, settings } from '$lib/settings.svelte';
-	import { t, tDynamic } from '$lib/i18n';
+	import { t } from '$lib/i18n';
+	import { levelExercise, shortName } from '$lib/exercises/catalog';
 	import MicCalibration from './MicCalibration.svelte';
 	import RangeMeasure from './RangeMeasure.svelte';
 	import SyncCalibration from './SyncCalibration.svelte';
@@ -15,57 +15,43 @@
 	let {
 		low = $bindable(),
 		high = $bindable(),
+		startStep = 'welcome',
+		recommended = null,
 		getDetector,
+		onTest,
 		onFinish,
 		onClose
 	}: {
 		low: number;
 		high: number;
+		/** Paso con el que abre (al volver de la prueba de nivel se abre en el resultado). */
+		startStep?: Step;
+		/** Ejercicio que aconseja la prueba de nivel; sin prueba, el primero del nivel 1. */
+		recommended?: string | null;
 		getDetector: () => Promise<PitchDetector | null>;
-		/** Termina la guía con el nivel recomendado para empezar. */
-		onFinish: (level: string) => void;
+		/** Pasa a la prueba de nivel jugada. */
+		onTest: () => void;
+		/** Termina la guía y deja elegido el ejercicio recomendado. */
+		onFinish: (exerciseId: string | null) => void;
 		onClose: () => void;
 	} = $props();
 
-	const STEPS = ['welcome', 'mic', 'range', 'sync', 'ear', 'done'] as const;
+	const STEPS = ['welcome', 'mic', 'range', 'sync', 'level', 'done'] as const;
 	type Step = (typeof STEPS)[number];
 
-	/** Prueba de oído: notas que suenan, cuánto se espera hasta cantar y cuánto se escucha. */
-	const TRIALS = 4;
-	const NOTE_SEC = 1;
-	const GAP_SEC = 0.4;
-	const SING_SEC = 2.2;
-	/** Distancia máxima (en semitonos) para dar la nota por afinada, sin importar la octava. */
-	const TOLERANCE = 1;
-	/** Con todas las notas afinadas se empieza en el nivel 2; si no, en el 1. */
-	const SKILLED_HITS = TRIALS;
-
-	let step = $state<Step>('welcome');
+	// svelte-ignore state_referenced_locally
+	let step = $state<Step>(startStep);
 	let micOn = $state(false);
 	let micFailed = $state(false);
 	let measuring = $state(false);
 	let syncing = $state(false);
 	let calibrating = $state(false);
 
-	// prueba de oído
-	let testing = $state(false);
-	let trial = $state(0);
-	let singing = $state(false);
-	let results = $state<boolean[]>([]);
-	let testNoMic = $state(false);
-	let raf = 0;
-
 	const index = $derived(STEPS.indexOf(step));
-	const hits = $derived(results.filter(Boolean).length);
-	const level = $derived(results.length === TRIALS && hits >= SKILLED_HITS ? '2' : '1');
-	const levelName = $derived(
-		tDynamic(`level.${level}`, byLevel().find((l) => l.level === level)?.name ?? '')
+	const pick = $derived(
+		exercises.find((e) => e.id === recommended) ?? levelExercise('1', 1) ?? exercises[0]
 	);
-
-	onDestroy(() => {
-		cancelAnimationFrame(raf);
-		testing = false;
-	});
+	const pickNumber = $derived(exercises.filter((e) => e.level === pick.level).indexOf(pick) + 1);
 
 	async function activateMic() {
 		micFailed = false;
@@ -73,82 +59,9 @@
 		micFailed = !micOn;
 	}
 
-	/** Distancia entre dos alturas en semitonos, módulo octava. */
-	const pitchClassDistance = (a: number, b: number) => {
-		const d = Math.abs(a - b) % 12;
-		return Math.min(d, 12 - d);
-	};
-
-	/** Cuatro notas dentro del rango, no demasiado juntas. */
-	function targets(): number[] {
-		const mid = Math.round((low + high) / 2);
-		const span = Math.max(2, Math.min(6, Math.floor((high - low) / 4)));
-		return [mid, mid + span, mid - Math.ceil(span / 2), mid + Math.ceil(span / 2)].map((m) =>
-			Math.max(low, Math.min(high, m))
-		);
-	}
-
-	async function runTest() {
-		testNoMic = false;
-		const d = await getDetector();
-		if (!d) {
-			testNoMic = true;
-			return;
-		}
-		await Promise.race([loadPiano(), new Promise((r) => setTimeout(r, 1500))]);
-		results = [];
-		testing = true;
-		const notes = targets();
-		const ctx = getContext();
-		for (trial = 0; trial < TRIALS && testing; trial++) {
-			singing = false;
-			const start = ctx.currentTime + 0.3;
-			playNote(notes[trial], start, NOTE_SEC);
-			await waitUntil(start + NOTE_SEC + GAP_SEC);
-			if (!testing) return;
-			singing = true;
-			const heard = await listen(d, ctx.currentTime + SING_SEC);
-			if (!testing) return;
-			const median = heard.length >= 5 ? [...heard].sort((a, b) => a - b)[heard.length >> 1] : null;
-			results = [
-				...results,
-				median !== null && pitchClassDistance(median, notes[trial]) <= TOLERANCE
-			];
-		}
-		singing = false;
-		testing = false;
-	}
-
-	const waitUntil = (time: number) =>
-		new Promise<void>((resolve) => {
-			const ctx = getContext();
-			const tickLoop = () => {
-				if (!testing || ctx.currentTime >= time) resolve();
-				else raf = requestAnimationFrame(tickLoop);
-			};
-			tickLoop();
-		});
-
-	const listen = (d: PitchDetector, until: number) =>
-		new Promise<number[]>((resolve) => {
-			const ctx = getContext();
-			const heard: number[] = [];
-			const tickLoop = () => {
-				const r = d.read();
-				if (r.midi !== null && r.clarity >= 0.6) heard.push(r.midi);
-				if (!testing || ctx.currentTime >= until) resolve(heard);
-				else raf = requestAnimationFrame(tickLoop);
-			};
-			tickLoop();
-		});
-
 	function go(delta: number) {
-		cancelAnimationFrame(raf);
-		testing = false;
 		step = STEPS[Math.max(0, Math.min(STEPS.length - 1, index + delta))];
 	}
-
-	const done = $derived(results.length === TRIALS && !testing);
 </script>
 
 <svelte:window
@@ -230,46 +143,25 @@
 						{t('onb.sync.current', { ms: settings.latencyMs })}
 					</span>
 				</div>
-			{:else if step === 'ear'}
-				<h2 id="onb-title" class="text-xl font-bold">{t('onb.ear.title')}</h2>
-				<p class="mt-2 text-sm text-muted">{t('onb.ear.body')}</p>
+			{:else if step === 'level'}
+				<h2 id="onb-title" class="text-xl font-bold">{t('onb.level.title')}</h2>
+				<p class="mt-2 text-sm text-muted">{t('onb.level.body', { pass: PASS_PERCENT })}</p>
 				<div class="mt-4">
-					{#if testing}
-						<p class="font-semibold text-accent" role="status">
-							{singing ? t('onb.ear.sing') : t('onb.ear.listen', { n: trial + 1, total: TRIALS })}
-						</p>
-					{:else}
-						<button
-							class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
-							onclick={runTest}
-						>
-							{done ? t('onb.ear.retry') : t('onb.ear.start')}
-						</button>
-					{/if}
-					{#if results.length}
-						<div class="mt-3 flex items-center gap-1.5" aria-hidden="true">
-							{#each results as ok, i (i)}
-								<span
-									class="grid h-7 w-7 place-items-center rounded-full text-sm font-bold text-white {ok
-										? 'bg-green-500'
-										: 'bg-orange-400'}">{ok ? '✓' : '·'}</span
-								>
-							{/each}
-						</div>
-					{/if}
-					{#if done}
-						<p class="mt-2 text-sm" role="status">
-							{t('onb.ear.result', { hits, total: TRIALS })}
-						</p>
-					{/if}
-					{#if testNoMic}
-						<p role="alert" class="mt-3 text-sm text-red-600">{t('onb.ear.noMic')}</p>
-					{/if}
+					<button
+						class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
+						onclick={onTest}
+					>
+						{t('onb.level.start')}
+					</button>
 				</div>
 			{:else}
 				<h2 id="onb-title" class="text-xl font-bold">{t('onb.done.title')}</h2>
 				<p class="mt-2 font-semibold text-accent">
-					{t('onb.done.body', { level, name: levelName })}
+					{t('onb.done.body', {
+						n: pickNumber,
+						name: shortName(pick, settings.lang),
+						level: pick.level
+					})}
 				</p>
 				<p class="mt-2 text-sm text-muted">{t('onb.done.tip')}</p>
 			{/if}
@@ -286,7 +178,7 @@
 			{#if step === 'done'}
 				<button
 					class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white"
-					onclick={() => onFinish(level)}
+					onclick={() => onFinish(pick.id)}
 				>
 					{t('onb.done.go')}
 				</button>
@@ -303,11 +195,34 @@
 </div>
 
 {#if measuring}
-	<RangeMeasure bind:low bind:high {getDetector} onClose={() => (measuring = false)} />
+	<RangeMeasure
+		bind:low
+		bind:high
+		{getDetector}
+		onClose={() => (measuring = false)}
+		onNext={() => {
+			measuring = false;
+			go(1);
+		}}
+	/>
 {/if}
 {#if syncing}
-	<SyncCalibration {getDetector} onClose={() => (syncing = false)} />
+	<SyncCalibration
+		{getDetector}
+		onClose={() => (syncing = false)}
+		onNext={() => {
+			syncing = false;
+			go(1);
+		}}
+	/>
 {/if}
 {#if calibrating}
-	<MicCalibration {getDetector} onClose={() => (calibrating = false)} />
+	<MicCalibration
+		{getDetector}
+		onClose={() => (calibrating = false)}
+		onNext={() => {
+			calibrating = false;
+			go(1);
+		}}
+	/>
 {/if}

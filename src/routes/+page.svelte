@@ -11,7 +11,14 @@
 	import PopoverButton from '$lib/components/PopoverButton.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
 	import DrumControl from '$lib/components/DrumControl.svelte';
-	import { byLevel, exercises, exerciseText, library } from '$lib/exercises/catalog';
+	import { byLevel, exercises, exerciseText, library, shortName } from '$lib/exercises/catalog';
+	import {
+		KEYS_PER_STAGE,
+		outcome,
+		PASS_PERCENT,
+		stageExercise,
+		STAGES
+	} from '$lib/exercises/placement';
 	import { loadUnlocked, unlock, unlockedExercises } from '$lib/exercises/unlocked.svelte';
 	import { generateSequence } from '$lib/music/generate';
 	import { getContext, loadDrums, loadPiano } from '$lib/audio/engine';
@@ -84,6 +91,11 @@
 	let suggestedPrompt = $state('');
 	/** Guía de inicio: se abre sola la primera vez y se repite desde el menú de configuración. */
 	let onboarding = $state(false);
+	/** Paso con el que abre la guía y ejercicio que recomienda tras la prueba de nivel. */
+	let onboardingStep = $state<'welcome' | 'level' | 'done'>('welcome');
+	let recommended = $state<string | null>(null);
+	/** Prueba de nivel en curso: la etapa que se juega (0 a 3). */
+	let placement = $state<{ stage: number } | null>(null);
 	let loaded = $state(false);
 	let phase = $state<Phase>('idle');
 
@@ -118,7 +130,8 @@
 			direction: exercise.parsed.meta.direction,
 			bpm,
 			beatsPerMeasure: exercise.parsed.meta.beatsPerMeasure,
-			subdivision: exercise.parsed.meta.subdivision
+			subdivision: exercise.parsed.meta.subdivision,
+			spread: placement ? KEYS_PER_STAGE : undefined
 		})
 	);
 	/** Familia de compás del ejercicio (4/4 o 6/8): define qué patrones de batería se ofrecen. */
@@ -202,13 +215,49 @@
 		} catch {}
 	}
 
-	/** Termina la guía: deja seleccionado el primer ejercicio del nivel recomendado. */
-	function finishOnboarding(level: string) {
+	function openOnboarding(step: 'welcome' | 'level' | 'done' = 'welcome') {
+		stop();
+		onboardingStep = step;
+		onboarding = true;
+	}
+
+	/** Termina la guía: deja seleccionado el ejercicio recomendado. */
+	function finishOnboarding(id: string | null) {
 		closeOnboarding();
-		const pick = byLevel(visible).find((l) => l.level === level)?.exercises[0];
+		recommended = null;
+		const pick = visible.find((e) => e.id === id);
 		if (pick) {
 			stop();
 			selectedId = pick.id;
+		}
+	}
+
+	/** Empieza la prueba de nivel: se canta de verdad, etapa por etapa. */
+	async function startPlacement() {
+		onboarding = false;
+		stop();
+		if (!(await micForCalibration())) return openOnboarding('level');
+		placement = { stage: 0 };
+		selectedId = stageExercise(0).id;
+	}
+
+	function exitPlacement() {
+		stop();
+		placement = null;
+		openOnboarding('level');
+	}
+
+	/** Después de jugar una etapa: la siguiente, o el resultado con el ejercicio donde empezar. */
+	function advancePlacement(pct: number) {
+		if (!placement) return;
+		const result = outcome(placement.stage, pct);
+		if (result.startAt) {
+			placement = null;
+			recommended = result.startAt.id;
+			openOnboarding('done');
+		} else {
+			placement = { stage: placement.stage + 1 };
+			selectedId = stageExercise(placement.stage).id;
 		}
 	}
 
@@ -346,7 +395,7 @@
 
 	function next() {
 		// Mismo orden que la lista: nivel → categoría.
-		const order = byLevel(visible).flatMap((lv) => lv.categories.flatMap(([, list]) => list));
+		const order = byLevel(visible).flatMap((lv) => lv.exercises);
 		const i = order.findIndex((e) => e.id === selectedId);
 		selectedId = order[(i + 1) % order.length].id;
 	}
@@ -356,6 +405,50 @@
 		return `${((value - min) / (max - min)) * 100}%`;
 	}
 </script>
+
+<!-- Fin de cada etapa de la prueba de nivel: resultado y paso siguiente -->
+{#snippet placementDone(pct: number)}
+	{#if placement}
+		{@const result = outcome(placement.stage, pct)}
+		<div class="text-sm text-muted uppercase">
+			{t('place.stage', { n: placement.stage + 1, total: STAGES })}
+		</div>
+		<div
+			class="mx-auto my-3 flex max-w-xs items-center gap-3"
+			role="progressbar"
+			aria-valuemin="0"
+			aria-valuemax="100"
+			aria-valuenow={pct}
+		>
+			<div class="h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
+				<div class="h-full rounded-full bg-accent" style:width="{pct}%"></div>
+			</div>
+			<span class="w-12 text-right text-lg font-bold tabular-nums">{pct}%</span>
+		</div>
+		<p class="mb-5 font-semibold {result.passed ? 'text-accent' : ''}">
+			{result.passed
+				? result.startAt
+					? t('place.passedAll')
+					: t('place.passed')
+				: t('place.failed', { pass: PASS_PERCENT })}
+		</p>
+		<div class="flex justify-center gap-3">
+			<button
+				class="flex items-center gap-1.5 rounded-lg bg-surface-2 px-5 py-2 font-semibold hover:bg-border"
+				onclick={start}
+			>
+				<Icon name="retry" class="h-4 w-4" />
+				{t('stage.retry')}
+			</button>
+			<button
+				class="rounded-lg bg-accent px-5 py-2 font-bold text-white hover:brightness-105"
+				onclick={() => advancePlacement(pct)}
+			>
+				{result.startAt ? t('place.result') : t('place.next')} →
+			</button>
+		</div>
+	{/if}
+{/snippet}
 
 <!-- Fila de la lista de ritmos: elegir el patrón (y encender la batería); los creados se pueden borrar -->
 {#snippet rhythmRow(p: DrumPattern, removable: boolean)}
@@ -425,10 +518,7 @@
 			<ProfileMenu
 				getDetector={micForCalibration}
 				bind:highlight={desync}
-				onGuide={() => {
-					stop();
-					onboarding = true;
-				}}
+				onGuide={() => openOnboarding()}
 			/>
 		</div>
 	</header>
@@ -444,7 +534,7 @@
 
 	<div class="flex min-h-0 flex-1 flex-col gap-3 p-3 lg:flex-row">
 		<!-- Catálogo -->
-		<aside class="panel flex max-h-64 min-h-0 flex-col lg:max-h-none lg:w-72">
+		<aside class="panel flex max-h-64 min-h-0 flex-col lg:max-h-none lg:w-72" inert={!!placement}>
 			<div class="space-y-2 border-b border-border p-3">
 				<div class="flex gap-2">
 					<button
@@ -558,24 +648,18 @@
 							<span class="transition group-open:rotate-90">›</span>
 						</summary>
 						<div class="px-1 pb-2">
-							{#each lv.categories as [category, list] (category)}
-								<div
-									class="px-2 pt-2 pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase"
+							{#each lv.exercises as e, i (e.id)}
+								<button
+									class="ex-card flex items-center gap-2 {e.id === selectedId ? 'ex-card-on' : ''}"
+									aria-current={e.id === selectedId}
+									onclick={() => {
+										stop();
+										selectedId = e.id;
+									}}
 								>
-									{tDynamic(`category.${category}`, category)}
-								</div>
-								{#each list as e (e.id)}
-									<button
-										class="ex-card {e.id === selectedId ? 'ex-card-on' : ''}"
-										aria-current={e.id === selectedId}
-										onclick={() => {
-											stop();
-											selectedId = e.id;
-										}}
-									>
-										{exerciseText(e, settings.lang).name}
-									</button>
-								{/each}
+									<span class="ex-num" aria-hidden="true">{i + 1}</span>
+									<span class="min-w-0 flex-1">{shortName(e, settings.lang)}</span>
+								</button>
 							{/each}
 						</div>
 					</details>
@@ -585,6 +669,20 @@
 
 		<!-- Escena -->
 		<main class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+			{#if placement}
+				<div class="panel flex items-center gap-3 px-4 py-2 text-sm">
+					<span class="font-display font-bold text-accent">
+						{t('place.banner', { n: placement.stage + 1, total: STAGES, pass: PASS_PERCENT })}
+					</span>
+					<span class="min-w-0 flex-1 truncate text-muted">{text.name}</span>
+					<button
+						class="shrink-0 rounded-lg border border-border bg-surface px-3 py-1 text-xs hover:bg-surface-2"
+						onclick={exitPlacement}
+					>
+						{t('place.exit')}
+					</button>
+				</div>
+			{/if}
 			<div class="min-h-[320px] flex-1">
 				<GameStage
 					bind:this={stage}
@@ -596,6 +694,7 @@
 					bind:phase
 					bind:desync
 					{coach}
+					placementDone={placement ? placementDone : undefined}
 					onStart={start}
 					onNext={next}
 				/>
@@ -716,7 +815,10 @@
 	<Onboarding
 		bind:low
 		bind:high
+		startStep={onboardingStep}
+		{recommended}
 		getDetector={micForCalibration}
+		onTest={startPlacement}
 		onFinish={finishOnboarding}
 		onClose={closeOnboarding}
 	/>

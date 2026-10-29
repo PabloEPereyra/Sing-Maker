@@ -8,8 +8,14 @@
 
 	let {
 		getDetector,
-		onClose
-	}: { getDetector: () => Promise<PitchDetector | null>; onClose: () => void } = $props();
+		onClose,
+		onNext
+	}: {
+		getDetector: () => Promise<PitchDetector | null>;
+		onClose: () => void;
+		/** Dentro de la guía de inicio: sigue con el paso siguiente. */
+		onNext?: () => void;
+	} = $props();
 
 	const AUTO_SECONDS = 3;
 	const TARGET_DB = -14;
@@ -174,6 +180,14 @@
 			{:else if result}
 				<p class="mt-3 text-sm">{result}</p>
 			{/if}
+		{/if}
+		{#if onNext}
+			<div class="mt-4 flex justify-end">
+				<button
+					class="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white"
+					onclick={onNext}>{t('onb.next')}</button
+				>
+			</div>
 		{/if}
 	</div>
 </div>

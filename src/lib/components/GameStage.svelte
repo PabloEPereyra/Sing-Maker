@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
 	import {
 		Game,
@@ -34,6 +35,8 @@
 			onPick: (id: string) => void;
 			onCreate: (prompt: string) => void;
 		};
+		/** Si se pasa, reemplaza el panel de fin de nivel (lo usa la prueba de nivel); recibe el porcentaje. */
+		placementDone?: Snippet<[number]>;
 		onStart: () => void;
 		onNext: () => void;
 	}
@@ -47,6 +50,7 @@
 		phase = $bindable('idle'),
 		desync = $bindable(false),
 		coach,
+		placementDone,
 		onStart,
 		onNext
 	}: Props = $props();
@@ -316,61 +320,69 @@
 
 		{#if status.phase === 'done'}
 			<div class="absolute inset-0 grid place-items-center bg-black/35 p-4 backdrop-blur-[2px]">
-				<div
-					class="max-h-full w-full max-w-md overflow-y-auto rounded-lg bg-surface/95 p-6 text-center shadow-2xl"
-				>
-					<div class="text-sm text-muted uppercase">{t('stage.done')}</div>
-					<div class="my-2 font-display text-5xl font-bold">
-						<span class="text-star">{icon}</span>
-						{status.collected}<span class="text-2xl text-muted">/{status.total}</span>
-					</div>
+				{#if placementDone}
 					<div
-						class="mx-auto mb-5 flex max-w-xs items-center gap-3"
-						role="progressbar"
-						aria-valuemin="0"
-						aria-valuemax="100"
-						aria-valuenow={pct}
+						class="max-h-full w-full max-w-md overflow-y-auto rounded-lg bg-surface/95 p-6 text-center shadow-2xl"
 					>
-						<div class="h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
-							<div class="h-full rounded-full bg-accent" style:width="{pct}%"></div>
+						{@render placementDone(pct)}
+					</div>
+				{:else}
+					<div
+						class="max-h-full w-full max-w-md overflow-y-auto rounded-lg bg-surface/95 p-6 text-center shadow-2xl"
+					>
+						<div class="text-sm text-muted uppercase">{t('stage.done')}</div>
+						<div class="my-2 font-display text-5xl font-bold">
+							<span class="text-star">{icon}</span>
+							{status.collected}<span class="text-2xl text-muted">/{status.total}</span>
 						</div>
-						<span class="w-12 text-right text-lg font-bold tabular-nums">{pct}%</span>
+						<div
+							class="mx-auto mb-5 flex max-w-xs items-center gap-3"
+							role="progressbar"
+							aria-valuemin="0"
+							aria-valuemax="100"
+							aria-valuenow={pct}
+						>
+							<div class="h-3 flex-1 overflow-hidden rounded-full bg-surface-2">
+								<div class="h-full rounded-full bg-accent" style:width="{pct}%"></div>
+							</div>
+							<span class="w-12 text-right text-lg font-bold tabular-nums">{pct}%</span>
+						</div>
+						{#if desync}
+							<p
+								role="note"
+								class="mb-4 flex items-start gap-2 rounded-lg bg-accent/10 p-3 text-left text-sm"
+							>
+								<span class="text-lg leading-none text-accent" aria-hidden="true">↗</span>
+								{t('sync.hint')}
+							</p>
+						{/if}
+						{#if coach && !demo && performance && performance.stars >= 8}
+							<CoachFeedback
+								summary={performance}
+								exercise={coach.exercise}
+								candidates={coach.candidates}
+								desynced={desync}
+								onPick={coach.onPick}
+								onCreate={coach.onCreate}
+							/>
+						{/if}
+						<div class="flex justify-center gap-3">
+							<button
+								class="flex items-center gap-1.5 rounded-lg bg-surface-2 px-5 py-2 font-semibold hover:bg-border"
+								onclick={onStart}
+							>
+								<Icon name="retry" class="h-4 w-4" />
+								{t('stage.retry')}
+							</button>
+							<button
+								class="rounded-lg bg-accent px-5 py-2 font-bold text-white hover:brightness-105"
+								onclick={onNext}
+							>
+								{t('stage.next')} →
+							</button>
+						</div>
 					</div>
-					{#if desync}
-						<p
-							role="note"
-							class="mb-4 flex items-start gap-2 rounded-lg bg-accent/10 p-3 text-left text-sm"
-						>
-							<span class="text-lg leading-none text-accent" aria-hidden="true">↗</span>
-							{t('sync.hint')}
-						</p>
-					{/if}
-					{#if coach && !demo && performance && performance.stars >= 8}
-						<CoachFeedback
-							summary={performance}
-							exercise={coach.exercise}
-							candidates={coach.candidates}
-							desynced={desync}
-							onPick={coach.onPick}
-							onCreate={coach.onCreate}
-						/>
-					{/if}
-					<div class="flex justify-center gap-3">
-						<button
-							class="flex items-center gap-1.5 rounded-lg bg-surface-2 px-5 py-2 font-semibold hover:bg-border"
-							onclick={onStart}
-						>
-							<Icon name="retry" class="h-4 w-4" />
-							{t('stage.retry')}
-						</button>
-						<button
-							class="rounded-lg bg-accent px-5 py-2 font-bold text-white hover:brightness-105"
-							onclick={onNext}
-						>
-							{t('stage.next')} →
-						</button>
-					</div>
-				</div>
+				{/if}
 			</div>
 		{/if}
 	{/if}

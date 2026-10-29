@@ -10,12 +10,15 @@
 		low = $bindable(),
 		high = $bindable(),
 		getDetector,
-		onClose
+		onClose,
+		onNext
 	}: {
 		low: number;
 		high: number;
 		getDetector: () => Promise<PitchDetector | null>;
 		onClose: () => void;
+		/** Dentro de la guía de inicio: aplica lo medido y sigue con el paso siguiente. */
+		onNext?: () => void;
 	} = $props();
 
 	const MIN_MIDI = 33; // A1
@@ -77,6 +80,16 @@
 		}
 	}
 
+	function next() {
+		measuring = false;
+		cancelAnimationFrame(raf);
+		if (mLow !== null && mHigh !== null && mHigh > mLow) {
+			low = mLow;
+			high = mHigh;
+		}
+		onNext?.();
+	}
+
 	function close() {
 		measuring = false;
 		cancelAnimationFrame(raf);
@@ -129,6 +142,13 @@
 					class="rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm"
 					onclick={close}>{t('range.close')}</button
 				>
+				{#if onNext}
+					<button
+						type="button"
+						class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
+						onclick={next}>{t('onb.next')}</button
+					>
+				{/if}
 			</div>
 		</div>
 	</div>

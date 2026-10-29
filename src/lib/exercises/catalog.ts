@@ -56,6 +56,16 @@ export function exerciseText(
 		: { name: e.name + label, description: e.parsed.meta.description };
 }
 
+/** Nombre corto para la lista (sin el compás): los ejercicios se reconocen por su número en el nivel. */
+export function shortName(e: Exercise, lang: 'es' | 'en'): string {
+	return lang === 'en' ? e.name_en : e.name;
+}
+
+/** El ejercicio n (desde 1) de un nivel del catálogo, en orden de dificultad. */
+export function levelExercise(level: string, n: number): Exercise | undefined {
+	return exercises.filter((e) => e.level === level)[n - 1];
+}
+
 export function byCategory(list: Exercise[] = exercises): [string, Exercise[]][] {
 	const groups = new Map<string, Exercise[]>();
 	for (const e of list) groups.set(e.category, [...(groups.get(e.category) ?? []), e]);

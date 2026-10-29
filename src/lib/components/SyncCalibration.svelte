@@ -11,8 +11,14 @@
 
 	let {
 		getDetector,
-		onClose
-	}: { getDetector: () => Promise<PitchDetector | null>; onClose: () => void } = $props();
+		onClose,
+		onNext
+	}: {
+		getDetector: () => Promise<PitchDetector | null>;
+		onClose: () => void;
+		/** Dentro de la guía de inicio: sigue con el paso siguiente. */
+		onNext?: () => void;
+	} = $props();
 
 	/** Clics de la cuenta regresiva (no se canta) y clics donde se canta "ta". */
 	const COUNTDOWN = 4;
@@ -161,11 +167,17 @@
 				<span>{t('sync.later')}</span>
 			</span>
 		</label>
-		<div class="mt-4 flex justify-end">
+		<div class="mt-4 flex justify-end gap-2">
 			<button
 				class="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm hover:bg-surface-2"
 				onclick={() => (settings.latencyMs = 0)}>{t('sync.reset')}</button
 			>
+			{#if onNext}
+				<button
+					class="rounded-lg bg-accent px-4 py-1.5 text-sm font-semibold text-white"
+					onclick={onNext}>{t('onb.next')}</button
+				>
+			{/if}
 		</div>
 	</div>
 </div>

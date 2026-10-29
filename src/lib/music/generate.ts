@@ -45,6 +45,8 @@ export interface GenerateOptions {
 	subdivision?: number;
 	/** Tope de repeticiones (para ejercicios largos). */
 	maxReps?: number;
+	/** Solo esta cantidad de repeticiones, repartidas a lo largo del rango (graves a agudas). */
+	spread?: number;
 }
 
 /** Raíces en las que el patrón entero cabe en el rango. */
@@ -79,6 +81,14 @@ export function generateSequence(notes: ParsedNote[], opts: GenerateOptions): Se
 	);
 	let roots = rootsInRange(notes, opts.low, opts.high, opts.direction);
 	if (opts.maxReps && roots.length > opts.maxReps) roots = roots.slice(0, opts.maxReps);
+	if (opts.spread && roots.length > opts.spread) {
+		const last = roots.length - 1;
+		const k = opts.spread;
+		roots = Array.from(
+			{ length: k },
+			(_, i) => roots[k === 1 ? 0 : Math.round((i * last) / (k - 1))]
+		);
+	}
 
 	const out: TimedNote[] = [];
 	const reps: Repetition[] = [];
