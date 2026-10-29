@@ -246,6 +246,7 @@
 						? 'bg-accent text-white'
 						: 'text-muted hover:text-fg'}"
 					role="tab"
+					data-tip={id === 'voice' ? 'voice' : undefined}
 					aria-selected={tab === id}
 					onclick={() => {
 						stopPreview();

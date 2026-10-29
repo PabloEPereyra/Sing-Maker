@@ -243,10 +243,12 @@
 		lastPhase = now;
 	});
 	const tip = $derived(
-		loaded && phase === 'idle' && !onboarding && !placement && !creating && !customizing
+		loaded && phase === 'idle' && !onboarding && !placement && !creating && !customizing && !panel
 			? nextTip()
 			: undefined
 	);
+	/** Pista dentro del creador de ejercicios (la pestaña «Con la voz»), solo la primera vez. */
+	const createTip = $derived(loaded && creating && !onboarding ? nextTip('create') : undefined);
 
 	/** Repite el ejercicio terminado en un nivel de afinación más estricto. */
 	async function tryHarder(level: Difficulty) {
@@ -548,7 +550,11 @@
 				aria-expanded={panel === 'exercises'}
 				aria-label={t('menu.exercises')}
 				title={t('menu.exercises')}
-				onclick={() => (panel = panel === 'exercises' ? null : 'exercises')}
+				data-tip="exercises"
+				onclick={() => {
+					markSeen('exercises');
+					panel = panel === 'exercises' ? null : 'exercises';
+				}}
 			>
 				<Icon name="note" class="h-9 w-9" />
 			</button>
@@ -560,7 +566,11 @@
 				aria-expanded={panel === 'rhythms'}
 				aria-label={t('rhythms.title')}
 				title={t('rhythms.title')}
-				onclick={() => (panel = panel === 'rhythms' ? null : 'rhythms')}
+				data-tip="rhythms"
+				onclick={() => {
+					markSeen('rhythms');
+					panel = panel === 'rhythms' ? null : 'rhythms';
+				}}
 			>
 				<Icon name="drum" class="h-9 w-9" />
 			</button>
@@ -716,6 +726,7 @@
 				class="round-btn round-btn-on gap-1.5 px-4"
 				data-tip="create"
 				onclick={() => {
+					markSeen('create');
 					stop();
 					creating = true;
 				}}
@@ -906,6 +917,17 @@
 			target={tip.id}
 			text={t(`tip.${tip.id}`)}
 			onDismiss={() => markSeen(tip.id)}
+			onSkipAll={markAllSeen}
+		/>
+	{/key}
+{/if}
+
+{#if createTip}
+	{#key createTip.id}
+		<TipBubble
+			target={createTip.id}
+			text={t(`tip.${createTip.id}`)}
+			onDismiss={() => markSeen(createTip.id)}
 			onSkipAll={markAllSeen}
 		/>
 	{/key}

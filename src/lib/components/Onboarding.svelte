@@ -3,7 +3,7 @@
 	// lleva a una prueba de nivel jugada que recomienda por dónde empezar. Cada paso reutiliza las pantallas de siempre (medir rango,
 	// sincronizar, calibrar) y se puede saltar o repetir desde el menú de configuración.
 	import { exercises } from '$lib/exercises/catalog';
-	import { PASS_PERCENT } from '$lib/exercises/placement';
+	import { PASS_PERCENT, STAGES } from '$lib/exercises/placement';
 	import type { PitchDetector } from '$lib/audio/pitch';
 	import { noteLabel, settings } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
@@ -145,7 +145,9 @@
 				</div>
 			{:else if step === 'level'}
 				<h2 id="onb-title" class="text-xl font-bold">{t('onb.level.title')}</h2>
-				<p class="mt-2 text-sm text-muted">{t('onb.level.body', { pass: PASS_PERCENT })}</p>
+				<p class="mt-2 text-sm text-muted">
+					{t('onb.level.body', { pass: PASS_PERCENT, total: STAGES })}
+				</p>
 				<div class="mt-4">
 					<button
 						class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"

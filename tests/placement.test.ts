@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exercises, levelExercise } from '../src/lib/exercises/catalog';
-import { outcome, STAGE_NUMBERS, stageExercise, STAGES } from '../src/lib/exercises/placement';
+import { outcome, stageExercise, STAGES } from '../src/lib/exercises/placement';
 import { generateSequence } from '../src/lib/music/generate';
 
 describe('prueba de nivel', () => {
@@ -9,12 +9,26 @@ describe('prueba de nivel', () => {
 			expect(exercises.filter((e) => e.level === level)).toHaveLength(10);
 	});
 
-	it('las etapas son los ejercicios 1, 3, 6 y 9 del nivel 1', () => {
-		expect(STAGE_NUMBERS.map((_, i) => stageExercise(i).name)).toEqual([
+	it('las etapas son 4 del nivel 1 y 2 de cada uno de los niveles 2 y 3', () => {
+		expect(Array.from({ length: STAGES }, (_, i) => stageExercise(i).name)).toEqual([
 			'Nota simple repetida',
 			'Escala mayor 3 notas',
 			'Escala menor 3 notas',
-			'Escala mayor 4 notas'
+			'Escala mayor 4 notas',
+			'Escala mayor 5 notas',
+			'Escala mayor 6 notas',
+			'Escala mayor 7 notas',
+			'Escala mayor 8 notas'
+		]);
+		expect(Array.from({ length: STAGES }, (_, i) => stageExercise(i).level)).toEqual([
+			'1',
+			'1',
+			'1',
+			'1',
+			'2',
+			'2',
+			'3',
+			'3'
 		]);
 	});
 
@@ -24,11 +38,16 @@ describe('prueba de nivel', () => {
 		expect(start(1)).toBe('Escala mayor 2 notas');
 		expect(start(2)).toBe('Arpegio mayor 2 notas');
 		expect(start(3)).toBe('Arpegio menor 2 notas');
+		expect(start(4)).toBe('Escala menor 4 notas');
+		expect(start(5)).toBe('Escala mayor 5 notas');
+		expect(start(6)).toBe('Escala mayor ágil');
+		expect(start(7)).toBe('Escala mayor 7 notas');
 	});
 
-	it('con 85% o más pasa; tras la última etapa recomienda el nivel 2', () => {
+	it('con 85% o más pasa y sigue; tras la última etapa recomienda seguir en el nivel 3', () => {
 		expect(outcome(0, 85)).toEqual({ passed: true, startAt: null });
-		expect(outcome(STAGES - 1, 100).startAt).toBe(levelExercise('2', 1));
+		expect(outcome(3, 100)).toEqual({ passed: true, startAt: null });
+		expect(outcome(STAGES - 1, 100).startAt).toBe(levelExercise('3', 3));
 		expect(outcome(1, 84).passed).toBe(false);
 	});
 

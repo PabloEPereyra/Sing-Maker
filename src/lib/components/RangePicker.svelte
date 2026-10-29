@@ -54,6 +54,7 @@
 		type="button"
 		class="flex flex-col items-center rounded-lg border border-border bg-surface px-3 pt-0.5 pb-1 leading-tight transition hover:border-accent/50"
 		aria-expanded={panel}
+		data-tip="range"
 		onclick={() => {
 			panel = !panel;
 			open = null;

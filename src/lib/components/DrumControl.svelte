@@ -12,6 +12,7 @@
 		? 'border-accent bg-accent text-white'
 		: 'border-border bg-surface text-muted hover:border-accent/50'}"
 	aria-pressed={enabled}
+	data-tip="drums"
 	aria-label={t('controls.drums')}
 	title={t('controls.drums')}
 	onclick={onToggle}

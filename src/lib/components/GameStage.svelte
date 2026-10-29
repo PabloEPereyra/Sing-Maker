@@ -299,6 +299,7 @@
 		<div
 			class="absolute right-3 bottom-[5.5rem] flex items-center overflow-hidden rounded-lg bg-black/30 text-white backdrop-blur-sm"
 			role="group"
+			data-tip="zoom"
 			aria-label={t('zoom.label')}
 		>
 			<button

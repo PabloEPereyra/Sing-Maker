@@ -3,19 +3,40 @@
 // terminados se guardan en el navegador.
 const KEY = 'singmaker-tips';
 
+export type TipId =
+	| 'play'
+	| 'tempo'
+	| 'exercises'
+	| 'guide'
+	| 'drums'
+	| 'rhythms'
+	| 'zoom'
+	| 'range'
+	| 'create'
+	| 'customize'
+	| 'voice';
+
 export interface Tip {
-	id: 'play' | 'tempo' | 'guide' | 'create' | 'customize';
+	id: TipId;
 	/** Ejercicios terminados que hacen falta antes de mostrarla. */
 	after: number;
+	/** Dónde se muestra: la pantalla principal (por defecto) o el creador de ejercicios. */
+	scope?: 'create';
 }
 
 /** En orden: la primera que corresponda y no se haya visto. */
 export const TIPS: Tip[] = [
 	{ id: 'play', after: 0 },
 	{ id: 'tempo', after: 1 },
+	{ id: 'exercises', after: 1 },
 	{ id: 'guide', after: 2 },
-	{ id: 'create', after: 3 },
-	{ id: 'customize', after: 4 }
+	{ id: 'drums', after: 2 },
+	{ id: 'rhythms', after: 3 },
+	{ id: 'zoom', after: 3 },
+	{ id: 'range', after: 4 },
+	{ id: 'create', after: 4 },
+	{ id: 'customize', after: 5 },
+	{ id: 'voice', after: 0, scope: 'create' }
 ];
 
 export const tips = $state<{ seen: string[]; done: number }>({ seen: [], done: 0 });
@@ -41,8 +62,11 @@ export function recordDone(): void {
 	save();
 }
 
-export function nextTip(): Tip | undefined {
-	return TIPS.find((tip) => tip.after <= tips.done && !tips.seen.includes(tip.id));
+/** La próxima pista de la pantalla principal o, con `scope`, del creador de ejercicios. */
+export function nextTip(scope?: 'create'): Tip | undefined {
+	return TIPS.find(
+		(tip) => tip.scope === scope && tip.after <= tips.done && !tips.seen.includes(tip.id)
+	);
 }
 
 export function markSeen(id: string): void {

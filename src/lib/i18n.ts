@@ -198,6 +198,16 @@ const es = {
 	'tip.skipAll': 'No más pistas',
 	'tip.play': 'Pulsa ▶ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
 	'tip.tempo': '¿Muy rápido o muy lento? Cambia aquí el tempo.',
+	'tip.exercises':
+		'Aquí están todos los ejercicios, ordenados por niveles, junto con los que creas tú.',
+	'tip.drums': 'Activa la batería para cantar con ritmo: marca el compás como un metrónomo.',
+	'tip.rhythms': 'Elige el ritmo de la batería y su velocidad: normal o a la mitad.',
+	'tip.zoom':
+		'Acerca o aleja el escenario para ver menos o más notas a la vez. También con la rueda del ratón.',
+	'tip.range':
+		'Este es tu rango de voz. Mídelo con sirenas o elígelo a mano y los ejercicios se ajustan a él.',
+	'tip.voice':
+		'¿Tienes una melodía en la cabeza? Cántala o tararéala y la app la convierte en ejercicio.',
 	'tip.guide':
 		'El piano guía toca cada nota para que la sigas. Apágalo cuando quieras cantar de memoria.',
 	'tip.create': '¿Quieres algo a tu medida? Describe un ejercicio y la IA lo crea para tu rango.',
@@ -205,13 +215,13 @@ const es = {
 		'Cambia el personaje, los fondos y lo que recoges. ¡Puedes crear los tuyos con IA!',
 	'onb.level.title': 'Prueba de nivel',
 	'onb.level.body':
-		'Para saber dónde empezar vas a cantar de verdad: son hasta 4 etapas, cada una con un ejercicio en 4 tonalidades. Con el {pass}% de las notas pasas a la etapa siguiente; si no, te aconsejo por dónde empezar. Si prefieres, sáltala y empieza desde el principio.',
+		'Para saber dónde empezar vas a cantar de verdad: son hasta {total} etapas, cada una con un ejercicio en 4 tonalidades. Con el {pass}% de las notas pasas a la etapa siguiente; si no, te aconsejo por dónde empezar. Si prefieres, sáltala y empieza desde el principio.',
 	'onb.level.start': 'Comenzar prueba',
 	'onb.done.body': 'Te recomiendo empezar por el ejercicio {n} · {name} (nivel {level}).',
 	'place.banner': 'Prueba de nivel · etapa {n} de {total} · {pass}% para pasar',
 	'place.stage': 'Etapa {n} de {total}',
 	'place.passed': '¡Etapa superada!',
-	'place.passedAll': '¡Superaste todo el nivel 1!',
+	'place.passedAll': '¡Superaste toda la prueba!',
 	'place.failed': 'No llegaste al {pass}%. No pasa nada: así sé por dónde conviene empezar.',
 	'place.next': 'Siguiente etapa',
 	'place.result': 'Ver mi nivel',
@@ -614,6 +624,14 @@ const en: Record<Key, string> = {
 	'tip.skipAll': 'No more tips',
 	'tip.play': 'Press ▶ to start: a guide note plays, then you sing following the character.',
 	'tip.tempo': 'Too fast or too slow? Change the tempo here.',
+	'tip.exercises': 'All the exercises are here, sorted by level, along with the ones you create.',
+	'tip.drums': 'Turn on the drums to sing with a beat: they mark the pulse like a metronome.',
+	'tip.rhythms': 'Pick the drum rhythm and its speed: normal or half.',
+	'tip.zoom':
+		'Zoom the stage in or out to see fewer or more notes at once. The mouse wheel works too.',
+	'tip.range':
+		'This is your vocal range. Measure it with sirens or set it by hand and the exercises adapt to it.',
+	'tip.voice': 'Got a melody in your head? Sing or hum it and the app turns it into an exercise.',
 	'tip.guide':
 		'The guide piano plays each note so you can follow it. Turn it off when you want to sing from memory.',
 	'tip.create':
@@ -622,13 +640,13 @@ const en: Record<Key, string> = {
 		'Change the character, the backgrounds and what you collect. You can create your own with AI!',
 	'onb.level.title': 'Level test',
 	'onb.level.body':
-		'To find where to start you will actually sing: up to 4 stages, each one an exercise in 4 keys. With {pass}% of the notes you move on to the next stage; if not, I suggest where to start. If you prefer, skip it and start from the beginning.',
+		'To find where to start you will actually sing: up to {total} stages, each one an exercise in 4 keys. With {pass}% of the notes you move on to the next stage; if not, I suggest where to start. If you prefer, skip it and start from the beginning.',
 	'onb.level.start': 'Start the test',
 	'onb.done.body': 'I recommend starting with exercise {n} · {name} (level {level}).',
 	'place.banner': 'Level test · stage {n} of {total} · {pass}% to pass',
 	'place.stage': 'Stage {n} of {total}',
 	'place.passed': 'Stage passed!',
-	'place.passedAll': 'You passed all of level 1!',
+	'place.passedAll': 'You passed the whole test!',
 	'place.failed': 'You did not reach {pass}%. That is fine: now I know where it is best to start.',
 	'place.next': 'Next stage',
 	'place.result': 'See my level',
