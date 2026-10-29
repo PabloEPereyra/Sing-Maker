@@ -14,7 +14,7 @@ describe('prueba de nivel', () => {
 			'Nota simple repetida',
 			'Escala mayor 3 notas',
 			'Escala menor 3 notas',
-			'Escala mayor ágil'
+			'Escala mayor 4 notas'
 		]);
 	});
 

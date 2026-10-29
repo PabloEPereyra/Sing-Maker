@@ -156,6 +156,9 @@ h4 {
 }
 
 .bar {
+	/* Por encima del escenario: los desplegables de la cabecera (rango, configuración) bajan sobre él. */
+	position: relative;
+	z-index: 30;
 	background: rgb(255 255 255 / 0.72);
 	backdrop-filter: blur(6px);
 	border-bottom: 3px solid var(--color-frame);
