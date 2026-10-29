@@ -3,6 +3,7 @@
 	import GameStage from '$lib/components/GameStage.svelte';
 	import RangePicker from '$lib/components/RangePicker.svelte';
 	import Onboarding from '$lib/components/Onboarding.svelte';
+	import TipBubble from '$lib/components/TipBubble.svelte';
 	import CustomizeDialog from '$lib/components/CustomizeDialog.svelte';
 	import CreateExerciseDialog from '$lib/components/CreateExerciseDialog.svelte';
 	import VoiceExerciseDialog from '$lib/components/VoiceExerciseDialog.svelte';
@@ -41,6 +42,7 @@
 	} from '$lib/character/store.svelte';
 	import { loadSettings, saveSettings, settings, type CharacterId } from '$lib/settings.svelte';
 	import type { Theme } from '$lib/game/theme';
+	import { loadTips, markAllSeen, markSeen, nextTip, recordDone } from '$lib/tips.svelte';
 	import { t, tDynamic } from '$lib/i18n';
 
 	/** Tempo con el que arranca cada ejercicio. */
@@ -171,6 +173,8 @@
 		loadSettings();
 		loadMine();
 		loadUnlocked();
+		loadTips();
+
 		loadMyDrums();
 		void loadCharacters();
 		void loadAssets();
@@ -207,6 +211,26 @@
 		document.documentElement.lang = snapshot.lang;
 		if (loaded) saveSettings();
 	});
+
+	// Pistas: se cuenta cada ejercicio terminado (fuera de la prueba de nivel) y, en reposo y sin
+	// diálogos abiertos, se muestra la próxima que corresponda.
+	let lastPhase: Phase = 'idle';
+	$effect(() => {
+		const now = phase;
+		if (now === 'done' && lastPhase !== 'done' && !placement) recordDone();
+		lastPhase = now;
+	});
+	const tip = $derived(
+		loaded &&
+			phase === 'idle' &&
+			!onboarding &&
+			!placement &&
+			!creating &&
+			!creatingByVoice &&
+			!customizing
+			? nextTip()
+			: undefined
+	);
 
 	function closeOnboarding() {
 		onboarding = false;
@@ -487,6 +511,7 @@
 				class="round-btn gap-1.5 sm:w-auto sm:px-4"
 				title={t('header.customize')}
 				aria-label={t('header.customize')}
+				data-tip="customize"
 				onclick={() => (customizing = true)}
 			>
 				<Icon name="palette" class="h-5 w-5 text-accent" />
@@ -539,6 +564,7 @@
 				<div class="flex gap-2">
 					<button
 						class="flex-1 rounded-lg bg-accent px-2 py-2 text-sm font-semibold whitespace-nowrap text-white hover:brightness-110"
+						data-tip="create"
 						onclick={() => (creating = true)}
 					>
 						✨ {t('create.button')}
@@ -702,7 +728,7 @@
 
 			<!-- Controles: todos centrados; tempo y tolerancia a la izquierda, piano y metrónomo a la derecha -->
 			<div class="panel flex items-center justify-center gap-2 p-3 text-sm sm:gap-3">
-				<PopoverButton icon="gauge" label="{t('controls.tempo')} · {bpm} bpm">
+				<PopoverButton icon="gauge" tip="tempo" label="{t('controls.tempo')} · {bpm} bpm">
 					<label class="block">
 						<span class="mb-2 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
 						<input
@@ -742,6 +768,7 @@
 					<Icon name="stop" class="h-5 w-5" />
 				</button>
 				<button
+					data-tip="play"
 					class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
 					aria-label={running
 						? t('controls.pause')
@@ -767,6 +794,7 @@
 						? 'border-accent bg-accent text-white'
 						: 'border-border bg-surface text-muted hover:border-accent/50'}"
 					aria-pressed={guide}
+					data-tip="guide"
 					aria-label={t('controls.guide')}
 					title={t('controls.guide')}
 					onclick={() => (guide = !guide)}
@@ -822,6 +850,17 @@
 		onFinish={finishOnboarding}
 		onClose={closeOnboarding}
 	/>
+{/if}
+
+{#if tip}
+	{#key tip.id}
+		<TipBubble
+			target={tip.id}
+			text={t(`tip.${tip.id}`)}
+			onDismiss={() => markSeen(tip.id)}
+			onSkipAll={markAllSeen}
+		/>
+	{/key}
 {/if}
 
 {#if customizing}

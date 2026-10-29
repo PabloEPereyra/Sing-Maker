@@ -363,3 +363,17 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 		transition: none !important;
 	}
 }
+
+/* Globo de pista (TipBubble): marco como el de los diálogos, con una flecha hacia el control. */
+.tip-bubble {
+	background: var(--color-surface);
+	border: 3px solid var(--color-accent);
+	box-shadow:
+		0 4px 0 var(--color-accent-dark),
+		0 12px 24px rgb(20 30 80 / 0.28);
+}
+.tip-arrow {
+	background: var(--color-surface);
+	border-left: 3px solid var(--color-accent);
+	border-top: 3px solid var(--color-accent);
+}

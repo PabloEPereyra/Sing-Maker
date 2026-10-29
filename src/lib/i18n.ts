@@ -177,6 +177,16 @@ const es = {
 	'coach.levelUp': 'Para subir de nivel',
 	'coach.practice': 'Practicar «{name}»',
 	'coach.create': 'Crear este ejercicio con IA',
+	'tip.ok': 'Entendido',
+	'tip.skipAll': 'No más pistas',
+	'tip.play': 'Pulsa ▶ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
+	'tip.tempo':
+		'¿Muy rápido o muy lento? Cambia aquí el tempo. Al lado, la tolerancia decide cuánto margen tiene cada nota.',
+	'tip.guide':
+		'El piano guía toca cada nota para que la sigas. Apágalo cuando quieras cantar de memoria.',
+	'tip.create': '¿Quieres algo a tu medida? Describe un ejercicio y la IA lo crea para tu rango.',
+	'tip.customize':
+		'Cambia el personaje, los fondos y lo que recoges. ¡Puedes crear los tuyos con IA!',
 	'onb.level.title': 'Prueba de nivel',
 	'onb.level.body':
 		'Para saber dónde empezar vas a cantar de verdad: son hasta 4 etapas, cada una con un ejercicio en 4 tonalidades. Con el {pass}% de las notas pasas a la etapa siguiente; si no, te aconsejo por dónde empezar. Si prefieres, sáltala y empieza desde el principio.',
@@ -567,6 +577,17 @@ const en: Record<Key, string> = {
 	'coach.levelUp': 'Level up',
 	'coach.practice': 'Practice “{name}”',
 	'coach.create': 'Create this exercise with AI',
+	'tip.ok': 'Got it',
+	'tip.skipAll': 'No more tips',
+	'tip.play': 'Press ▶ to start: a guide note plays, then you sing following the character.',
+	'tip.tempo':
+		'Too fast or too slow? Change the tempo here. Next to it, tolerance sets how much leeway each note has.',
+	'tip.guide':
+		'The guide piano plays each note so you can follow it. Turn it off when you want to sing from memory.',
+	'tip.create':
+		'Want something made for you? Describe an exercise and the AI builds it for your range.',
+	'tip.customize':
+		'Change the character, the backgrounds and what you collect. You can create your own with AI!',
 	'onb.level.title': 'Level test',
 	'onb.level.body':
 		'To find where to start you will actually sing: up to 4 stages, each one an exercise in 4 keys. With {pass}% of the notes you move on to the next stage; if not, I suggest where to start. If you prefer, skip it and start from the beginning.',

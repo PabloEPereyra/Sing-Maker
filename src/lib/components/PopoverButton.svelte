@@ -4,8 +4,12 @@
 	import { onMount, type Snippet } from 'svelte';
 	import Icon from './Icon.svelte';
 
-	let { icon, label, children }: { icon: 'gauge' | 'ruler'; label: string; children: Snippet } =
-		$props();
+	let {
+		icon,
+		label,
+		tip,
+		children
+	}: { icon: 'gauge' | 'ruler'; label: string; tip?: string; children: Snippet } = $props();
 
 	let open = $state(false);
 	let root: HTMLDivElement;
@@ -25,6 +29,7 @@
 			? 'border-accent bg-accent text-white'
 			: 'border-border bg-surface text-muted hover:border-accent/50'}"
 		aria-label={label}
+		data-tip={tip}
 		aria-expanded={open}
 		title={label}
 		onclick={() => (open = !open)}
