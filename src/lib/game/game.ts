@@ -58,6 +58,8 @@ export interface GameStatus {
 	/** Tiempos restantes de la cuenta previa, o null. */
 	countIn: number | null;
 	sungMidi: number | null;
+	/** Nota guía que acaba de empezar a sonar (id distinto en cada una), para anunciarla en pantalla. */
+	guide: { id: number; midi: number } | null;
 }
 
 /** Devuelve el tono cantado (MIDI, fraccionario) o null. Recibe el tiempo del ejercicio. */
@@ -123,6 +125,8 @@ export class Game {
 	private pausedAt = 0;
 	/** Tiempo del AudioContext en que termina la escucha previa. */
 	private listenEnd = 0;
+	/** Índice (en seq.notes) de la última nota guía que ya empezó a sonar; -1 si ninguna. */
+	private guideNote = -1;
 
 	private birdMidi = 60;
 	private birdVy = 0;
@@ -235,6 +239,7 @@ export class Game {
 		this.desynced = false;
 		this.source = source;
 		this.latency = latency;
+		this.guideNote = -1;
 		const ctx = getContext();
 		// Escucha previa: suena una vez la primera repetición, sin la nota guía (esa queda para la
 		// práctica); arranca directo en la primera nota a cantar.
@@ -300,6 +305,9 @@ export class Game {
 				s.changedAt = 0;
 			}
 		}
+		// Las guías que vuelven a sonar en el retroceso se anuncian de nuevo.
+		this.guideNote = -1;
+		this.trackGuide(from - 0.001);
 		this.phase = from < 0 ? 'countin' : 'playing';
 		this.emitStatus(true, visible);
 	}
@@ -313,6 +321,7 @@ export class Game {
 		)
 			this.phase = 'idle';
 		this.source = null;
+		this.guideNote = -1;
 		if (this.phase === 'idle') {
 			this.grounded = true;
 			this.resetWalker();
@@ -349,6 +358,7 @@ export class Game {
 		} else if (this.phase === 'countin' || this.phase === 'playing') {
 			const songTime = getContext().currentTime - this.t0;
 			this.scheduleAudio(songTime);
+			this.trackGuide(songTime);
 			time = songTime - this.latency;
 			if (this.phase === 'countin' && songTime >= 0) this.phase = 'playing';
 			this.updatePitch(time, dt);
@@ -371,6 +381,17 @@ export class Game {
 		this.draw(time, anim);
 		this.emitStatus(false, time);
 	};
+
+	/** Recuerda la última nota guía que ya empezó a sonar (por el reloj del audio, no el de la voz). */
+	private trackGuide(songTime: number): void {
+		const notes = this.seq.notes;
+		for (
+			let i = Math.max(0, this.guideNote + 1);
+			i < notes.length && notes[i].start <= songTime;
+			i++
+		)
+			if (notes[i].isHint) this.guideNote = i;
+	}
 
 	private scheduleAudio(songTime: number): void {
 		const horizon = songTime + LOOKAHEAD_SEC;
@@ -820,7 +841,9 @@ export class Game {
 		let rep = 0;
 		for (let i = 0; i < this.seq.reps.length; i++) if (this.seq.reps[i].start <= time) rep = i;
 		const sungMidi = this.sung === null ? null : Math.round(this.sung);
-		const key = `${this.phase}|${collected}|${missed}|${rep}|${countIn}|${sungMidi}|${Math.round(time * 4)}`;
+		const guideOn = this.phase === 'countin' || this.phase === 'playing' || this.phase === 'paused';
+		const guideNote = guideOn ? this.guideNote : -1;
+		const key = `${this.phase}|${collected}|${missed}|${rep}|${countIn}|${sungMidi}|${guideNote}|${Math.round(time * 4)}`;
 		if (!force && key === this.lastStatusKey) return;
 		this.lastStatusKey = key;
 		this.onStatus({
@@ -833,7 +856,8 @@ export class Game {
 			root: this.seq.reps[rep]?.root ?? '',
 			progress: this.seq.duration ? Math.max(0, Math.min(1, time / this.seq.duration)) : 0,
 			countIn,
-			sungMidi
+			sungMidi,
+			guide: guideNote >= 0 ? { id: guideNote, midi: this.seq.notes[guideNote].midi } : null
 		});
 	}
 }

@@ -325,6 +325,17 @@
 			</div>
 		{/if}
 
+		{#if status.guide}
+			<!-- Anuncio de la nota guía: aparece, se agranda y se esfuma (también separa las repeticiones) -->
+			{#key status.guide.id}
+				<div class="pointer-events-none absolute inset-0 grid place-items-center">
+					<span class="guide-flash" aria-hidden="true">
+						{noteLabel(status.guide.midi).replace(/-?\d+$/, '')}
+					</span>
+				</div>
+			{/key}
+		{/if}
+
 		{#if status.phase === 'listen'}
 			<div class="pointer-events-none absolute inset-x-0 top-[18%] grid place-items-center">
 				<div

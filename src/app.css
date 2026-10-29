@@ -16,7 +16,7 @@
 	--color-frame-dark: #9fb4e6;
 
 	--font-sans: 'Nunito', ui-rounded, system-ui, sans-serif;
-	--font-display: 'Fredoka', 'Nunito', ui-rounded, system-ui, sans-serif;
+	--font-display: 'Chewy', 'Nunito', ui-rounded, system-ui, sans-serif;
 
 	/* Todo con esquinas de 8px. */
 	--radius-sm: 8px;
@@ -31,6 +31,8 @@ body {
 	background: var(--color-base);
 	color: var(--color-fg);
 	font-family: var(--font-sans);
+	/* Chewy solo existe en un peso: sin negrita falsa cuando un título pide 600 o 700. */
+	font-synthesis-weight: none;
 	height: 100%;
 }
 
@@ -538,4 +540,53 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	-webkit-text-stroke: 4px var(--color-accent-dark);
 	paint-order: stroke fill;
 	letter-spacing: 0.03em;
+}
+
+/* Anuncio de la nota guía en el escenario: viene desde el fondo hacia adelante, se agranda y se esfuma. */
+@keyframes guide-flash {
+	0% {
+		opacity: 0;
+		transform: scale(0.12);
+		filter: blur(6px) drop-shadow(0 3px 0 #7c2d12);
+	}
+	22% {
+		opacity: 1;
+		filter: blur(0) drop-shadow(0 3px 0 #7c2d12);
+	}
+	65% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+		transform: scale(2.8);
+		filter: blur(0) drop-shadow(0 3px 0 #7c2d12);
+	}
+}
+@keyframes guide-flash-soft {
+	0% {
+		opacity: 0;
+	}
+	30% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+.guide-flash {
+	font-family: var(--font-display);
+	font-size: 8rem;
+	line-height: 1;
+	/* Relleno de degradado naranja (contrasta con el cielo azul) y borde fino. */
+	background-image: linear-gradient(180deg, #ffe066 0%, #ffa41b 48%, #ff6a00 100%);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+	-webkit-text-stroke: 2px #7c2d12;
+	animation: guide-flash 900ms ease-in both;
+}
+@media (prefers-reduced-motion: reduce) {
+	.guide-flash {
+		animation-name: guide-flash-soft;
+	}
 }
