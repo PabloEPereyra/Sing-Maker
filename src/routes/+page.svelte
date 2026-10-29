@@ -12,7 +12,7 @@
 	import PopoverButton from '$lib/components/PopoverButton.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
 	import DrumControl from '$lib/components/DrumControl.svelte';
-	import { byLevel, exercises, exerciseText, library, shortName } from '$lib/exercises/catalog';
+	import { byLevel, exercises, exerciseText, shortName } from '$lib/exercises/catalog';
 	import {
 		KEYS_PER_STAGE,
 		outcome,
@@ -23,7 +23,7 @@
 	import { loadUnlocked, unlock, unlockedExercises } from '$lib/exercises/unlocked.svelte';
 	import { generateSequence } from '$lib/music/generate';
 	import { getContext, loadDrums, loadPiano } from '$lib/audio/engine';
-	import { patternsFor, type DrumPattern } from '$lib/audio/drums';
+	import { DRUM_PATTERNS, patternsFor, type DrumPattern } from '$lib/audio/drums';
 	import { addMyDrum, loadMyDrums, myDrums, removeMyDrum } from '$lib/audio/mydrums.svelte';
 	import type { DrumResult } from '$lib/ai/drums';
 	import { meterFamily, type MeterId } from '$lib/music/meter';
@@ -93,6 +93,8 @@
 
 	/** Descripción sugerida por el entrenador de IA para abrir el creador con el texto escrito. */
 	let suggestedPrompt = $state('');
+	/** Panel desplegable del escenario (ejercicios o ritmos); se cierra al elegir y al empezar a jugar. */
+	let panel = $state<'exercises' | 'rhythms' | null>(null);
 	/** Guía de inicio: se abre sola la primera vez y se repite desde el menú de configuración. */
 	let onboarding = $state(false);
 	/** Paso con el que abre la guía y ejercicio que recomienda tras la prueba de nivel. */
@@ -145,8 +147,17 @@
 		...patternsFor(meter),
 		...myDrums.list.filter((p) => p.meter === meter)
 	]);
-	const builtinPatterns = $derived(patternsFor(meter));
-	const minePatterns = $derived(myDrums.list.filter((p) => p.meter === meter));
+	/** Todos los ritmos por compás: los del compás del ejercicio se pueden elegir, los otros se ven en gris. */
+	const rhythmGroups = $derived(
+		(['4/4', '6/8'] as const).map((m) => ({
+			meter: m,
+			patterns: [
+				...DRUM_PATTERNS.filter((p) => p.meter === m),
+				...myDrums.list.filter((p) => p.meter === m)
+			]
+		}))
+	);
+
 	const drumPattern = $derived(patterns.find((p) => p.id === drumPick[meter]) ?? patterns[0]);
 	/** El nivel de afinación elegido; la prueba de nivel usa siempre Normal para que sea comparable. */
 	const tolerance = $derived(toleranceOf(placement ? 'normal' : settings.difficulty));
@@ -317,6 +328,7 @@
 	}
 
 	async function start() {
+		panel = null;
 		getContext();
 		// Esperar el piano como mucho 1,5 s; si no llegó, suena el sintetizador.
 		await Promise.race([loadPiano(), new Promise((r) => setTimeout(r, 1500))]);
@@ -373,34 +385,8 @@
 		suggestedPrompt = '';
 	}
 
-	/** Elige el ritmo de la lista y enciende la batería. */
 	/** Devolución del entrenador de IA: qué se practicó y entre qué ejercicios puede recomendar. */
-	const coach = $derived({
-		exercise: {
-			id: exercise.id,
-			name: text.name,
-			level: exercise.level === 'mine' ? 'custom' : exercise.level,
-			category: exercise.category === 'mine' ? 'custom' : exercise.category
-		},
-		// Del catálogo visible y de la biblioteca oculta, cerca del nivel actual (uno menos o hasta dos más).
-		candidates: [...visible, ...library.filter((e) => !visible.some((v) => v.id === e.id))]
-			.filter((e) => {
-				if (e.id === exercise.id) return false;
-				const here = Number(exercise.level);
-				return Number.isFinite(here)
-					? Number(e.level) >= here - 1 && Number(e.level) <= here + 2
-					: true;
-			})
-			.map((e) => {
-				const x = exerciseText(e, settings.lang);
-				return {
-					id: e.id,
-					name: x.name,
-					level: e.level,
-					category: e.category,
-					description: x.description.slice(0, 140)
-				};
-			}),
+	const coachActions = {
 		onPick: (id: string) => {
 			stop();
 			unlock(id);
@@ -411,11 +397,47 @@
 			suggestedPrompt = prompt;
 			creating = true;
 		}
+	};
+	const coach = $derived.by(() => {
+		// Solo la lista que ve la persona, con sus nombres y números actuales, de más fácil a más difícil.
+		const ordered = byLevel(visible).flatMap((lv) =>
+			lv.exercises.map((e, i) => ({
+				e,
+				label: `${t('catalog.level')} ${lv.level} · ${i + 1} - ${shortName(e, settings.lang)}`
+			}))
+		);
+		const here = ordered.findIndex((o) => o.e.id === exercise.id);
+		return {
+			exercise: {
+				id: exercise.id,
+				name: shortName(exercise, settings.lang),
+				level: exercise.level === 'mine' ? 'custom' : exercise.level,
+				category: exercise.category === 'mine' ? 'custom' : exercise.category,
+				order: here >= 0 ? here : undefined
+			},
+			candidates: ordered
+				.map(({ e, label }, order) => ({
+					id: e.id,
+					name: shortName(e, settings.lang),
+					level: e.level,
+					category: e.category,
+					description: exerciseText(e, settings.lang).description.slice(0, 140),
+					order,
+					label
+				}))
+				.filter((c) => c.id !== exercise.id && (here < 0 || Math.abs(c.order - here) <= 6)),
+			...coachActions
+		};
 	});
 
+	/** Nombre del ritmo sin el compás: ya está en el título del grupo. */
+	const rhythmName = (p: DrumPattern) => p.name.replace(/\s*(4\/4|6\/8)\s*/, ' ').trim();
+
+	/** Elige el ritmo de la lista y enciende la batería. */
 	function pickRhythm(id: string) {
 		drumPick = { ...drumPick, [meter]: id };
 		drums = true;
+		panel = null;
 		void loadDrums();
 	}
 
@@ -486,21 +508,194 @@
 	{/if}
 {/snippet}
 
-<!-- Fila de la lista de ritmos: elegir el patrón (y encender la batería); los creados se pueden borrar -->
-{#snippet rhythmRow(p: DrumPattern, removable: boolean)}
-	<div class="group/item mt-1 flex items-center gap-1">
+<!-- Fila de la lista de ritmos: elegir el patrón (y encender la batería); los de otro compás se ven en gris -->
+{#snippet rhythmRow(p: DrumPattern, active: boolean)}
+	{@const mineOwn = p.id.startsWith('my-drum-')}
+	<div class="mt-1 flex items-stretch gap-1">
 		<button
-			class="ex-card !mt-0 min-w-0 flex-1 {p.id === drumPattern.id ? 'ex-card-on' : ''}"
-			aria-pressed={p.id === drumPattern.id}
-			onclick={() => pickRhythm(p.id)}><span class="min-w-0 flex-1 truncate">{p.name}</span></button
+			class="ex-card !mt-0 min-w-0 flex-1 {active && p.id === drumPattern.id ? 'ex-card-on' : ''}"
+			aria-pressed={active && p.id === drumPattern.id}
+			disabled={!active}
+			onclick={() => pickRhythm(p.id)}
 		>
-		{#if removable}
+			<span class="min-w-0 flex-1 truncate"
+				>{#if mineOwn}✨
+				{/if}{rhythmName(p)}</span
+			>
+		</button>
+		{#if mineOwn}
 			<button
-				class="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 group-hover/item:opacity-100 hover:bg-surface-2 hover:text-red-600 focus-visible:opacity-100"
+				class="trash-btn"
 				aria-label={t('create.delete')}
 				title={t('create.delete')}
-				onclick={() => removeMyDrum(p.id)}>✕</button
+				onclick={() => removeMyDrum(p.id)}
 			>
+				<Icon name="trash" class="h-4 w-4" />
+			</button>
+		{/if}
+	</div>
+{/snippet}
+
+<!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): dos botones grandes que abren paneles -->
+{#snippet menu()}
+	<div class="relative">
+		<div class="flex items-center gap-2">
+			<button
+				class="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 {panel ===
+				'exercises'
+					? 'ring-4 ring-white/90'
+					: ''}"
+				aria-expanded={panel === 'exercises'}
+				aria-label={t('menu.exercises')}
+				title={t('menu.exercises')}
+				onclick={() => (panel = panel === 'exercises' ? null : 'exercises')}
+			>
+				<Icon name="note" class="h-9 w-9" />
+			</button>
+			<button
+				class="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 {panel ===
+				'rhythms'
+					? 'ring-4 ring-white/90'
+					: ''}"
+				aria-expanded={panel === 'rhythms'}
+				aria-label={t('rhythms.title')}
+				title={t('rhythms.title')}
+				onclick={() => (panel = panel === 'rhythms' ? null : 'rhythms')}
+			>
+				<Icon name="drum" class="h-9 w-9" />
+			</button>
+		</div>
+		{#if panel === 'exercises'}
+			<div
+				class="panel absolute top-[5.25rem] left-0 flex max-h-[min(36rem,calc(100dvh-17rem))] w-72 max-w-[calc(100vw-2rem)] flex-col"
+			>
+				<div class="border-b border-border p-2">
+					<input
+						type="search"
+						placeholder={t('catalog.search')}
+						bind:value={search}
+						class="w-full rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm outline-none focus:border-accent"
+					/>
+				</div>
+				<div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+					{#if mine.list.length && !query}
+						<details class="group level-card">
+							<summary
+								class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
+								style:--ribbon="#8b5cf6"
+							>
+								<span class="ribbon-dot" aria-hidden="true">✨</span>
+								<span class="truncate">{t('create.mine')}</span>
+								<span class="ml-auto rounded-full bg-black/15 px-2 text-xs font-bold"
+									>{mine.list.length}</span
+								>
+								<span class="transition group-open:rotate-90">›</span>
+							</summary>
+							<div class="px-1 pb-2">
+								{#each mine.list as e (e.id)}
+									<div class="mt-1 flex items-stretch gap-1">
+										<button
+											class="ex-card !mt-0 min-w-0 flex-1 {e.id === selectedId ? 'ex-card-on' : ''}"
+											aria-current={e.id === selectedId}
+											title={e.parsed.meta.description}
+											onclick={() => {
+												stop();
+												selectedId = e.id;
+												panel = null;
+											}}
+										>
+											<span class="min-w-0 flex-1 truncate"
+												>{exerciseText(e, settings.lang).name}</span
+											>
+										</button>
+										<button
+											class="trash-btn"
+											aria-label={t('create.delete')}
+											title={t('create.delete')}
+											onclick={() => removeMine(e.id)}
+										>
+											<Icon name="trash" class="h-4 w-4" />
+										</button>
+									</div>
+								{/each}
+							</div>
+						</details>
+					{/if}
+
+					{#each levels as lv (lv.level)}
+						<details class="group level-card" open={!!query}>
+							<summary
+								class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
+								style:--ribbon={lv.color}
+								style:--ribbon-fg={ink(lv.color)}
+							>
+								<span class="ribbon-dot" aria-hidden="true">{lv.level}</span>
+								<span class="font-bold">{t('catalog.level')} {lv.level}</span>
+								<span class="truncate text-sm font-semibold"
+									>{tDynamic(`level.${lv.level}`, lv.name)}</span
+								>
+								<span class="ml-auto rounded-full bg-black/15 px-2 text-xs font-bold"
+									>{lv.exercises.length}</span
+								>
+								<span class="transition group-open:rotate-90">›</span>
+							</summary>
+							<div class="px-1 pb-2">
+								{#each lv.exercises as e, i (e.id)}
+									<button
+										class="ex-card flex items-center gap-2 {e.id === selectedId
+											? 'ex-card-on'
+											: ''}"
+										aria-current={e.id === selectedId}
+										onclick={() => {
+											stop();
+											selectedId = e.id;
+											panel = null;
+										}}
+									>
+										<span class="ex-num" aria-hidden="true">{i + 1}</span>
+										<span class="min-w-0 flex-1">{shortName(e, settings.lang)}</span>
+									</button>
+								{/each}
+							</div>
+						</details>
+					{/each}
+				</div>
+			</div>
+		{:else if panel === 'rhythms'}
+			<div
+				class="panel absolute top-[5.25rem] left-0 flex max-h-[min(36rem,calc(100dvh-17rem))] w-72 max-w-[calc(100vw-2rem)] flex-col"
+			>
+				<div class="min-h-0 flex-1 overflow-y-auto p-2 pb-3">
+					<div class="px-2 pt-2 pb-1">
+						<div class="mb-1 text-[11px] font-bold tracking-wide text-muted uppercase">
+							{t('rhythms.speed')}
+						</div>
+						<div class="pill-group !h-8 w-full" role="group" aria-label={t('rhythms.speed')}>
+							{#each [[false, 'rhythms.speedNormal'], [true, 'rhythms.speedHalf']] as const as [half, label] (label)}
+								<button
+									class="flex-1 px-1 text-xs font-semibold transition {drumsHalf === half
+										? 'bg-accent text-white'
+										: 'hover:bg-surface-2'}"
+									aria-pressed={drumsHalf === half}
+									onclick={() => (drumsHalf = half)}
+								>
+									{t(label)}
+								</button>
+							{/each}
+						</div>
+					</div>
+					{#each rhythmGroups as g (g.meter)}
+						<div
+							class="px-2 pt-2 pb-0.5 text-sm font-extrabold {g.meter === meter
+								? 'text-accent-dark'
+								: 'text-muted'}"
+						>
+							{g.meter}
+						</div>
+						{#each g.patterns as p (p.id)}{@render rhythmRow(p, g.meter === meter)}{/each}
+					{/each}
+				</div>
+			</div>
 		{/if}
 	</div>
 {/snippet}
@@ -517,6 +712,17 @@
 			</div>
 		</div>
 		<div class="flex flex-wrap items-center justify-end gap-2 text-sm text-muted">
+			<button
+				class="round-btn round-btn-on gap-1.5 px-4"
+				data-tip="create"
+				onclick={() => {
+					stop();
+					creating = true;
+				}}
+			>
+				<span aria-hidden="true">✨</span>
+				<span class="hidden font-display font-semibold sm:inline">{t('create.button')}</span>
+			</button>
 			<RangePicker bind:low bind:high getDetector={() => ensureMic()} />
 			<button
 				class="round-btn gap-1.5 sm:w-auto sm:px-4"
@@ -555,160 +761,7 @@
 		</div>
 	{/if}
 
-	<div class="flex min-h-0 flex-1 flex-col gap-3 p-3 lg:flex-row">
-		<!-- Catálogo -->
-		<aside class="panel flex max-h-64 min-h-0 flex-col lg:max-h-none lg:w-72" inert={!!placement}>
-			<div class="space-y-2 border-b border-border p-3">
-				<button
-					class="w-full rounded-lg bg-accent px-2 py-2 text-sm font-semibold whitespace-nowrap text-white hover:brightness-110"
-					data-tip="create"
-					onclick={() => {
-						stop();
-						creating = true;
-					}}
-				>
-					✨ {t('create.button')}
-				</button>
-				<input
-					type="search"
-					placeholder={t('catalog.search')}
-					bind:value={search}
-					class="w-full rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm outline-none focus:border-accent"
-				/>
-			</div>
-			<div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
-				{#if mine.list.length && !query}
-					<details class="group level-card" open>
-						<summary
-							class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
-							style:--ribbon="#8b5cf6"
-						>
-							<span class="ribbon-dot" aria-hidden="true">✨</span>
-							<span class="truncate">{t('create.mine')}</span>
-							<span class="ml-auto rounded-full bg-black/15 px-2 text-xs font-bold"
-								>{mine.list.length}</span
-							>
-							<span class="transition group-open:rotate-90">›</span>
-						</summary>
-						<div class="px-1 pb-2">
-							{#each mine.list as e (e.id)}
-								<div class="group/item mt-1 flex items-center gap-1">
-									<button
-										class="ex-card !mt-0 min-w-0 flex-1 {e.id === selectedId ? 'ex-card-on' : ''}"
-										aria-current={e.id === selectedId}
-										title={e.parsed.meta.description}
-										onclick={() => {
-											stop();
-											selectedId = e.id;
-										}}
-									>
-										<span class="min-w-0 flex-1 truncate"
-											>{exerciseText(e, settings.lang).name}</span
-										>
-									</button>
-									<button
-										class="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-muted opacity-0 group-hover/item:opacity-100 hover:bg-surface-2 hover:text-red-600"
-										aria-label={t('create.delete')}
-										title={t('create.delete')}
-										onclick={() => removeMine(e.id)}>✕</button
-									>
-								</div>
-							{/each}
-						</div>
-					</details>
-				{/if}
-				{#if !query}
-					<details class="group level-card">
-						<summary
-							class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
-							style:--ribbon="#14b8a6"
-						>
-							<span class="ribbon-dot" aria-hidden="true"
-								><Icon name="drum" class="h-3.5 w-3.5" /></span
-							>
-							<span class="truncate">{t('rhythms.title')}</span>
-							<span class="shrink-0 text-sm font-semibold opacity-90">· {meter}</span>
-							<span class="ml-auto truncate text-xs font-semibold opacity-90"
-								>{drumPattern.name}</span
-							>
-							<span class="transition group-open:rotate-90">›</span>
-						</summary>
-						<div class="px-1 pb-2">
-							<div class="px-2 pt-2 pb-1">
-								<div class="mb-1 text-[11px] font-bold tracking-wide text-muted uppercase">
-									{t('rhythms.speed')}
-								</div>
-								<div class="pill-group !h-8 w-full" role="group" aria-label={t('rhythms.speed')}>
-									{#each [[false, 'rhythms.speedNormal'], [true, 'rhythms.speedHalf']] as const as [half, label] (label)}
-										<button
-											class="flex-1 px-1 text-xs font-semibold transition {drumsHalf === half
-												? 'bg-accent text-white'
-												: 'hover:bg-surface-2'}"
-											aria-pressed={drumsHalf === half}
-											onclick={() => (drumsHalf = half)}
-										>
-											{t(label)}
-										</button>
-									{/each}
-								</div>
-							</div>
-							<div
-								class="px-2 pt-2 pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase"
-							>
-								{t('rhythms.builtin')}
-							</div>
-							{#each builtinPatterns as p (p.id)}{@render rhythmRow(p, false)}{/each}
-							{#if minePatterns.length}
-								<div
-									class="px-2 pt-2 pb-0.5 text-[11px] font-bold tracking-wide text-muted uppercase"
-								>
-									✨ {t('rhythms.mine')}
-								</div>
-								{#each minePatterns as p (p.id)}{@render rhythmRow(p, true)}{/each}
-							{/if}
-						</div>
-					</details>
-				{/if}
-				{#each levels as lv (lv.level)}
-					<details
-						class="group level-card"
-						open={!!query || lv.exercises.some((e) => e.id === selectedId)}
-					>
-						<summary
-							class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
-							style:--ribbon={lv.color}
-							style:--ribbon-fg={ink(lv.color)}
-						>
-							<span class="ribbon-dot" aria-hidden="true">{lv.level}</span>
-							<span class="font-bold">{t('catalog.level')} {lv.level}</span>
-							<span class="truncate text-sm font-semibold"
-								>{tDynamic(`level.${lv.level}`, lv.name)}</span
-							>
-							<span class="ml-auto rounded-full bg-black/15 px-2 text-xs font-bold"
-								>{lv.exercises.length}</span
-							>
-							<span class="transition group-open:rotate-90">›</span>
-						</summary>
-						<div class="px-1 pb-2">
-							{#each lv.exercises as e, i (e.id)}
-								<button
-									class="ex-card flex items-center gap-2 {e.id === selectedId ? 'ex-card-on' : ''}"
-									aria-current={e.id === selectedId}
-									onclick={() => {
-										stop();
-										selectedId = e.id;
-									}}
-								>
-									<span class="ex-num" aria-hidden="true">{i + 1}</span>
-									<span class="min-w-0 flex-1">{shortName(e, settings.lang)}</span>
-								</button>
-							{/each}
-						</div>
-					</details>
-				{/each}
-			</div>
-		</aside>
-
+	<div class="flex min-h-0 flex-1 flex-col gap-3 p-2">
 		<!-- Escena -->
 		<main class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
 			{#if placement}
@@ -738,6 +791,7 @@
 					{coach}
 					placementDone={placement ? placementDone : undefined}
 					{controls}
+					menu={placement ? undefined : menu}
 					onTryHarder={tryHarder}
 					onStart={start}
 					onNext={next}

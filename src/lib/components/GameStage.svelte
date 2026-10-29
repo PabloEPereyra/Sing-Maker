@@ -40,6 +40,8 @@
 		placementDone?: Snippet<[number]>;
 		/** Controles de reproducción (tempo, play, piano…): se dibujan dentro del escenario, abajo. */
 		controls?: Snippet;
+		/** Menú de arriba a la izquierda (ejercicios, ritmos): se muestra solo cuando no se está jugando. */
+		menu?: Snippet;
 		/** Repetir el ejercicio en un nivel de afinación más estricto. */
 		onTryHarder?: (level: Difficulty) => void;
 		onStart: () => void;
@@ -57,6 +59,7 @@
 		coach,
 		placementDone,
 		controls,
+		menu,
 		onTryHarder,
 		onStart,
 		onNext
@@ -193,6 +196,25 @@
 			status?.phase === 'playing' ||
 			status?.phase === 'paused'
 	);
+	/** Repeticiones completadas o en curso (0 antes de empezar, todas al terminar) y su relleno. */
+	const repsDone = $derived(
+		!status || !status.reps
+			? 0
+			: status.phase === 'done'
+				? status.reps
+				: playing
+					? Math.min(status.rep + 1, status.reps)
+					: 0
+	);
+	const repsFill = $derived(
+		!status || !status.reps
+			? 0
+			: status.phase === 'done'
+				? 100
+				: playing
+					? Math.round(status.progress * 100)
+					: 0
+	);
 	const pct = $derived(
 		status && status.total ? Math.round((status.collected / status.total) * 100) : 0
 	);
@@ -229,20 +251,28 @@
 	{/if}
 
 	{#if status}
-		<!-- HUD -->
+		<!-- HUD: progreso de repeticiones al centro, estrellas a la derecha (el menú va a la izquierda) -->
 		<div
-			class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3"
+			class="pointer-events-none absolute inset-x-0 top-0 grid grid-cols-[1fr_auto_1fr] items-start gap-3 p-3"
 		>
-			<div
-				class="rounded-lg border-2 border-white/40 bg-[#1b2a6b]/55 px-3 py-2 text-white backdrop-blur-sm"
-			>
-				<div class="font-display text-xs tracking-wide uppercase opacity-90">{title}</div>
-				{#if status.reps}
-					<div class="text-sm">
-						{t('stage.rep', { i: status.rep + 1, n: status.reps })}
-						<b>{noteLabel(sequence.reps[status.rep]?.rootMidi ?? 60)}</b>
-					</div>
-				{/if}
+			<div></div>
+			<div class="flex w-[clamp(7rem,calc(100vw-30rem),18rem)] flex-col items-center gap-1">
+				<div
+					class="max-w-full truncate font-display text-xs font-bold tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)]"
+				>
+					{title} · {noteLabel(sequence.reps[status.rep]?.rootMidi ?? 60)}
+				</div>
+				<div
+					class="hud-bar"
+					role="progressbar"
+					aria-label={t('stage.repsLabel')}
+					aria-valuemin="0"
+					aria-valuemax={status.reps}
+					aria-valuenow={repsDone}
+				>
+					<div class="hud-bar-fill" style:width="{repsFill}%"></div>
+					<span class="hud-text">{repsDone}/{status.reps}</span>
+				</div>
 			</div>
 			<div class="flex flex-col items-end gap-1.5">
 				<div
@@ -288,14 +318,8 @@
 		</div>
 
 		{#if playing}
-			<div class="pointer-events-none absolute inset-x-0 bottom-0 h-1.5 bg-black/20">
-				<div
-					class="h-full bg-accent transition-[width] duration-200"
-					style:width="{status.progress * 100}%"
-				></div>
-			</div>
 			<div
-				class="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded-lg bg-black/30 px-3 py-1 text-sm text-white backdrop-blur-sm"
+				class="pointer-events-none absolute top-[5.25rem] left-1/2 -translate-x-1/2 rounded-lg bg-black/30 px-3 py-1 text-sm text-white backdrop-blur-sm"
 			>
 				{status.sungMidi === null ? '—' : noteLabel(status.sungMidi)}
 			</div>
@@ -422,6 +446,12 @@
 				{/if}
 			</div>
 		{/if}
+	{/if}
+
+	{#if menu && !playing}
+		<div class="absolute top-3 left-3 z-20">
+			{@render menu()}
+		</div>
 	{/if}
 
 	{#if controls}

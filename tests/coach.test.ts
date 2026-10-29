@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { settle, type CoachRequest } from '../src/lib/ai/coach';
+import { eligibleCandidates, settle, type CoachRequest } from '../src/lib/ai/coach';
 import { analyzePerformance, type PitchSample, type Star } from '../src/lib/game/scoring';
 
 /** Estrellas de 2 repeticiones sobre dos notas (60 y 67) cada 0,5 s. */
@@ -113,6 +113,44 @@ describe('settle (valida lo que contesta el modelo)', () => {
 			base(50)
 		);
 		expect(ok).toMatchObject({ action: 'create', exerciseId: '', prompt: 'escala lenta' });
+	});
+});
+
+describe('candidatos según el resultado', () => {
+	const req = (percent: number): CoachRequest => ({
+		lang: 'es',
+		exercise: { id: 'e5', name: 'E5', level: '1', category: 'x', order: 5 },
+		summary: {
+			percent,
+			stars: 40,
+			reps: 4,
+			repPercents: [],
+			trend: 'steady',
+			tendency: 'none',
+			silentMissPercent: 0,
+			lowPercent: 50,
+			highPercent: 50,
+			weakNotes: [],
+			desynced: false
+		},
+		candidates: [3, 4, 6, 7].map((order) => ({
+			id: `e${order}`,
+			name: `E${order}`,
+			level: '1',
+			category: 'x',
+			description: '',
+			order
+		}))
+	});
+
+	it('al subir de nivel solo ofrece ejercicios posteriores; si no, solo anteriores', () => {
+		expect(eligibleCandidates(req(90)).map((c) => c.id)).toEqual(['e6', 'e7']);
+		expect(eligibleCandidates(req(60)).map((c) => c.id)).toEqual(['e3', 'e4']);
+	});
+
+	it('un id fuera de los candidatos válidos se reemplaza por uno válido', () => {
+		const answer = { message: 'ok', action: 'exercise' as const, exerciseId: 'e3', prompt: '' };
+		expect(settle(answer, req(90)).exerciseId).toBe('e6');
 	});
 });
 

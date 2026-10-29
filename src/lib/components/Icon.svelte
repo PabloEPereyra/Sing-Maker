@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Iconos de la interfaz. Piano y batería son copias de los de vocalizator (src/lib/icons/); running es
 	// «user-fast-running» de Flaticon Uicons (solid rounded);
-	// back es «left» (solid rounded) de Flaticon Uicons; gauge, ruler y los de contorno (mic-line, clock, help, volume, volume-off, globe) son trazos de Lucide.
+	// back es «left» (solid rounded) y note es «music-note» (solid straight) de Flaticon Uicons; gauge, ruler y los de contorno (mic-line, clock, help, volume, volume-off, globe, trash) son trazos de Lucide.
 	import piano from '$lib/icons/piano.svg?raw';
 	import drum from '$lib/icons/drum.svg?raw';
 	import running from '$lib/icons/running.svg?raw';
@@ -12,6 +12,7 @@
 		| 'stop'
 		| 'back'
 		| 'piano'
+		| 'note'
 		| 'drum'
 		| 'running'
 		| 'palette'
@@ -24,7 +25,8 @@
 		| 'help'
 		| 'volume'
 		| 'volume-off'
-		| 'globe';
+		| 'globe'
+		| 'trash';
 	let { name, class: cls = 'h-5 w-5' }: { name: Name; class?: string } = $props();
 
 	const RAW: Partial<Record<Name, string>> = { piano, drum, running };
@@ -36,7 +38,8 @@
 		'help',
 		'volume',
 		'volume-off',
-		'globe'
+		'globe',
+		'trash'
 	];
 </script>
 
@@ -74,6 +77,12 @@
 			<path d="M11 5 6 9H2v6h4l5 4V5Z" />
 			<path d="m22 9-6 6" />
 			<path d="m16 9 6 6" />
+		{:else if name === 'trash'}
+			<path d="M3 6h18" />
+			<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+			<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+			<path d="M10 11v6" />
+			<path d="M14 11v6" />
 		{:else if name === 'globe'}
 			<circle cx="12" cy="12" r="10" />
 			<path d="M2 12h20" />
@@ -112,6 +121,10 @@
 		{:else if name === 'back'}
 			<path
 				d="M10 22Q8.8 22 7.92 21.12L1.2 14.8Q0 13.68 0 12Q0 10.32 1.2 9.2L7.92 2.8Q8.56 2.16 9.44 2Q10.32 1.84 11.16 2.2Q12 2.56 12.48 3.28Q12.96 4 13.04 4.88V6.96H20Q21.68 6.96 22.84 8.16Q24 9.36 24 10.96V12.96Q24 14.64 22.84 15.8Q21.68 16.96 20 16.96H13.04V19.04Q13.04 20 12.52 20.72Q12 21.44 11.12 21.76Q10.64 22 10 22Z"
+			/>
+		{:else if name === 'note'}
+			<path
+				d="M15.52 0Q14.48 0 13.76 0.72Q13.04 1.44 13.04 2.48V14.24Q11.44 12.96 9.52 12.96Q8 12.96 6.76 13.72Q5.52 14.48 4.76 15.76Q4 17.04 4 18.52Q4 20 4.76 21.24Q5.52 22.48 6.76 23.24Q8 24 9.48 24Q10.96 24 12.24 23.24Q13.52 22.48 14.28 21.24Q15.04 20 14.96 18.48V2.48Q15.04 2.32 15.16 2.16Q15.28 2 15.52 2H20V0Z"
 			/>
 		{:else if name === 'stop'}
 			<rect x="6" y="6" width="12" height="12" rx="2" />

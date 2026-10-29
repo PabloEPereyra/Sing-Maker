@@ -14,9 +14,12 @@
 		name: string;
 		level: string;
 		category: string;
+		order?: number;
 	}
 	export interface CoachCandidate extends CoachExercise {
 		description: string;
+		/** Cómo se nombra en el botón (como en la lista: nivel y número). */
+		label?: string;
 	}
 
 	let {
@@ -53,7 +56,7 @@
 						weakNotes: weakNotes.map((w) => ({ note: noteLabel(w.midi), percent: w.percent })),
 						desynced
 					},
-					candidates
+					candidates: candidates.map((c) => ({ ...c, label: undefined }))
 				},
 				abort.signal
 			);
@@ -111,7 +114,7 @@
 				class="mt-2 w-full rounded-lg bg-accent px-3 py-2 font-semibold text-white hover:brightness-105"
 				onclick={() => onPick(picked.id)}
 			>
-				{t('coach.practice', { name: picked.name })}
+				{t('coach.practice', { name: picked.label ?? picked.name })}
 			</button>
 		{:else if result.action === 'create' && result.prompt}
 			<button
