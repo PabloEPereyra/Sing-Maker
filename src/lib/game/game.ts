@@ -1,5 +1,6 @@
 // Motor del juego: tiempo, cámara, física del personaje, puntuación y dibujo vía Theme.
 // El tiempo maestro es el reloj del AudioContext, así el piano y lo que se ve no se desfasan.
+import { nearestDifficulty, stricter, toleranceOf, type Difficulty } from './difficulty';
 import { getContext, playDrum, playNote, stopAll, tick } from '$lib/audio/engine';
 import { hitsAt, type DrumPattern } from '$lib/audio/drums';
 import { measureBeats, tickBeats } from '$lib/music/meter';
@@ -13,6 +14,7 @@ import {
 	isHit,
 	looksDesynced,
 	analyzePerformance,
+	percentAtTolerance,
 	type PerformanceSummary,
 	type PitchSample,
 	type Star
@@ -172,6 +174,18 @@ export class Game {
 	/** ¿La voz parece entrar desfasada respecto del ejercicio que terminó? */
 	get looksDesynced(): boolean {
 		return this.desynced;
+	}
+
+	/** Cuánto se habría acertado en el siguiente nivel de dificultad (null si ya es el más estricto). */
+	get harderTry(): { level: Difficulty; percent: number } | null {
+		const next = stricter(nearestDifficulty(this.opts.tolerance));
+		if (!next) return null;
+		const base = analyzePerformance(this.stars, this.run).percent;
+		// Con un margen más chico no se puede acertar más que con el actual.
+		return {
+			level: next,
+			percent: Math.min(base, percentAtTolerance(this.stars, this.run, toleranceOf(next)))
+		};
 	}
 
 	/** Cómo salió el ejercicio (números simples) para el entrenador de IA. */

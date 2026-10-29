@@ -4,6 +4,8 @@
 	// la vista de celular.
 	import { onMount } from 'svelte';
 	import type { PitchDetector } from '$lib/audio/pitch';
+	import { settings } from '$lib/settings.svelte';
+	import { centsOf, DIFFICULTIES } from '$lib/game/difficulty';
 	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
 	import MicCalibration from './MicCalibration.svelte';
@@ -61,7 +63,7 @@
 
 	{#if open}
 		<div
-			class="absolute top-full right-0 z-40 mt-2 w-60 rounded-lg border border-border bg-surface p-1.5 text-fg shadow-xl"
+			class="absolute top-full right-0 z-40 mt-2 w-72 rounded-lg border border-border bg-surface p-1.5 text-fg shadow-xl"
 		>
 			<div class="px-2.5 pt-1.5 pb-1 text-xs font-semibold tracking-widest text-muted uppercase">
 				{t('profile.title')}
@@ -95,6 +97,37 @@
 			>
 				<span class="grid h-4 w-4 place-items-center text-accent" aria-hidden="true">?</span>
 				{t('onb.reopen')}
+			</button>
+			<div class="px-2.5 pt-2 pb-1">
+				<div class="mb-1 text-xs font-semibold tracking-widest text-muted uppercase">
+					{t('diff.title')}
+				</div>
+				<div class="pill-group !h-9 w-full" role="group" aria-label={t('diff.title')}>
+					{#each DIFFICULTIES as d (d.id)}
+						<button
+							class="flex-1 px-1 text-xs font-semibold transition {settings.difficulty === d.id
+								? 'bg-accent text-white'
+								: 'hover:bg-surface-2'}"
+							aria-pressed={settings.difficulty === d.id}
+							onclick={() => (settings.difficulty = d.id)}
+						>
+							{t(`diff.${d.id}`)}
+						</button>
+					{/each}
+				</div>
+				<p class="mt-1 text-[11px] text-muted">
+					{t('diff.help', { cents: centsOf(settings.difficulty) })}
+				</p>
+			</div>
+			<button
+				class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2"
+				aria-pressed={settings.sfx}
+				onclick={() => (settings.sfx = !settings.sfx)}
+			>
+				<span class="grid h-4 w-4 place-items-center text-accent" aria-hidden="true"
+					>{settings.sfx ? '♪' : '✕'}</span
+				>
+				{settings.sfx ? t('sfx.on') : t('sfx.off')}
 			</button>
 		</div>
 	{/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { nearestDifficulty, type Difficulty } from '$lib/game/difficulty';
 	import { onMount } from 'svelte';
 	import {
 		Game,
@@ -37,6 +38,8 @@
 		};
 		/** Si se pasa, reemplaza el panel de fin de nivel (lo usa la prueba de nivel); recibe el porcentaje. */
 		placementDone?: Snippet<[number]>;
+		/** Repetir el ejercicio en un nivel de afinación más estricto. */
+		onTryHarder?: (level: Difficulty) => void;
 		onStart: () => void;
 		onNext: () => void;
 	}
@@ -51,6 +54,7 @@
 		desync = $bindable(false),
 		coach,
 		placementDone,
+		onTryHarder,
 		onStart,
 		onNext
 	}: Props = $props();
@@ -59,6 +63,7 @@
 	let game = $state<Game | null>(null);
 	let status = $state<GameStatus | null>(null);
 	let performance = $state<PerformanceSummary | null>(null);
+	let harder = $state<{ level: Difficulty; percent: number } | null>(null);
 
 	onMount(() => {
 		let disposed = false;
@@ -71,9 +76,11 @@
 				if (s.phase === 'done' && created) {
 					desync = created.looksDesynced;
 					performance = created.performance;
+					harder = created.harderTry;
 				} else if (s.phase !== 'done') {
 					desync = false;
 					performance = null;
+					harder = null;
 				}
 			});
 			created.setSequence(sequence, options);
@@ -186,6 +193,10 @@
 	const pct = $derived(
 		status && status.total ? Math.round((status.collected / status.total) * 100) : 0
 	);
+	/** Solo se sugiere el nivel más estricto si el resultado ahí sigue siendo razonable. */
+	const HARDER_MIN_PERCENT = 60;
+	/** Y solo a quien ya lo hizo bien en el nivel actual. */
+	const SUGGEST_HARDER_PERCENT = 85;
 	const ICONS = { stars: '★', notes: '♪', carrots: '🥕' } as const;
 	const icon = $derived(
 		settings.collectible.startsWith('custom:')
@@ -230,12 +241,19 @@
 					</div>
 				{/if}
 			</div>
-			<div
-				class="flex items-center gap-2 rounded-full border-2 border-white/50 bg-[#1b2a6b]/60 px-4 py-1.5 text-white backdrop-blur-sm"
-			>
-				<span class="text-2xl text-star drop-shadow">{icon}</span>
-				<span class="font-display text-xl font-bold tabular-nums">{status.collected}</span>
-				<span class="text-sm opacity-70">/ {status.total}</span>
+			<div class="flex flex-col items-end gap-1.5">
+				<div
+					class="flex items-center gap-2 rounded-full border-2 border-white/50 bg-[#1b2a6b]/60 px-4 py-1.5 text-white backdrop-blur-sm"
+				>
+					<span class="text-2xl text-star drop-shadow">{icon}</span>
+					<span class="font-display text-xl font-bold tabular-nums">{status.collected}</span>
+					<span class="text-sm opacity-70">/ {status.total}</span>
+				</div>
+				<div
+					class="rounded-full bg-[#1b2a6b]/45 px-3 py-0.5 text-[11px] font-semibold text-white/90 backdrop-blur-sm"
+				>
+					{t('diff.chip', { name: t(`diff.${nearestDifficulty(options.tolerance)}`) })}
+				</div>
 			</div>
 		</div>
 
@@ -365,6 +383,22 @@
 								onPick={coach.onPick}
 								onCreate={coach.onCreate}
 							/>
+						{/if}
+						{#if !demo && harder && onTryHarder && pct >= SUGGEST_HARDER_PERCENT && harder.percent >= HARDER_MIN_PERCENT}
+							<div class="mb-4 rounded-lg bg-accent/10 p-3 text-left text-sm">
+								<p>
+									{t('diff.suggest', {
+										name: t(`diff.${harder.level}`),
+										pct: harder.percent
+									})}
+								</p>
+								<button
+									class="mt-2 w-full rounded-lg bg-accent px-3 py-2 font-semibold text-white hover:brightness-105"
+									onclick={() => harder && onTryHarder(harder.level)}
+								>
+									{t('diff.try', { name: t(`diff.${harder.level}`) })}
+								</button>
+							</div>
 						{/if}
 						<div class="flex justify-center gap-3">
 							<button

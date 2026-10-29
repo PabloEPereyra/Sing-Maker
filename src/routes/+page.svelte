@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import GameStage from '$lib/components/GameStage.svelte';
 	import RangePicker from '$lib/components/RangePicker.svelte';
 	import Onboarding from '$lib/components/Onboarding.svelte';
@@ -42,6 +42,8 @@
 	} from '$lib/character/store.svelte';
 	import { loadSettings, saveSettings, settings, type CharacterId } from '$lib/settings.svelte';
 	import type { Theme } from '$lib/game/theme';
+	import { toleranceOf, type Difficulty } from '$lib/game/difficulty';
+	import { setUiSoundsMuted, uiClick } from '$lib/audio/uiSounds';
 	import { loadTips, markAllSeen, markSeen, nextTip, recordDone } from '$lib/tips.svelte';
 	import { t, tDynamic } from '$lib/i18n';
 
@@ -82,7 +84,7 @@
 	/** Al terminar un ejercicio: la voz parece desfasada (se señala el menú de configuración). */
 	let desync = $state(false);
 	let drumPick = $state<Record<MeterId, string>>({ '4/4': 'basic-44', '6/8': 'basic-68' });
-	let tolerance = $state(0.6);
+
 	let demo = $state(true); // sin micrófono hasta que se active
 	let micError = $state('');
 	let search = $state('');
@@ -146,6 +148,8 @@
 	const builtinPatterns = $derived(patternsFor(meter));
 	const minePatterns = $derived(myDrums.list.filter((p) => p.meter === meter));
 	const drumPattern = $derived(patterns.find((p) => p.id === drumPick[meter]) ?? patterns[0]);
+	/** El nivel de afinación elegido; la prueba de nivel usa siempre Normal para que sea comparable. */
+	const tolerance = $derived(toleranceOf(placement ? 'normal' : settings.difficulty));
 	const options: GameOptions = $derived({
 		bpm,
 		beatsPerMeasure: exercise.parsed.meta.beatsPerMeasure,
@@ -187,7 +191,7 @@
 			if (typeof p.drums === 'boolean') drums = p.drums;
 			if (p.drumPick && typeof p.drumPick === 'object') drumPick = { ...drumPick, ...p.drumPick };
 			if (drums) void loadDrums();
-			if (typeof p.tolerance === 'number') tolerance = p.tolerance;
+
 			if (typeof p.demo === 'boolean') demo = p.demo;
 		} catch {}
 		loaded = true;
@@ -199,7 +203,7 @@
 	});
 
 	$effect(() => {
-		const prefs = { low, high, guide, drums, drumsHalf, drumPick, tolerance, demo };
+		const prefs = { low, high, guide, drums, drumsHalf, drumPick, demo };
 		if (!loaded) return;
 		try {
 			localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
@@ -211,6 +215,13 @@
 		document.documentElement.lang = snapshot.lang;
 		if (loaded) saveSettings();
 	});
+
+	// Sonidos de la interfaz: un blip al tocar un botón, salvo mientras corre un ejercicio.
+	$effect(() => setUiSoundsMuted(running));
+	function onPointerDown(e: PointerEvent) {
+		const button = (e.target as Element).closest('button');
+		if (button && !button.disabled) uiClick(settings.sfx);
+	}
 
 	// Pistas: se cuenta cada ejercicio terminado (fuera de la prueba de nivel) y, en reposo y sin
 	// diálogos abiertos, se muestra la próxima que corresponda.
@@ -231,6 +242,13 @@
 			? nextTip()
 			: undefined
 	);
+
+	/** Repite el ejercicio terminado en un nivel de afinación más estricto. */
+	async function tryHarder(level: Difficulty) {
+		settings.difficulty = level;
+		await tick();
+		void start();
+	}
 
 	function closeOnboarding() {
 		onboarding = false;
@@ -496,6 +514,8 @@
 	</div>
 {/snippet}
 
+<svelte:document onpointerdown={onPointerDown} />
+
 <div class="flex h-dvh flex-col">
 	<header class="bar flex items-center justify-between gap-3 px-4 py-2.5">
 		<div class="flex items-center gap-3">
@@ -721,6 +741,7 @@
 					bind:desync
 					{coach}
 					placementDone={placement ? placementDone : undefined}
+					onTryHarder={tryHarder}
 					onStart={start}
 					onNext={next}
 				/>
@@ -742,22 +763,6 @@
 						/>
 					</label>
 				</PopoverButton>
-				<PopoverButton icon="ruler" label="{t('controls.tolerance')} · ±{tolerance.toFixed(1)} st">
-					<label class="block">
-						<span class="mb-2 block text-xs text-muted"
-							>{t('controls.tolerance')} · ±{tolerance.toFixed(1)} st</span
-						>
-						<input
-							type="range"
-							min="0.3"
-							max="1.5"
-							step="0.1"
-							bind:value={tolerance}
-							class="vx-slider w-full"
-							style:--fill={fill(tolerance, 0.3, 1.5)}
-						/>
-					</label>
-				</PopoverButton>
 
 				<button
 					class="grid h-12 w-12 place-items-center rounded-full border border-border bg-surface-2 text-fg hover:bg-border"
@@ -765,7 +770,7 @@
 					title={t('controls.stop')}
 					onclick={stop}
 				>
-					<Icon name="stop" class="h-5 w-5" />
+					<Icon name="back" class="h-5 w-5" />
 				</button>
 				<button
 					data-tip="play"

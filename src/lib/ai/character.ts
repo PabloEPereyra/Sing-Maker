@@ -125,7 +125,11 @@ function briefSystem(
 	const common = `Answer with JSON only:
 - status: "ok" when you can picture it clearly; "clarify" when the request is too vague or contradictory; "refuse" for real people, famous copyrighted characters, brands, violence, sexual or hateful content.
 - message: for "clarify" ask ONE short question in ${language} with 2-3 concrete suggestions; for "refuse" a short polite reason in ${language}; for "ok" an empty string.
-- name: a short friendly name in ${language} (max 3 words), empty if not ok.`;
+- name: ${
+		kind === 'character'
+			? `a short friendly name in ${language} (max 3 words)`
+			: `a short DESCRIPTIVE title in ${language} (2 to 4 words) that names what is actually depicted and one distinctive detail (e.g. a place and its time of day, or the object and its material). Never use mood or praise adjectives such as happy, cheerful, joyful, colorful, magical, beautiful or their translations (alegre, feliz, colorido, mágico, bonito), and vary the wording from one request to the next`
+	}, empty if not ok.`;
 	if (kind === 'item')
 		return `You turn a request into a brief for a collectible item of a kids-friendly vocal-training game: the small object the player collects while singing (a star, a carrot, a coin, a music note, a fruit, a gem...).
 ${common}

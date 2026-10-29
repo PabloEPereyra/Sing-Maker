@@ -187,6 +187,12 @@ export interface PerformanceSummary {
 	weakNotes: WeakNote[];
 }
 
+/** Qué porcentaje de las estrellas se habría acertado con otra tolerancia (semitonos), según la voz cantada. */
+export function percentAtTolerance(stars: Star[], run: PitchSample[], tolerance: number): number {
+	if (!stars.length) return 0;
+	return Math.round((stars.filter((s) => isHit(s, run, tolerance)).length / stars.length) * 100);
+}
+
 const pct = (hit: number, total: number) => (total ? Math.round((hit / total) * 100) : 0);
 /** Ventana alrededor de la estrella para medir hacia dónde se desvió la voz. */
 const ERROR_WINDOW_SEC = 0.15;

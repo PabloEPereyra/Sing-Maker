@@ -1,5 +1,6 @@
 // Preferencias globales de la interfaz (idioma, cifrado de notas, coleccionable), persistidas.
 import { midiToNote, midiToSolfege } from '$lib/music/notes';
+import { DEFAULT_DIFFICULTY, isDifficulty, type Difficulty } from '$lib/game/difficulty';
 
 export type Lang = 'es' | 'en';
 export type Notation = 'solfege' | 'american';
@@ -32,6 +33,10 @@ export const settings = $state<{
 	latencyMs: number;
 	/** Zoom del escenario (1 = normal). */
 	zoom: number;
+	/** Sonidos de la interfaz (clics de los botones). */
+	sfx: boolean;
+	/** Margen de afinación de cada nota. */
+	difficulty: Difficulty;
 }>({
 	lang: 'es',
 	notation: 'solfege',
@@ -39,6 +44,9 @@ export const settings = $state<{
 	character: 'bird',
 	latencyMs: 0,
 	zoom: 1,
+	sfx: true,
+	difficulty: DEFAULT_DIFFICULTY,
+
 	backgroundWalk: '',
 	backgroundFly: ''
 });
@@ -65,6 +73,8 @@ export function loadSettings(): void {
 			settings.character = s.character;
 		if (typeof s.latencyMs === 'number')
 			settings.latencyMs = Math.max(LATENCY_MIN_MS, Math.min(LATENCY_MAX_MS, s.latencyMs));
+		if (typeof s.sfx === 'boolean') settings.sfx = s.sfx;
+		if (isDifficulty(s.difficulty)) settings.difficulty = s.difficulty;
 		if (typeof s.zoom === 'number') settings.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, s.zoom));
 	} catch {}
 }
