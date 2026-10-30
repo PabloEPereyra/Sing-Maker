@@ -157,15 +157,6 @@ h4 {
 		0 10px 22px rgb(40 70 150 / 0.16);
 }
 
-.bar {
-	/* Por encima del escenario: los desplegables de la cabecera (rango, configuración) bajan sobre él. */
-	position: relative;
-	z-index: 30;
-	background: rgb(255 255 255 / 0.72);
-	backdrop-filter: blur(6px);
-	border-bottom: 3px solid var(--color-frame);
-}
-
 /* Diálogos: el mismo marco, más marcado. */
 [role='dialog'] {
 	border: 3px solid var(--color-frame) !important;
@@ -219,7 +210,7 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	box-shadow: 0 1px 0 var(--color-frame-dark);
 }
 
-/* Cabecera: logo con relieve, botones redondos y selector de idioma en píldora. */
+/* Logo con relieve, botones redondos y selector de idioma en píldora. */
 .logo-text {
 	color: #fff;
 	-webkit-text-stroke: 5px var(--color-accent-dark);
@@ -522,6 +513,46 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 		inset 0 2px 4px rgb(0 0 0 / 0.25);
 	backdrop-filter: blur(4px);
 }
+/* Tapas de la barra de repeticiones: cuadros con la nota inicial y final del rango, como los botones del
+   menú del escenario pero derechos. Se montan sobre los extremos de la barra para que los tres se vean como
+   un solo objeto; al tocarlos se abre el selector de rango. */
+.hud-cap {
+	position: relative;
+	z-index: 1;
+	display: grid;
+	height: 2.6rem;
+	min-width: 3.6rem;
+	flex-shrink: 0;
+	place-items: center;
+	padding-inline: 0.5rem;
+	border-radius: 8px;
+	background-color: var(--color-accent);
+	background-image: linear-gradient(180deg, rgb(255 255 255 / 0.24), rgb(255 255 255 / 0) 55%);
+	box-shadow:
+		0 4px 0 var(--color-accent-dark),
+		0 7px 12px rgb(40 60 150 / 0.25);
+	color: #fff;
+	font-family: var(--font-display);
+	font-size: 1.1rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-shadow: 0 1px 0 rgb(0 0 0 / 0.22);
+	white-space: nowrap;
+	transition:
+		transform 80ms,
+		box-shadow 80ms,
+		filter 150ms;
+}
+.hud-cap:hover:not(:disabled) {
+	filter: brightness(1.1);
+}
+.hud-cap:active:not(:disabled) {
+	transform: translateY(3px);
+	box-shadow: 0 1px 0 var(--color-accent-dark);
+}
+.hud-cap:disabled {
+	cursor: default;
+}
 .hud-bar-fill {
 	position: absolute;
 	inset: 0 auto 0 0;
@@ -619,4 +650,47 @@ button.skew-btn.bg-accent.text-white:not(.text-left):active:not(:disabled) {
 	display: grid;
 	place-items: center;
 	transform: skewX(20deg);
+}
+
+/* Selector de rango: cada nota de la grilla es una tecla con relieve (los extremos van en acento). */
+.range-cell {
+	height: 26px;
+	width: 100%;
+	border-radius: 6px;
+	border: 2px solid var(--color-frame);
+	background: var(--color-surface);
+	color: #fff;
+	font-size: 9px;
+	font-weight: 800;
+	box-shadow: 0 2px 0 var(--color-frame-dark);
+	transition:
+		transform 80ms,
+		box-shadow 80ms,
+		background-color 150ms;
+}
+.range-cell:hover:not(:disabled) {
+	background: #f3f6ff;
+}
+.range-cell:active:not(:disabled) {
+	transform: translateY(2px);
+	box-shadow: none;
+}
+.range-cell:disabled {
+	background: var(--color-surface-2);
+	border-color: var(--color-border);
+	box-shadow: none;
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+.range-cell-in {
+	background: #dfe7ff;
+	border-color: #b3c3f5;
+	box-shadow: 0 2px 0 #9fb4e6;
+}
+.range-cell-end,
+.range-cell-end:hover:not(:disabled) {
+	background-color: var(--color-accent);
+	background-image: linear-gradient(180deg, rgb(255 255 255 / 0.28), rgb(255 255 255 / 0) 55%);
+	border-color: var(--color-accent-dark);
+	box-shadow: 0 2px 0 var(--color-accent-dark);
 }

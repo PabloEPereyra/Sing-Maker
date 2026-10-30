@@ -23,6 +23,9 @@
 		theme: Theme;
 		sequence: Sequence;
 		options: GameOptions;
+		/** Rango de voz (notas MIDI): se muestran a los lados de la barra de repeticiones. */
+		low: number;
+		high: number;
 		title: string;
 		/** Sin micrófono: muestra la leyenda de modo demostración. */
 		demo: boolean;
@@ -43,8 +46,12 @@
 		controls?: Snippet;
 		/** Menú de arriba a la izquierda (ejercicios, ritmos): se muestra solo cuando no se está jugando. */
 		menu?: Snippet;
+		/** Columna de arriba a la derecha (micrófono, perfil): también solo fuera del juego. */
+		side?: Snippet;
 		/** Repetir el ejercicio en un nivel de afinación más estricto. */
 		onTryHarder?: (level: Difficulty) => void;
+		/** Tocar las notas del rango (a los lados de la barra de repeticiones): abre el selector de rango. */
+		onRange?: () => void;
 		onStart: () => void;
 		onNext: () => void;
 	}
@@ -53,6 +60,8 @@
 		theme,
 		sequence,
 		options,
+		low,
+		high,
 		title,
 		demo,
 		phase = $bindable('idle'),
@@ -61,7 +70,9 @@
 		placementDone,
 		controls,
 		menu,
+		side,
 		onTryHarder,
+		onRange,
 		onStart,
 		onNext
 	}: Props = $props();
@@ -120,11 +131,6 @@
 	$effect(() => {
 		game?.setZoom(settings.zoom);
 	});
-
-	const ZOOM_STEP = 1.25;
-	function zoomBy(factor: number) {
-		settings.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, settings.zoom * factor));
-	}
 
 	// Rueda (el pellizco del trackpad llega como rueda con Ctrl) y pellizco con dos dedos.
 	// Cada "paso" de rueda (~100 de delta) sube o baja el zoom 10 puntos (90 %, 100 %, 110 %…); los
@@ -260,23 +266,40 @@
 			class="pointer-events-none absolute inset-x-0 top-0 grid grid-cols-[1fr_auto_1fr] items-start gap-3 p-3"
 		>
 			<div></div>
-			<div class="flex w-[clamp(7rem,calc(100vw-30rem),18rem)] flex-col items-center gap-1">
-				<div
-					class="max-w-full truncate font-display text-xs font-bold tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)]"
+			<!-- Barra de repeticiones con las notas del rango a los lados: un solo objeto que abre el selector de rango -->
+			<div class="flex items-end" data-tip="range">
+				<button
+					class="hud-cap pointer-events-auto -mb-1"
+					title={t('range.title')}
+					aria-label="{t('range.title')}: {noteLabel(low)}"
+					disabled={playing}
+					onclick={onRange}>{noteLabel(low)}</button
 				>
-					{title} · {noteLabel(sequence.reps[status.rep]?.rootMidi ?? 60)}
+				<div class="-mx-4 flex w-[clamp(7rem,calc(100vw-38rem),20rem)] flex-col items-center gap-1">
+					<div
+						class="max-w-full truncate px-4 font-display text-xs font-bold tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)]"
+					>
+						{title} · {noteLabel(sequence.reps[status.rep]?.rootMidi ?? 60)}
+					</div>
+					<div
+						class="hud-bar"
+						role="progressbar"
+						aria-label={t('stage.repsLabel')}
+						aria-valuemin="0"
+						aria-valuemax={status.reps}
+						aria-valuenow={repsDone}
+					>
+						<div class="hud-bar-fill" style:width="{repsFill}%"></div>
+						<span class="hud-text">{repsDone}/{status.reps}</span>
+					</div>
 				</div>
-				<div
-					class="hud-bar"
-					role="progressbar"
-					aria-label={t('stage.repsLabel')}
-					aria-valuemin="0"
-					aria-valuemax={status.reps}
-					aria-valuenow={repsDone}
+				<button
+					class="hud-cap pointer-events-auto -mb-1"
+					title={t('range.title')}
+					aria-label="{t('range.title')}: {noteLabel(high)}"
+					disabled={playing}
+					onclick={onRange}>{noteLabel(high)}</button
 				>
-					<div class="hud-bar-fill" style:width="{repsFill}%"></div>
-					<span class="hud-text">{repsDone}/{status.reps}</span>
-				</div>
 			</div>
 			<div class="flex items-center justify-end gap-3 pt-0.5">
 				<span
@@ -293,34 +316,6 @@
 					<span class="text-base opacity-80">/ {status.total}</span>
 				</div>
 			</div>
-		</div>
-
-		<!-- Zoom -->
-		<div
-			class="absolute right-3 bottom-[5.5rem] flex items-center overflow-hidden rounded-lg bg-black/30 text-white backdrop-blur-sm"
-			role="group"
-			data-tip="zoom"
-			aria-label={t('zoom.label')}
-		>
-			<button
-				class="grid h-8 w-8 place-items-center text-lg font-bold hover:bg-white/20 disabled:opacity-40"
-				aria-label={t('zoom.out')}
-				title={t('zoom.out')}
-				disabled={settings.zoom <= ZOOM_MIN + 0.01}
-				onclick={() => zoomBy(1 / ZOOM_STEP)}>−</button
-			>
-			<button
-				class="h-8 min-w-12 px-1 text-xs font-semibold tabular-nums hover:bg-white/20"
-				title={t('zoom.reset')}
-				onclick={() => (settings.zoom = 1)}>{Math.round(settings.zoom * 100)}%</button
-			>
-			<button
-				class="grid h-8 w-8 place-items-center text-lg font-bold hover:bg-white/20 disabled:opacity-40"
-				aria-label={t('zoom.in')}
-				title={t('zoom.in')}
-				disabled={settings.zoom >= ZOOM_MAX - 0.01}
-				onclick={() => zoomBy(ZOOM_STEP)}>+</button
-			>
 		</div>
 
 		{#if playing}
@@ -468,6 +463,20 @@
 	{#if menu && !playing}
 		<div class="absolute top-3 left-3 z-20">
 			{@render menu()}
+		</div>
+	{/if}
+
+	{#if side && !playing}
+		<div class="absolute top-[4.75rem] right-3 z-20">
+			{@render side()}
+		</div>
+	{/if}
+
+	{#if !playing}
+		<!-- Marca: solo en reposo, abajo a la izquierda -->
+		<div class="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-2">
+			<img src="/logo.png" alt="" class="h-12 w-12 drop-shadow-md" />
+			<span class="logo-text hidden text-2xl leading-tight font-bold sm:inline">Sing Maker</span>
 		</div>
 	{/if}
 

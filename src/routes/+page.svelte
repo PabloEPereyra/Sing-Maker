@@ -9,9 +9,8 @@
 
 	import { addMine, loadMine, mine, removeMine } from '$lib/exercises/mine.svelte';
 	import Icon from '$lib/components/Icon.svelte';
-	import PopoverButton from '$lib/components/PopoverButton.svelte';
+	import PlaybackOptions from '$lib/components/PlaybackOptions.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
-	import DrumControl from '$lib/components/DrumControl.svelte';
 	import { byLevel, exercises, exerciseText, shortName } from '$lib/exercises/catalog';
 	import {
 		KEYS_PER_STAGE,
@@ -91,6 +90,8 @@
 	let search = $state('');
 	let customizing = $state(false);
 	let creating = $state(false);
+	/** Selector de rango: se abre al tocar las notas a los lados de la barra de repeticiones. */
+	let rangeOpen = $state(false);
 
 	/** Descripción sugerida por el entrenador de IA para abrir el creador con el texto escrito. */
 	let suggestedPrompt = $state('');
@@ -245,7 +246,14 @@
 		lastPhase = now;
 	});
 	const tip = $derived(
-		loaded && phase === 'idle' && !onboarding && !placement && !creating && !customizing && !panel
+		loaded &&
+			phase === 'idle' &&
+			!onboarding &&
+			!placement &&
+			!creating &&
+			!customizing &&
+			!rangeOpen &&
+			!panel
 			? nextTip()
 			: undefined
 	);
@@ -461,11 +469,6 @@
 		const i = order.findIndex((e) => e.id === selectedId);
 		selectedId = order[(i + 1) % order.length].id;
 	}
-
-	/** Porcentaje de relleno de un slider (estilo Voicexplorer). */
-	function fill(value: number, min: number, max: number): string {
-		return `${((value - min) / (max - min)) * 100}%`;
-	}
 </script>
 
 <!-- Fin de cada etapa de la prueba de nivel: resultado y paso siguiente -->
@@ -540,7 +543,27 @@
 	</div>
 {/snippet}
 
-<!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): dos botones grandes que abren paneles -->
+<!-- Columna de la derecha (solo fuera del juego): micrófono y perfil -->
+{#snippet side()}
+	<div class="flex flex-col items-center gap-3">
+		<button
+			class="round-btn {demo ? 'text-muted' : 'round-btn-on'}"
+			aria-pressed={!demo}
+			aria-label={demo ? t('mic.off') : t('mic.on')}
+			title={demo ? t('mic.off') : t('mic.on')}
+			onclick={toggleMic}
+		>
+			<Icon name="mic" class="h-5 w-5" />
+		</button>
+		<ProfileMenu
+			getDetector={micForCalibration}
+			bind:highlight={desync}
+			onGuide={() => openOnboarding()}
+		/>
+	</div>
+{/snippet}
+
+<!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): botones grandes; los dos primeros abren paneles -->
 {#snippet menu()}
 	<div class="relative">
 		<div class="flex flex-col gap-3 pl-2">
@@ -575,6 +598,33 @@
 				}}
 			>
 				<span class="skew-icon"><Icon name="drum" class="h-9 w-9" /></span>
+			</button>
+			<button
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110"
+				aria-label={t('create.button')}
+				title={t('create.button')}
+				data-tip="create"
+				onclick={() => {
+					markSeen('create');
+					panel = null;
+					stop();
+					creating = true;
+				}}
+			>
+				<span class="skew-icon"><Icon name="wand" class="h-9 w-9" /></span>
+			</button>
+			<button
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110"
+				aria-label={t('header.customize')}
+				title={t('header.customize')}
+				data-tip="customize"
+				onclick={() => {
+					markSeen('customize');
+					panel = null;
+					customizing = true;
+				}}
+			>
+				<span class="skew-icon"><Icon name="palette" class="h-9 w-9" /></span>
 			</button>
 		</div>
 		{#if panel === 'exercises'}
@@ -715,62 +765,14 @@
 <svelte:document onpointerdown={onPointerDown} />
 
 <div class="flex h-dvh flex-col">
-	<header class="bar flex items-center justify-between gap-3 px-4 py-2.5">
-		<div class="flex items-center gap-3">
-			<img src="/logo.png" alt="" class="-my-1 h-12 w-12 drop-shadow-md" />
-			<div>
-				<h1 class="logo-text text-2xl leading-tight font-bold">Sing Maker</h1>
-				<p class="text-xs text-muted">{t('app.subtitle')}</p>
-			</div>
-		</div>
-		<div class="flex flex-wrap items-center justify-end gap-2 text-sm text-muted">
-			<button
-				class="round-btn round-btn-on gap-1.5 px-4"
-				data-tip="create"
-				onclick={() => {
-					markSeen('create');
-					stop();
-					creating = true;
-				}}
-			>
-				<span aria-hidden="true">✨</span>
-				<span class="hidden font-display font-semibold sm:inline">{t('create.button')}</span>
-			</button>
-			<RangePicker bind:low bind:high getDetector={() => ensureMic()} />
-			<button
-				class="round-btn gap-1.5 sm:w-auto sm:px-4"
-				title={t('header.customize')}
-				aria-label={t('header.customize')}
-				data-tip="customize"
-				onclick={() => (customizing = true)}
-			>
-				<Icon name="palette" class="h-5 w-5 text-accent" />
-				<span class="hidden font-display font-semibold sm:inline">{t('header.customize')}</span>
-			</button>
-
-			<button
-				class="round-btn {demo ? 'text-muted' : 'round-btn-on'}"
-				aria-pressed={!demo}
-				aria-label={demo ? t('mic.off') : t('mic.on')}
-				title={demo ? t('mic.off') : t('mic.on')}
-				onclick={toggleMic}
-			>
-				<Icon name="mic" class="h-5 w-5" />
-			</button>
-			<ProfileMenu
-				getDetector={micForCalibration}
-				bind:highlight={desync}
-				onGuide={() => openOnboarding()}
-			/>
-		</div>
-	</header>
-
 	{#if micError}
-		<div
-			role="alert"
-			class="mx-3 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-		>
-			{micError}
+		<div class="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+			<div
+				role="alert"
+				class="pointer-events-auto rounded-lg border-2 border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 shadow-lg"
+			>
+				{micError}
+			</div>
 		</div>
 	{/if}
 
@@ -797,6 +799,8 @@
 					{theme}
 					{sequence}
 					{options}
+					{low}
+					{high}
 					title={text.name}
 					{demo}
 					bind:phase
@@ -805,7 +809,12 @@
 					placementDone={placement ? placementDone : undefined}
 					{controls}
 					menu={placement ? undefined : menu}
+					{side}
 					onTryHarder={tryHarder}
+					onRange={() => {
+						markSeen('range');
+						rangeOpen = true;
+					}}
 					onStart={start}
 					onNext={next}
 				/>
@@ -814,21 +823,6 @@
 			<!-- Controles: dentro del escenario, abajo (ver GameStage) -->
 			{#snippet controls()}
 				<div class="flex items-center justify-center gap-2 text-sm sm:gap-3">
-					<PopoverButton icon="gauge" tip="tempo" label="{t('controls.tempo')} · {bpm} bpm">
-						<label class="block">
-							<span class="mb-2 block text-xs text-muted">{t('controls.tempo')} · {bpm} bpm</span>
-							<input
-								type="range"
-								min={BPM_MIN}
-								max={BPM_MAX}
-								step="5"
-								bind:value={bpm}
-								class="vx-slider w-full"
-								style:--fill={fill(bpm, BPM_MIN, BPM_MAX)}
-							/>
-						</label>
-					</PopoverButton>
-
 					<button
 						class="grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
 						aria-label={t('controls.stop')}
@@ -858,32 +852,22 @@
 							<Icon name="play" class="ml-0.5 h-7 w-7" />
 						{/if}
 					</button>
-
-					<button
-						class="grid h-11 w-11 place-items-center rounded-full border transition {guide
-							? 'border-accent bg-accent text-white'
-							: 'border-border bg-surface text-muted hover:border-accent/50'}"
-						aria-pressed={guide}
-						data-tip="guide"
-						aria-label={t('controls.guide')}
-						title={t('controls.guide')}
-						onclick={() => (guide = !guide)}
-					>
-						<Icon name="piano" class="h-5 w-5" />
-					</button>
-					<!-- Batería (el ritmo se elige en la lista «Ritmos»); el corredor = a la mitad de velocidad -->
-					<DrumControl
-						enabled={drums}
-						onToggle={() => {
-							drums = !drums;
-							if (drums) void loadDrums();
-						}}
-					/>
+					<!-- Piano guía, batería (el ritmo se elige en «Ritmos»), tempo y zoom, en un solo panel -->
+					<PlaybackOptions bind:bpm bpmMin={BPM_MIN} bpmMax={BPM_MAX} bind:guide bind:drums />
 				</div>
 			{/snippet}
 		</main>
 	</div>
 </div>
+
+{#if rangeOpen}
+	<RangePicker
+		bind:low
+		bind:high
+		getDetector={() => ensureMic()}
+		onClose={() => (rangeOpen = false)}
+	/>
+{/if}
 
 {#if creating}
 	<CreateExerciseDialog

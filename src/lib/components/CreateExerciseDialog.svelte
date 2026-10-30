@@ -1,5 +1,5 @@
 <script lang="ts">
-	// Crear un ejercicio desde texto o desde la foto de una partitura: el servidor le pide al modelo el
+	// Crear un ejercicio desde texto, la voz o la foto de una partitura: el servidor le pide al modelo el
 	// patrón (o la transcripción), lo valida (y le hace corregir si hace falta) y devuelve el ejercicio
 	// en el formato de la app. Antes de practicar se puede escuchar y editar en el piano roll.
 	import { startDictation, type Dictation } from '$lib/audio/dictation';
@@ -34,7 +34,7 @@
 		onClose
 	}: {
 		range: { low: number; high: number };
-		/** Micrófono para la pestaña «Con la voz». */
+		/** Micrófono para crear cantando el patrón. */
 		getDetector: () => Promise<PitchDetector | null>;
 
 		/** Compás del ejercicio que se está practicando: el de los patrones de batería por defecto. */
@@ -46,7 +46,9 @@
 		onClose: () => void;
 	} = $props();
 
-	let tab = $state<'exercise' | 'voice' | 'drums'>('exercise');
+	let tab = $state<'exercise' | 'drums'>('exercise');
+	/** Cantar el patrón en vez de escribirlo: abre la grabación debajo del cuadro de texto. */
+	let singing = $state(false);
 
 	// svelte-ignore state_referenced_locally
 	let prompt = $state(initialPrompt);
@@ -64,6 +66,7 @@
 	async function toggleDictation() {
 		if (dictating === 'recording') return finishDictation();
 		if (dictating !== 'idle' || loading) return;
+		singing = false;
 		error = '';
 		try {
 			dictation = await startDictation();
@@ -240,13 +243,12 @@
 			class="mt-3 flex rounded-lg border border-border bg-surface-2 p-0.5 text-sm"
 			role="tablist"
 		>
-			{#each [['exercise', 'create.tabExercise'], ['voice', 'create.tabVoice'], ['drums', 'create.tabDrums']] as const as [id, label] (id)}
+			{#each [['exercise', 'create.tabExercise'], ['drums', 'create.tabDrums']] as const as [id, label] (id)}
 				<button
 					class="flex-1 rounded-md px-3 py-1.5 font-semibold {tab === id
 						? 'bg-accent text-white'
 						: 'text-muted hover:text-fg'}"
 					role="tab"
-					data-tip={id === 'voice' ? 'voice' : undefined}
 					aria-selected={tab === id}
 					onclick={() => {
 						stopPreview();
@@ -257,8 +259,6 @@
 		</div>
 		{#if tab === 'drums'}
 			<CreateDrumPanel meter={currentMeter} onUse={onDrum} />
-		{:else if tab === 'voice'}
-			<VoiceExerciseDialog embedded {range} {getDetector} {onPractice} {onClose} />
 		{:else}
 			<p class="mt-1 text-sm text-muted">{t('create.intro')}</p>
 
@@ -321,10 +321,28 @@
 						: score
 							? t('score.placeholder')
 							: t('create.placeholder')}
-					class="w-full resize-none rounded-lg border border-border bg-base py-2 pr-14 pl-3 text-sm outline-none focus:border-accent"
+					class="w-full resize-none rounded-lg border border-border bg-base py-2 pr-28 pl-3 text-sm outline-none focus:border-accent"
 					onkeydown={(e) => {
 						if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void create();
 					}}></textarea>
+				<!-- Cantar el patrón: se graba la voz y la app la convierte en ejercicio -->
+				<button
+					class="absolute right-14 bottom-3 grid h-10 w-10 place-items-center rounded-full transition disabled:opacity-50 {singing
+						? 'bg-accent text-white'
+						: 'bg-accent/10 text-accent hover:bg-accent/20'}"
+					aria-label={t('voice.button')}
+					title={t('voice.intro')}
+					data-tip="voice"
+					aria-pressed={singing}
+					disabled={dictating !== 'idle' || loading}
+					onclick={() => {
+						stopPreview();
+						error = '';
+						singing = !singing;
+					}}
+				>
+					<Icon name="note" class="h-5 w-5" />
+				</button>
 				<!-- Dictado: hablar en vez de escribir -->
 				<button
 					class="absolute right-2 bottom-3 grid h-10 w-10 place-items-center rounded-full transition disabled:opacity-50 {dictating ===
@@ -348,124 +366,128 @@
 			{#if dictating === 'transcribing'}
 				<p class="mt-1 text-xs text-muted">{t('dictation.transcribing')}</p>
 			{/if}
-			{#if !score}
-				<div class="mt-2 flex flex-wrap gap-1.5">
-					{#each EXAMPLES as key (key)}
-						<button
-							class="rounded-lg border border-border bg-surface-2 px-2 py-1 text-xs hover:border-accent/50"
-							onclick={() => (prompt = t(key))}>{t(key)}</button
-						>
-					{/each}
-				</div>
-			{/if}
-
-			<div class="mt-3 flex items-center justify-end gap-3">
+			{#if singing}
+				<VoiceExerciseDialog embedded {range} {getDetector} {onPractice} {onClose} />
+			{:else}
 				{#if !score}
-					<!-- Compás: la IA escribe el patrón para que llene compases enteros de este compás -->
-					<div
-						class="mr-auto flex rounded-lg border border-border bg-surface-2 p-0.5 text-sm"
-						role="radiogroup"
-						aria-label={t('create.meter')}
-					>
-						<span class="self-center px-2 text-xs text-muted">{t('create.meter')}</span>
-						{#each ['4/4', '6/8'] as const as m (m)}
+					<div class="mt-2 flex flex-wrap gap-1.5">
+						{#each EXAMPLES as key (key)}
 							<button
-								class="rounded-md px-3 py-1 font-semibold {meter === m
-									? 'bg-accent text-white'
-									: 'text-muted hover:text-fg'}"
-								role="radio"
-								aria-checked={meter === m}
-								onclick={() => (meter = m)}>{m}</button
+								class="rounded-lg border border-border bg-surface-2 px-2 py-1 text-xs hover:border-accent/50"
+								onclick={() => (prompt = t(key))}>{t(key)}</button
 							>
 						{/each}
 					</div>
 				{/if}
-				<button
-					class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
-					disabled={(!prompt.trim() && !score) || loading}
-					onclick={create}
-					>{loading
-						? score
-							? t('score.reading')
-							: t('create.working')
-						: score
-							? t('score.submit')
-							: t('create.submit')}</button
-				>
-			</div>
 
-			{#if error}
-				<div
-					role="alert"
-					class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-				>
-					<p class="font-semibold">{t('create.error')} {error}</p>
-					{#if details.length}
-						<ul class="mt-1 list-disc pl-5 text-xs">
-							{#each details as d, i (i)}<li>{d}</li>{/each}
-						</ul>
-					{/if}
-				</div>
-			{/if}
-
-			{#if result && preview}
-				<div class="mt-4 rounded-lg border border-border bg-base p-3">
-					<div class="font-bold">{result.exercise.name}</div>
-					<div class="text-sm text-muted">{result.exercise.description}</div>
-					<svg viewBox="0 0 100 100" preserveAspectRatio="none" class="mt-2 h-20 w-full">
-						{#each preview as b, i (i)}
-							{#if b.y !== null}
-								<rect
-									x={b.x + 0.3}
-									y={b.y - 4}
-									width={Math.max(0.6, b.w - 0.6)}
-									height="8"
-									rx="2"
-									class={b.hint ? 'fill-muted/40' : 'fill-accent'}
-								/>
-							{/if}
-						{/each}
-					</svg>
-					{#if editing}
-						<div class="mt-2">
-							<PianoRoll
-								bind:notes={result.exercise.notes}
-								beatsPerMeasure={result.exercise.beatsPerMeasure}
-								{root}
-							/>
+				<div class="mt-3 flex items-center justify-end gap-3">
+					{#if !score}
+						<!-- Compás: la IA escribe el patrón para que llene compases enteros de este compás -->
+						<div
+							class="mr-auto flex rounded-lg border border-border bg-surface-2 p-0.5 text-sm"
+							role="radiogroup"
+							aria-label={t('create.meter')}
+						>
+							<span class="self-center px-2 text-xs text-muted">{t('create.meter')}</span>
+							{#each ['4/4', '6/8'] as const as m (m)}
+								<button
+									class="rounded-md px-3 py-1 font-semibold {meter === m
+										? 'bg-accent text-white'
+										: 'text-muted hover:text-fg'}"
+									role="radio"
+									aria-checked={meter === m}
+									onclick={() => (meter = m)}>{m}</button
+								>
+							{/each}
 						</div>
 					{/if}
-					<div class="mt-2 text-xs text-muted">
-						{result.exercise.bpm} bpm · {result.exercise.syllable || '—'} ·
-						{t('create.attempts', { n: result.attempts, model: result.model })}
-					</div>
-					<div class="mt-3 flex justify-end gap-2">
-						<button
-							class="mr-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {listening
-								? 'border-accent text-accent'
-								: ''}"
-							onclick={listen}
-							>{listening ? '■' : '▶'}
-							{listening ? t('create.stopListen') : t('create.listen')}</button
-						>
-						<button
-							class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"
-							onclick={create}>{t('create.again')}</button
-						>
-						<button
-							class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {editing
-								? 'border-accent text-accent'
-								: ''}"
-							aria-pressed={editing}
-							onclick={() => (editing = !editing)}>✎ {t('create.edit')}</button
-						>
-						<button
-							class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
-							onclick={() => result && onPractice(toCode(result.exercise), prompt)}
-							>{t('create.practice')}</button
-						>
-					</div>
+					<button
+						class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+						disabled={(!prompt.trim() && !score) || loading}
+						onclick={create}
+						>{loading
+							? score
+								? t('score.reading')
+								: t('create.working')
+							: score
+								? t('score.submit')
+								: t('create.submit')}</button
+					>
 				</div>
+
+				{#if error}
+					<div
+						role="alert"
+						class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+					>
+						<p class="font-semibold">{t('create.error')} {error}</p>
+						{#if details.length}
+							<ul class="mt-1 list-disc pl-5 text-xs">
+								{#each details as d, i (i)}<li>{d}</li>{/each}
+							</ul>
+						{/if}
+					</div>
+				{/if}
+
+				{#if result && preview}
+					<div class="mt-4 rounded-lg border border-border bg-base p-3">
+						<div class="font-bold">{result.exercise.name}</div>
+						<div class="text-sm text-muted">{result.exercise.description}</div>
+						<svg viewBox="0 0 100 100" preserveAspectRatio="none" class="mt-2 h-20 w-full">
+							{#each preview as b, i (i)}
+								{#if b.y !== null}
+									<rect
+										x={b.x + 0.3}
+										y={b.y - 4}
+										width={Math.max(0.6, b.w - 0.6)}
+										height="8"
+										rx="2"
+										class={b.hint ? 'fill-muted/40' : 'fill-accent'}
+									/>
+								{/if}
+							{/each}
+						</svg>
+						{#if editing}
+							<div class="mt-2">
+								<PianoRoll
+									bind:notes={result.exercise.notes}
+									beatsPerMeasure={result.exercise.beatsPerMeasure}
+									{root}
+								/>
+							</div>
+						{/if}
+						<div class="mt-2 text-xs text-muted">
+							{result.exercise.bpm} bpm · {result.exercise.syllable || '—'} ·
+							{t('create.attempts', { n: result.attempts, model: result.model })}
+						</div>
+						<div class="mt-3 flex justify-end gap-2">
+							<button
+								class="mr-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {listening
+									? 'border-accent text-accent'
+									: ''}"
+								onclick={listen}
+								>{listening ? '■' : '▶'}
+								{listening ? t('create.stopListen') : t('create.listen')}</button
+							>
+							<button
+								class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"
+								onclick={create}>{t('create.again')}</button
+							>
+							<button
+								class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {editing
+									? 'border-accent text-accent'
+									: ''}"
+								aria-pressed={editing}
+								onclick={() => (editing = !editing)}>✎ {t('create.edit')}</button
+							>
+							<button
+								class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
+								onclick={() => result && onPractice(toCode(result.exercise), prompt)}
+								>{t('create.practice')}</button
+							>
+						</div>
+					</div>
+				{/if}
 			{/if}
 		{/if}
 	</div>

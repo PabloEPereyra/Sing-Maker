@@ -4,17 +4,7 @@
 const KEY = 'singmaker-tips';
 
 export type TipId =
-	| 'play'
-	| 'tempo'
-	| 'exercises'
-	| 'guide'
-	| 'drums'
-	| 'rhythms'
-	| 'zoom'
-	| 'range'
-	| 'create'
-	| 'customize'
-	| 'voice';
+	'play' | 'options' | 'exercises' | 'rhythms' | 'range' | 'create' | 'customize' | 'voice';
 
 export interface Tip {
 	id: TipId;
@@ -27,12 +17,9 @@ export interface Tip {
 /** En orden: la primera que corresponda y no se haya visto. */
 export const TIPS: Tip[] = [
 	{ id: 'play', after: 0 },
-	{ id: 'tempo', after: 1 },
+	{ id: 'options', after: 1 },
 	{ id: 'exercises', after: 1 },
-	{ id: 'guide', after: 2 },
-	{ id: 'drums', after: 2 },
 	{ id: 'rhythms', after: 3 },
-	{ id: 'zoom', after: 3 },
 	{ id: 'range', after: 4 },
 	{ id: 'create', after: 4 },
 	{ id: 'customize', after: 5 },

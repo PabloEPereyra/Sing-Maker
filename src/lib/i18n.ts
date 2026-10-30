@@ -7,8 +7,7 @@ const es = {
 	'create.button': 'Crear ejercicio',
 	'voice.button': 'Con la voz',
 	'voice.title': 'Crear cantando',
-	'voice.intro':
-		'Grabá unos segundos cantando o tarareando el patrón (con «na», «ma» o «u»). La app separa las notas, las acomoda al compás y agrega la nota guía; después podés corregirlas.',
+	'voice.intro': 'Grabá unos segundos cantando o tarareando el patrón (ej: «na», «ma», «ta»)',
 	'voice.ready': 'Listo para grabar',
 	'voice.record': 'Grabar',
 	'voice.stop': 'Terminar',
@@ -53,7 +52,6 @@ const es = {
 	'dictation.empty': 'No se entendió nada. Probá de nuevo, un poco más cerca del micrófono.',
 	'dictation.noMic': 'No se pudo usar el micrófono para dictar.',
 	'create.title': 'Crear un ejercicio',
-	'create.tabVoice': 'Con la voz',
 	'menu.exercises': 'Ejercicios',
 	'stage.repsLabel': 'Repeticiones',
 	'rhythms.speed': 'Velocidad de la batería',
@@ -147,6 +145,7 @@ const es = {
 	'catalog.level': 'Nivel',
 	'controls.tempo': 'Tempo',
 	'controls.tolerance': 'Tolerancia',
+	'controls.options': 'Piano, batería, tempo y zoom',
 	'controls.guide': 'Piano guía',
 	'controls.drums': 'Batería',
 	'controls.drumPattern': 'Patrón de batería',
@@ -210,22 +209,19 @@ const es = {
 	'tip.ok': 'Entendido',
 	'tip.skipAll': 'No más pistas',
 	'tip.play': 'Pulsa ▶ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
-	'tip.tempo': '¿Muy rápido o muy lento? Cambia aquí el tempo.',
+	'tip.options':
+		'Aquí están el piano guía, la batería, el tempo y el zoom. Si va muy rápido o muy lento, cambia el tempo.',
 	'tip.exercises':
 		'Aquí están todos los ejercicios, ordenados por niveles, junto con los que creas tú.',
-	'tip.drums': 'Activa la batería para cantar con ritmo: marca el compás como un metrónomo.',
 	'tip.rhythms': 'Elige el ritmo de la batería y su velocidad: normal o a la mitad.',
-	'tip.zoom':
-		'Acerca o aleja el escenario para ver menos o más notas a la vez. También con la rueda del ratón.',
 	'tip.range':
-		'Este es tu rango de voz. Mídelo con sirenas o elígelo a mano y los ejercicios se ajustan a él.',
+		'Estas son la nota más grave y la más aguda de tu rango. Toca aquí para medirlo con sirenas o elegirlo a mano: los ejercicios se ajustan a él.',
 	'tip.voice':
-		'¿Tienes una melodía en la cabeza? Cántala o tararéala y la app la convierte en ejercicio.',
-	'tip.guide':
-		'El piano guía toca cada nota para que la sigas. Apágalo cuando quieras cantar de memoria.',
-	'tip.create': '¿Quieres algo a tu medida? Describe un ejercicio y la IA lo crea para tu rango.',
+		'¿Tienes una melodía en la cabeza? Pulsa aquí, cántala o tararéala y la app la convierte en ejercicio.',
+	'tip.create':
+		'¿Quieres algo a tu medida? Toca la varita, describe un ejercicio y la IA lo crea para tu rango.',
 	'tip.customize':
-		'Cambia el personaje, los fondos y lo que recoges. ¡Puedes crear los tuyos con IA!',
+		'Toca la paleta para cambiar el personaje, los fondos y lo que recoges. ¡Puedes crear los tuyos con IA!',
 	'onb.level.title': 'Prueba de nivel',
 	'onb.level.body':
 		'Para saber dónde empezar vas a cantar de verdad: son hasta {total} etapas, cada una con un ejercicio en 4 tonalidades. Con el {pass}% de las notas pasas a la etapa siguiente; si no, te aconsejo por dónde empezar. Si prefieres, sáltala y empieza desde el principio.',
@@ -446,8 +442,7 @@ const en: Record<Key, string> = {
 	'create.button': 'Create exercise',
 	'voice.button': 'With your voice',
 	'voice.title': 'Create by singing',
-	'voice.intro':
-		'Record a few seconds singing or humming the pattern (on "na", "ma" or "oo"). The app splits the notes, fits them to the beat and adds the guide note; then you can fix them.',
+	'voice.intro': 'Record a few seconds singing or humming the pattern (e.g. "na", "ma", "ta")',
 	'voice.ready': 'Ready to record',
 	'voice.record': 'Record',
 	'voice.stop': 'Finish',
@@ -492,7 +487,6 @@ const en: Record<Key, string> = {
 	'dictation.empty': 'Nothing was understood. Try again, a bit closer to the microphone.',
 	'dictation.noMic': 'The microphone could not be used for dictation.',
 	'create.title': 'Create an exercise',
-	'create.tabVoice': 'With your voice',
 	'menu.exercises': 'Exercises',
 	'stage.repsLabel': 'Repetitions',
 	'rhythms.speed': 'Drum speed',
@@ -586,6 +580,7 @@ const en: Record<Key, string> = {
 	'catalog.level': 'Level',
 	'controls.tempo': 'Tempo',
 	'controls.tolerance': 'Tolerance',
+	'controls.options': 'Piano, drums, tempo and zoom',
 	'controls.guide': 'Piano guide',
 	'controls.drums': 'Drums',
 	'controls.drumPattern': 'Drum pattern',
@@ -648,21 +643,18 @@ const en: Record<Key, string> = {
 	'tip.ok': 'Got it',
 	'tip.skipAll': 'No more tips',
 	'tip.play': 'Press ▶ to start: a guide note plays, then you sing following the character.',
-	'tip.tempo': 'Too fast or too slow? Change the tempo here.',
+	'tip.options':
+		'The guide piano, drums, tempo and zoom are here. Too fast or too slow? Change the tempo.',
 	'tip.exercises': 'All the exercises are here, sorted by level, along with the ones you create.',
-	'tip.drums': 'Turn on the drums to sing with a beat: they mark the pulse like a metronome.',
 	'tip.rhythms': 'Pick the drum rhythm and its speed: normal or half.',
-	'tip.zoom':
-		'Zoom the stage in or out to see fewer or more notes at once. The mouse wheel works too.',
 	'tip.range':
-		'This is your vocal range. Measure it with sirens or set it by hand and the exercises adapt to it.',
-	'tip.voice': 'Got a melody in your head? Sing or hum it and the app turns it into an exercise.',
-	'tip.guide':
-		'The guide piano plays each note so you can follow it. Turn it off when you want to sing from memory.',
+		'These are the lowest and highest notes of your range. Tap here to measure it with sirens or set it by hand: the exercises adapt to it.',
+	'tip.voice':
+		'Got a melody in your head? Tap here, sing or hum it and the app turns it into an exercise.',
 	'tip.create':
-		'Want something made for you? Describe an exercise and the AI builds it for your range.',
+		'Want something made for you? Tap the wand, describe an exercise and the AI builds it for your range.',
 	'tip.customize':
-		'Change the character, the backgrounds and what you collect. You can create your own with AI!',
+		'Tap the palette to change the character, the backgrounds and what you collect. You can create your own with AI!',
 	'onb.level.title': 'Level test',
 	'onb.level.body':
 		'To find where to start you will actually sing: up to {total} stages, each one an exercise in 4 keys. With {pass}% of the notes you move on to the next stage; if not, I suggest where to start. If you prefer, skip it and start from the beginning.',

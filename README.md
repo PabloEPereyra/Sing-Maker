@@ -68,7 +68,7 @@ que la cuenta del modelo). En las pruebas, Muse leyó perfecto la clave de sol; 
 el ritmo, el compás y el tempo, pero a veces equivoca alguna nota, que se corrige en el piano roll. Por eso las
 imágenes van al modelo de `LLM_VISION_MODEL` (Wonder).
 
-**«Con la voz»**: se graban unos segundos cantando o tarareando. La transcripción es local
+**Cantar el patrón** (botón de nota junto al micrófono, en «Crear ejercicio»): se graban unos segundos cantando o tarareando. La transcripción es local
 (`src/lib/music/transcribe.ts`, sin mandar audio a ningún lado): separa las notas por cambios de tono
 sostenidos, silencios y ataques de volumen (las consonantes de notas repetidas, como «do-do»), ignorando la
 entrada deslizada y el vibrato; estima el tempo con la mediana entre

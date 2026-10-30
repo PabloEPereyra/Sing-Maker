@@ -99,56 +99,65 @@
 
 <div
 	class="fixed inset-0 z-[60] grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
-	role="dialog"
-	aria-modal="true"
-	aria-labelledby="measure-title"
+	role="presentation"
 >
-	<div class="w-full max-w-md rounded-lg border border-border bg-surface p-5 shadow-xl">
-		<h3 id="measure-title" class="font-bold">{t('range.measureTitle')}</h3>
-		<p class="mt-1 text-sm text-muted">{t('range.measureBody', { s: MEASURE_SECONDS })}</p>
-		{#if measureError}
-			<p role="alert" class="mt-3 text-sm text-red-600">{measureError}</p>
-		{/if}
-		<div class="mt-4 flex flex-col items-center gap-3">
-			{#if measuring}
-				<div class="text-3xl font-bold text-accent tabular-nums">{secondsLeft}s</div>
+	<div
+		class="w-full max-w-md overflow-hidden bg-surface text-fg"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="measure-title"
+	>
+		<div class="ribbon px-4 py-2.5">
+			<h3 id="measure-title" class="text-xl leading-tight">{t('range.measureTitle')}</h3>
+		</div>
+		<div class="p-4">
+			<p class="text-sm text-muted">{t('range.measureBody', { s: MEASURE_SECONDS })}</p>
+			{#if measureError}
+				<p role="alert" class="mt-3 text-sm text-red-600">{measureError}</p>
 			{/if}
-			<div class="grid w-full grid-cols-3 gap-2">
-				{#each [[t('range.low'), mLow], [t('range.now'), current], [t('range.high'), mHigh]] as [label, value] (label)}
-					<div class="rounded-lg border border-border bg-surface-2 p-2 text-center">
-						<div class="text-xs text-muted">{label}</div>
-						<div class="text-lg font-bold text-accent">
-							{typeof value === 'number' ? noteLabel(value) : '—'}
-						</div>
-					</div>
-				{/each}
-			</div>
-			<div class="flex w-full gap-2">
+			<div class="mt-4 flex flex-col items-center gap-3">
 				{#if measuring}
-					<button
-						type="button"
-						class="flex-1 rounded-lg bg-accent py-2 text-sm font-semibold text-white"
-						onclick={finishMeasure}>{t('range.done')}</button
-					>
-				{:else}
-					<button
-						type="button"
-						class="flex-1 rounded-lg bg-accent py-2 text-sm font-semibold text-white"
-						onclick={startMeasure}>{t('range.start')}</button
-					>
+					<div class="font-display text-3xl text-accent tabular-nums">{secondsLeft}s</div>
 				{/if}
-				<button
-					type="button"
-					class="rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm"
-					onclick={close}>{t('range.close')}</button
-				>
-				{#if onNext}
+				<div class="grid w-full grid-cols-3 gap-2">
+					{#each [[t('range.low'), mLow], [t('range.now'), current], [t('range.high'), mHigh]] as [label, value] (label)}
+						<div
+							class="rounded-lg border-2 border-frame bg-surface-2 p-2 text-center shadow-[0_2px_0_var(--color-frame-dark)]"
+						>
+							<div class="text-xs text-muted">{label}</div>
+							<div class="font-display text-xl text-accent">
+								{typeof value === 'number' ? noteLabel(value) : '—'}
+							</div>
+						</div>
+					{/each}
+				</div>
+				<div class="flex w-full gap-2">
+					{#if measuring}
+						<button
+							type="button"
+							class="flex-1 rounded-lg bg-accent py-2 text-sm font-semibold text-white"
+							onclick={finishMeasure}>{t('range.done')}</button
+						>
+					{:else}
+						<button
+							type="button"
+							class="flex-1 rounded-lg bg-accent py-2 text-sm font-semibold text-white"
+							onclick={startMeasure}>{t('range.start')}</button
+						>
+					{/if}
 					<button
 						type="button"
-						class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
-						onclick={next}>{t('onb.next')}</button
+						class="rounded-lg border border-border bg-surface-2 px-4 py-2 text-sm"
+						onclick={close}>{t('range.close')}</button
 					>
-				{/if}
+					{#if onNext}
+						<button
+							type="button"
+							class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
+							onclick={next}>{t('onb.next')}</button
+						>
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
