@@ -541,11 +541,11 @@
 <!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): dos botones grandes que abren paneles -->
 {#snippet menu()}
 	<div class="relative">
-		<div class="flex items-center gap-2">
+		<div class="flex flex-col gap-3 pl-2">
 			<button
-				class="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 {panel ===
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 {panel ===
 				'exercises'
-					? 'ring-4 ring-white/90'
+					? 'outline-4 outline-white/90'
 					: ''}"
 				aria-expanded={panel === 'exercises'}
 				aria-label={t('menu.exercises')}
@@ -556,12 +556,12 @@
 					panel = panel === 'exercises' ? null : 'exercises';
 				}}
 			>
-				<Icon name="note" class="h-9 w-9" />
+				<span class="skew-icon"><Icon name="note" class="h-9 w-9" /></span>
 			</button>
 			<button
-				class="grid h-[4.5rem] w-[4.5rem] place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 {panel ===
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 {panel ===
 				'rhythms'
-					? 'ring-4 ring-white/90'
+					? 'outline-4 outline-white/90'
 					: ''}"
 				aria-expanded={panel === 'rhythms'}
 				aria-label={t('rhythms.title')}
@@ -572,12 +572,12 @@
 					panel = panel === 'rhythms' ? null : 'rhythms';
 				}}
 			>
-				<Icon name="drum" class="h-9 w-9" />
+				<span class="skew-icon"><Icon name="drum" class="h-9 w-9" /></span>
 			</button>
 		</div>
 		{#if panel === 'exercises'}
 			<div
-				class="panel absolute top-[5.25rem] left-0 flex max-h-[min(36rem,calc(100dvh-17rem))] w-72 max-w-[calc(100vw-2rem)] flex-col"
+				class="panel absolute top-0 left-[5.5rem] flex max-h-[min(36rem,calc(100dvh-9rem))] w-72 max-w-[calc(100vw-7rem)] flex-col"
 			>
 				<div class="border-b border-border p-2">
 					<input
@@ -673,7 +673,7 @@
 			</div>
 		{:else if panel === 'rhythms'}
 			<div
-				class="panel absolute top-[5.25rem] left-0 flex max-h-[min(36rem,calc(100dvh-17rem))] w-72 max-w-[calc(100vw-2rem)] flex-col"
+				class="panel absolute top-0 left-[5.5rem] flex max-h-[min(36rem,calc(100dvh-9rem))] w-72 max-w-[calc(100vw-7rem)] flex-col"
 			>
 				<div class="min-h-0 flex-1 overflow-y-auto p-2 pb-3">
 					<div class="px-2 pt-2 pb-1">

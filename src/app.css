@@ -606,3 +606,17 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 .hud-score > .hud-3d {
 	-webkit-text-stroke: 0;
 }
+
+/* Botones del menú del escenario: cuadrados de esquinas suaves, inclinados 20º a la derecha. El icono se
+   endereza con la inclinación contraria; al pulsar se hunden igual que el resto de los botones. */
+button.skew-btn {
+	transform: skewX(-20deg);
+}
+button.skew-btn.bg-accent.text-white:not(.text-left):active:not(:disabled) {
+	transform: skewX(-20deg) translateY(3px);
+}
+.skew-btn > .skew-icon {
+	display: grid;
+	place-items: center;
+	transform: skewX(20deg);
+}
