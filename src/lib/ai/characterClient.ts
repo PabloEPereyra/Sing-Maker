@@ -3,17 +3,13 @@ import type { Movement, StripKind, StyleId } from '../character/spec';
 import type { Brief, Refined } from './character';
 import { t } from '../i18n';
 import { GenerateRequestError } from './client';
+import { postJson } from './http';
 
 /** El filtro de contenido de la IA bloqueó la imagen (a veces con frases inocentes de la descripción). */
 export class ContentBlockedError extends GenerateRequestError {}
 
 async function call<T>(body: Record<string, unknown>): Promise<T> {
-	const res = await fetch('/api/character', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(body)
-	});
-	const data = await res.json().catch(() => ({}));
+	const { res, data } = await postJson<T>('/api/character', body);
 	// 422: el filtro de contenido de la IA bloqueó la imagen (también tras reintentar)
 	if (res.status === 422) throw new ContentBlockedError(t('char.blocked'));
 	if (!res.ok)

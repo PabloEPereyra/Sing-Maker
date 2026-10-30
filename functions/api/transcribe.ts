@@ -5,6 +5,7 @@
 import { z } from 'zod';
 import { transcribeConfigFromEnv, transcribeSpeech } from '../../src/lib/ai/dictation';
 import { GenerateError } from '../../src/lib/ai/generate';
+import { charge, refund, type FunctionEnv } from '../../src/lib/server/quota';
 
 /** WAV en base64, hasta ~1 minuto de voz a 16 kHz. */
 const RequestSchema = z.object({
@@ -15,7 +16,7 @@ const RequestSchema = z.object({
 	lang: z.enum(['es', 'en']).default('es')
 });
 
-type Env = Record<string, string | undefined>;
+type Env = FunctionEnv;
 
 function json(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -37,11 +38,16 @@ export async function onRequestPost({
 	} catch {
 		return json({ error: 'Invalid request.' }, 400);
 	}
+	const gate = await charge(request, env, 'other');
+	if (!gate.ok) return json({ error: gate.error, bucket: gate.bucket }, gate.status);
 	try {
 		const wav = Uint8Array.from(atob(input.audio), (c) => c.charCodeAt(0));
 		const text = await transcribeSpeech(wav, input.lang, transcribeConfigFromEnv(env));
 		return json({ text });
 	} catch (e) {
+		if (e instanceof GenerateError && e.status < 500)
+			return json({ error: e.message, details: e.details }, e.status);
+		await refund(env, gate.user, 'other');
 		if (e instanceof GenerateError) return json({ error: e.message, details: e.details }, e.status);
 		return json({ error: 'Unexpected error.' }, 500);
 	}

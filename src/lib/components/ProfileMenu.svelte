@@ -7,6 +7,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { DIFFICULTIES } from '$lib/game/difficulty';
 	import { t } from '$lib/i18n';
+	import AccessCode from './AccessCode.svelte';
 	import DifficultyBadge from './DifficultyBadge.svelte';
 	import Icon from './Icon.svelte';
 	import MicCalibration from './MicCalibration.svelte';
@@ -117,6 +118,8 @@
 				<span class="flex-1">{t('sfx.label')}</span>
 				<span class="menu-switch" data-on={settings.sfx}><span></span></span>
 			</button>
+
+			<AccessCode />
 
 			<div class="my-1.5 h-px bg-border"></div>
 

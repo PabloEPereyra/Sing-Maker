@@ -5,6 +5,7 @@
 // Variables: LLM_API_KEY (obligatoria), LLM_BASE_URL, LLM_MODEL, LLM_JSON_MODE (schema|object|none).
 import { z } from 'zod';
 import { configFromEnv, generateExercise, GenerateError } from '../../src/lib/ai/generate';
+import { charge, refund, type FunctionEnv } from '../../src/lib/server/quota';
 
 /** Imagen de partitura como data URL (PNG, JPEG o WebP), hasta ~5 MB. */
 const ImageSchema = z
@@ -25,7 +26,7 @@ const RequestSchema = z
 	})
 	.refine((r) => r.prompt.trim() || r.image, 'Empty request.');
 
-type Env = Record<string, string | undefined>;
+type Env = FunctionEnv;
 
 function json(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -47,13 +48,17 @@ export async function onRequestPost({
 	} catch {
 		return json({ error: 'Invalid request.' }, 400);
 	}
+	const gate = await charge(request, env, 'exercises');
+	if (!gate.ok) return json({ error: gate.error, bucket: gate.bucket }, gate.status);
 	try {
 		const result = await generateExercise(input, configFromEnv(env));
 		return json(result);
 	} catch (e) {
-		if (e instanceof GenerateError) {
+		if (e instanceof GenerateError && e.status < 500) {
 			return json({ error: e.message, details: e.details }, e.status);
 		}
+		await refund(env, gate.user, 'exercises');
+		if (e instanceof GenerateError) return json({ error: e.message, details: e.details }, e.status);
 		return json({ error: 'Unexpected error.' }, 500);
 	}
 }

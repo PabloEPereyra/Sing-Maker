@@ -1,5 +1,6 @@
 // Cliente del navegador para /api/generate (la clave del modelo nunca pasa por acá).
 import type { DrumResult } from './drums';
+import { postJson } from './http';
 import type { GeneratedExercise, VoiceRange } from './exercise';
 
 export interface GeneratedResponse {
@@ -44,12 +45,13 @@ export async function requestExercise(
 	image?: string,
 	meter?: '4/4' | '6/8'
 ): Promise<GeneratedResponse> {
-	const res = await fetch('/api/generate', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ prompt, lang, range, image, meter })
+	const { res, data } = await postJson<GeneratedResponse>('/api/generate', {
+		prompt,
+		lang,
+		range,
+		image,
+		meter
 	});
-	const data = await res.json().catch(() => ({}));
 	if (!res.ok)
 		throw new GenerateRequestError(data.error ?? `HTTP ${res.status}`, data.details ?? []);
 	return data as GeneratedResponse;
@@ -57,12 +59,7 @@ export async function requestExercise(
 
 /** Dictado: WAV (base64) -> texto, con Muse Voice Transcribe en el servidor. */
 export async function requestTranscription(audio: string, lang: 'es' | 'en'): Promise<string> {
-	const res = await fetch('/api/transcribe', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ audio, lang })
-	});
-	const data = await res.json().catch(() => ({}));
+	const { res, data } = await postJson('/api/transcribe', { audio, lang });
 	if (!res.ok)
 		throw new GenerateRequestError(data.error ?? `HTTP ${res.status}`, data.details ?? []);
 	return String(data.text ?? '');
@@ -74,12 +71,7 @@ export async function requestDrumPattern(
 	meter: '4/4' | '6/8',
 	lang: 'es' | 'en'
 ): Promise<DrumResult> {
-	const res = await fetch('/api/drums', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ prompt, meter, lang })
-	});
-	const data = await res.json().catch(() => ({}));
+	const { res, data } = await postJson<DrumResult>('/api/drums', { prompt, meter, lang });
 	if (!res.ok)
 		throw new GenerateRequestError(data.error ?? `HTTP ${res.status}`, data.details ?? []);
 	return data as DrumResult;

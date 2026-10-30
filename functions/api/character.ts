@@ -19,8 +19,9 @@ import {
 	stripPrompt
 } from '../../src/lib/ai/character';
 import { configFromEnv, GenerateError } from '../../src/lib/ai/generate';
+import { charge, refund, type Bucket, type FunctionEnv } from '../../src/lib/server/quota';
 
-type Env = Record<string, string | undefined>;
+type Env = FunctionEnv;
 
 function json(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -42,6 +43,13 @@ export async function onRequestPost({
 	} catch {
 		return json({ error: 'Invalid request.' }, 400);
 	}
+	// Las imágenes (personaje, tiras, fondos) son lo que más cuesta: tienen su propio cupo.
+	const bucket: Bucket =
+		input.action === 'hero' || input.action === 'strip' || input.action === 'scene'
+			? 'images'
+			: 'other';
+	const gate = await charge(request, env, bucket);
+	if (!gate.ok) return json({ error: gate.error, bucket: gate.bucket }, gate.status);
 	const config = configFromEnv(env);
 	const media = mediaConfigFromEnv(env, config);
 	try {
@@ -86,6 +94,9 @@ export async function onRequestPost({
 				return json({ text: await segmentImage(input.image, input.noun, media) });
 		}
 	} catch (e) {
+		if (e instanceof GenerateError && e.status < 500)
+			return json({ error: e.message, details: e.details }, e.status);
+		await refund(env, gate.user, bucket);
 		if (e instanceof GenerateError) return json({ error: e.message, details: e.details }, e.status);
 		return json({ error: 'Unexpected error.' }, 500);
 	}

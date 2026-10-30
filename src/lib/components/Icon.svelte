@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Iconos de la interfaz. Piano y batería son copias de los de vocalizator (src/lib/icons/); running es
 	// «user-fast-running» de Flaticon Uicons (solid rounded);
-	// back es «left» (solid rounded) y note es «music-note» (solid straight) de Flaticon Uicons; gauge, ruler y los de contorno (mic-line, clock, help, volume, volume-off, globe, trash) son trazos de Lucide.
+	// back es «left» (solid rounded) y note es «music-note» (solid straight) de Flaticon Uicons; gauge, ruler y los de contorno (mic-line, clock, help, volume, volume-off, globe, trash, key) son trazos de Lucide.
 	import piano from '$lib/icons/piano.svg?raw';
 	import drum from '$lib/icons/drum.svg?raw';
 	import running from '$lib/icons/running.svg?raw';
@@ -26,7 +26,8 @@
 		| 'volume'
 		| 'volume-off'
 		| 'globe'
-		| 'trash';
+		| 'trash'
+		| 'key';
 	let { name, class: cls = 'h-5 w-5' }: { name: Name; class?: string } = $props();
 
 	const RAW: Partial<Record<Name, string>> = { piano, drum, running };
@@ -39,7 +40,8 @@
 		'volume',
 		'volume-off',
 		'globe',
-		'trash'
+		'trash',
+		'key'
 	];
 </script>
 
@@ -83,6 +85,10 @@
 			<path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
 			<path d="M10 11v6" />
 			<path d="M14 11v6" />
+		{:else if name === 'key'}
+			<circle cx="7.5" cy="15.5" r="5.5" />
+			<path d="m21 2-9.6 9.6" />
+			<path d="m15.5 7.5 3 3L22 7l-3-3" />
 		{:else if name === 'globe'}
 			<circle cx="12" cy="12" r="10" />
 			<path d="M2 12h20" />

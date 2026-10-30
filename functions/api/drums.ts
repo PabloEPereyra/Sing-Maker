@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { generateDrumPattern } from '../../src/lib/ai/drums';
 import { configFromEnv, GenerateError } from '../../src/lib/ai/generate';
+import { charge, refund, type FunctionEnv } from '../../src/lib/server/quota';
 
 const RequestSchema = z.object({
 	prompt: z.string().min(1).max(500),
@@ -10,7 +11,7 @@ const RequestSchema = z.object({
 	lang: z.enum(['es', 'en']).default('es')
 });
 
-type Env = Record<string, string | undefined>;
+type Env = FunctionEnv;
 
 function json(body: unknown, status = 200): Response {
 	return new Response(JSON.stringify(body), {
@@ -32,9 +33,14 @@ export async function onRequestPost({
 	} catch {
 		return json({ error: 'Invalid request.' }, 400);
 	}
+	const gate = await charge(request, env, 'exercises');
+	if (!gate.ok) return json({ error: gate.error, bucket: gate.bucket }, gate.status);
 	try {
 		return json(await generateDrumPattern(input, configFromEnv(env)));
 	} catch (e) {
+		if (e instanceof GenerateError && e.status < 500)
+			return json({ error: e.message, details: e.details }, e.status);
+		await refund(env, gate.user, 'exercises');
 		if (e instanceof GenerateError) return json({ error: e.message, details: e.details }, e.status);
 		return json({ error: 'Unexpected error.' }, 500);
 	}

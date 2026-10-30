@@ -36,7 +36,10 @@ function devFunctions(): Plugin {
 					const response: Response = await mod.onRequestPost({
 						request: new Request(url, {
 							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
+							headers: {
+								'Content-Type': 'application/json',
+								'X-Access-Code': String(req.headers['x-access-code'] ?? '')
+							},
 							body: Buffer.concat(chunks)
 						}),
 						env: { ...readDevVars() }

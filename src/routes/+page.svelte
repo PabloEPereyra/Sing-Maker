@@ -44,6 +44,7 @@
 	import type { Theme } from '$lib/game/theme';
 	import { toleranceOf, type Difficulty } from '$lib/game/difficulty';
 	import { setUiSoundsMuted, uiClick } from '$lib/audio/uiSounds';
+	import { loadAccess } from '$lib/access.svelte';
 	import { loadTips, markAllSeen, markSeen, nextTip, recordDone } from '$lib/tips.svelte';
 	import { t, tDynamic } from '$lib/i18n';
 
@@ -189,6 +190,7 @@
 		loadMine();
 		loadUnlocked();
 		loadTips();
+		loadAccess();
 
 		loadMyDrums();
 		void loadCharacters();
