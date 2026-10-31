@@ -77,19 +77,18 @@ export function byCategory(list: Exercise[] = exercises): [string, Exercise[]][]
 }
 
 /** Niveles y colores de cinturón de Vocalizator. */
-const LEVELS: Record<string, { name: string; color: string }> = {
-	'1': { name: 'Principiante', color: '#ffffff' },
-	'2': { name: 'Buscador', color: '#fbbf24' },
-	'3': { name: 'Discípulo', color: '#f97316' },
-	'4': { name: 'Practicante', color: '#22c55e' },
-	'5': { name: 'Adepto', color: '#3b82f6' },
-	'6': { name: 'Instructor', color: '#78350f' },
-	'7': { name: 'Maestro', color: '#000000' }
+const LEVELS: Record<string, { color: string }> = {
+	'1': { color: '#ffffff' },
+	'2': { color: '#fbbf24' },
+	'3': { color: '#f97316' },
+	'4': { color: '#22c55e' },
+	'5': { color: '#3b82f6' },
+	'6': { color: '#78350f' },
+	'7': { color: '#000000' }
 };
 
 export interface LevelGroup {
 	level: string;
-	name: string;
 	color: string;
 	exercises: Exercise[];
 	categories: [string, Exercise[]][];
@@ -102,7 +101,6 @@ export function byLevel(list: Exercise[] = exercises): LevelGroup[] {
 		.sort((a, b) => Number(a[0]) - Number(b[0]))
 		.map(([level, items]) => ({
 			level,
-			name: LEVELS[level]?.name ?? '',
 			color: LEVELS[level]?.color ?? '#64748b',
 			exercises: items,
 			categories: byCategory(items)

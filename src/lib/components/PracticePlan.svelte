@@ -1,6 +1,6 @@
 <script lang="ts">
-	// «Tu rutina de hoy»: popup con cuatro ejercicios elegidos según el historial y un objetivo (variada, agudos,
-	// afinar, notas largas). La rutina del día se guarda: no cambia al terminar un ejercicio ni al recargar, solo
+	// «Tu rutina de hoy»: popup con cuatro pasos según el historial y un objetivo (variada, agudos, afinar, notas
+	// largas). Cada paso es una técnica vocal («Haz un trino de labios…») más un ejercicio del nivel de la persona. La rutina del día se guarda: no cambia al terminar un ejercicio ni al recargar, solo
 	// al cambiar de objetivo o de día. Tocar un ejercicio lo deja seleccionado en el escenario.
 	import { byLevel, shortName, type Exercise } from '$lib/exercises/catalog';
 	import { history, setGoal, setRoutine } from '$lib/practice/history.svelte';
@@ -12,6 +12,7 @@
 		lastPercent,
 		previousPercent
 	} from '$lib/practice/routine';
+	import { techniqueById, techniqueText } from '$lib/practice/techniques';
 	import { settings } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
@@ -39,26 +40,28 @@
 			saved &&
 			saved.day === day &&
 			saved.goal === history.goal &&
-			saved.items.every((i) => byId.has(i.id));
+			saved.items.every((i) => byId.has(i.id) && techniqueById(i.tech));
 		if (valid) return;
 		const items = buildRoutine({ pool, attempts: history.attempts, goal: history.goal, now });
 		setRoutine({
 			day,
 			goal: history.goal,
-			items: items.map((i) => ({ id: i.exercise.id, role: i.role }))
+			items: items.map((i) => ({ id: i.exercise.id, tech: i.technique.id }))
 		});
 	});
 
 	const rows = $derived(
 		(history.routine?.items ?? []).flatMap((item) => {
 			const exercise = byId.get(item.id);
-			if (!exercise) return [];
+			const technique = techniqueById(item.tech);
+			if (!exercise || !technique) return [];
 			const last = lastPercent(history.attempts, item.id);
 			const before = previousPercent(history.attempts, item.id);
 			return [
 				{
 					exercise,
-					role: item.role,
+					kind: technique.kind,
+					text: techniqueText(technique, settings.lang),
 					color: colors.get(exercise.level) ?? '#64748b',
 					done: doneToday(history.attempts, item.id, now),
 					last,
@@ -126,23 +129,30 @@
 				</span>
 			</div>
 
-			<ol class="mt-2 space-y-1.5">
+			<ol class="mt-2 space-y-3">
 				{#each rows as r, i (r.exercise.id)}
-					<li>
-						<button
-							class="ex-card !mt-0 !py-2 {r.done ? 'opacity-70' : ''}"
-							onclick={() => onPick(r.exercise.id)}
-						>
+					<li class={r.done ? 'opacity-70' : ''}>
+						<div class="flex flex-wrap items-baseline gap-x-2">
+							<span class="font-display text-[1.1rem] leading-tight">{i + 1}. {r.text.name}</span>
+							<span class="rounded-full bg-accent/15 px-2 text-xs text-accent-dark"
+								>{t(`routine.kind.${r.kind}`)}</span
+							>
+						</div>
+						<p class="mt-0.5 text-sm leading-snug">{r.text.how}</p>
+						<button class="ex-card !mt-1.5 !py-2" onclick={() => onPick(r.exercise.id)}>
 							<span
 								class="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-black/20 font-display text-[1rem] text-[#1b2240]"
 								style:background={r.color}
 								style:color={r.color === '#000000' || r.color === '#78350f' ? '#fff' : undefined}
 							>
-								{#if r.done}✓{:else}{i + 1}{/if}
+								{#if r.done}✓{:else}▶{/if}
 							</span>
 							<span class="min-w-0 flex-1">
 								<span class="block truncate text-[1.05rem] leading-tight">{title(r.exercise)}</span>
-								<span class="block text-xs text-muted">{t(`routine.role.${r.role}`)}</span>
+								<span class="block text-xs text-muted">
+									{t('catalog.level')}
+									{r.exercise.level}
+								</span>
 							</span>
 							<span class="shrink-0 text-right text-sm tabular-nums" title={t('routine.last')}>
 								{#if r.last === null}

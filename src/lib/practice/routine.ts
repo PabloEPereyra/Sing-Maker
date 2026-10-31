@@ -1,13 +1,15 @@
-// Rutina de práctica del día: 4 ejercicios del catálogo elegidos según el nivel que muestra el historial y
-// un objetivo (variada, agudos, afinar, notas largas). Todo es local y determinista: el mismo día, con el
-// mismo historial, sale la misma rutina; al día siguiente cambia.
+// Rutina de práctica del día: 4 pasos, cada uno con una técnica vocal («Haz un trino de labios…») y un ejercicio
+// del catálogo. Todos los ejercicios son del nivel cómodo de la persona según el historial: lo que cambia de un
+// paso a otro es qué se hace con la voz. Todo es local y determinista: el mismo día, con el mismo historial,
+// sale la misma rutina; al día siguiente cambia.
 import type { Exercise } from '$lib/exercises/catalog';
+import { TECHNIQUES, type Kind, type Shape, type Technique } from './techniques';
 
 export type Goal = 'mix' | 'high' | 'pitch' | 'sustain';
 export const GOALS: Goal[] = ['mix', 'high', 'pitch', 'sustain'];
 
-/** Papel de cada ejercicio en la rutina: calentar, trabajar el objetivo o un desafío al final. */
-export type Role = 'warm' | 'goal' | 'challenge';
+/** El orden de la rutina: calentar, resonar, abrir y, al final, lo que pide el objetivo. */
+export const KINDS: Kind[] = ['warm', 'resonance', 'open', 'focus'];
 
 export interface Attempt {
 	id: string;
@@ -18,8 +20,8 @@ export interface Attempt {
 }
 
 export interface RoutineItem {
+	technique: Technique;
 	exercise: Exercise;
-	role: Role;
 }
 
 export interface Features {
@@ -122,18 +124,18 @@ function rng(seed: string): () => number {
 	};
 }
 
-/** Cuánto sirve un ejercicio para el objetivo (más alto = mejor). */
-export function goalScore(f: Features, goal: Goal, last: number | null): number {
-	switch (goal) {
+/** Cuánto le sirve un patrón a una técnica según la forma que pide (más alto = mejor). */
+export function shapeScore(f: Features, shape: Shape): number {
+	switch (shape) {
+		case 'sustained':
+			return f.sustain * 4 + f.legato * 3;
+		case 'agile':
+			return f.step + f.span * 0.3;
 		case 'high':
 			return f.top + (f.asc ? 2 : 0);
-		case 'sustain':
-			return f.sustain * 4 + f.legato * 3;
-		case 'pitch':
-			// por grados conjuntos y, si ya se jugó y salió flojo, mejor todavía
-			return -f.step + (last !== null && last < 85 ? (85 - last) / 10 : 0);
 		default:
-			return 0;
+			// por grados conjuntos y con poco recorrido
+			return -(f.step + f.span * 0.25);
 	}
 }
 
@@ -144,10 +146,9 @@ export interface RoutineInput {
 	goal: Goal;
 	/** Ahora (ms): define el día de la rutina. */
 	now: number;
-	size?: number;
 }
 
-export function buildRoutine({ pool, attempts, goal, now, size = 4 }: RoutineInput): RoutineItem[] {
+export function buildRoutine({ pool, attempts, goal, now }: RoutineInput): RoutineItem[] {
 	const catalog = pool.filter((e) => !Number.isNaN(Number(e.level)));
 	if (!catalog.length) return [];
 	const comfort = comfortLevel(attempts, catalog);
@@ -157,22 +158,27 @@ export function buildRoutine({ pool, attempts, goal, now, size = 4 }: RoutineInp
 	const chosen = new Set<string>();
 	const categories = new Set<string>();
 
-	/** El ejercicio de mayor puntaje entre los candidatos, con un desempate al azar y sin repetir. */
-	const pick = (
-		candidates: Exercise[],
-		score: (e: Exercise) => number,
-		jitter = 1
-	): Exercise | undefined => {
+	// todos los ejercicios son del nivel cómodo; si ahí no alcanzan, también los de abajo
+	const level = (e: Exercise) => Number(e.level);
+	const atLevel = catalog.filter((e) => level(e) === comfort);
+	const candidates =
+		atLevel.length >= KINDS.length ? atLevel : catalog.filter((e) => level(e) <= comfort);
+
+	/** El patrón que mejor le va a la técnica, con un desempate al azar y sin repetir. */
+	const pick = (technique: Technique): Exercise | undefined => {
 		let top: Exercise | undefined;
 		let topScore = -Infinity;
 		for (const e of candidates) {
 			if (chosen.has(e.id)) continue;
-			// ya dominado: puede aparecer, pero después; misma categoría que otra de hoy: un poco menos
+			const last = lastPercent(attempts, e.id);
+			// ya dominado: puede aparecer, pero después; misma categoría que otro de hoy: un poco menos;
+			// para afinar, lo que salió flojo conviene repetirlo
 			const s =
-				score(e) +
-				random() * jitter -
+				shapeScore(feats.get(e.id)!, technique.shape) +
+				random() * 1.5 -
 				((best.get(e.id) ?? 0) >= 92 ? 3 : 0) -
-				(categories.has(e.category) ? 1 : 0);
+				(categories.has(e.category) ? 1 : 0) +
+				(goal === 'pitch' && last !== null && last < 85 ? (85 - last) / 10 : 0);
 			if (s > topScore) {
 				top = e;
 				topScore = s;
@@ -185,28 +191,15 @@ export function buildRoutine({ pool, attempts, goal, now, size = 4 }: RoutineInp
 		return top;
 	};
 
-	const level = (e: Exercise) => Number(e.level);
-	const comfortable = catalog.filter((e) => level(e) <= comfort);
-	const atLevel = catalog.filter((e) => level(e) === comfort || level(e) === comfort - 1);
-	const harder = catalog.filter((e) => level(e) === comfort + 1);
-	const last = (e: Exercise) => lastPercent(attempts, e.id);
-	const fit = (e: Exercise) => goalScore(feats.get(e.id)!, goal, last(e));
-
 	const items: RoutineItem[] = [];
-	// calentamiento: lo más sencillo del nivel cómodo (poco recorrido y por grados conjuntos)
-	const warm = pick(comfortable, (e) => -(feats.get(e.id)!.span + feats.get(e.id)!.step), 2);
-	if (warm) items.push({ exercise: warm, role: 'warm' });
-	// objetivo: lo que más sirve, en el nivel cómodo o el anterior; si es «variada», se reparte entre categorías
-	for (let i = 0; i < Math.max(0, size - 2); i++) {
-		const e = pick(atLevel.length ? atLevel : comfortable, fit, goal === 'mix' ? 6 : 1.5);
-		if (e) items.push({ exercise: e, role: 'goal' });
+	for (const kind of KINDS) {
+		const techniques = TECHNIQUES.filter(
+			(t) => t.kind === kind && (kind !== 'focus' || t.goals?.includes(goal))
+		);
+		if (!techniques.length) continue;
+		const technique = techniques[Math.floor(random() * techniques.length)];
+		const exercise = pick(technique);
+		if (exercise) items.push({ technique, exercise });
 	}
-	// desafío: un escalón arriba (lo que todavía no se jugó primero)
-	const hard = pick(
-		harder.length ? harder : comfortable,
-		(e) => fit(e) + (best.has(e.id) ? 0 : 2),
-		goal === 'mix' ? 6 : 1.5
-	);
-	if (hard) items.push({ exercise: hard, role: 'challenge' });
 	return items;
 }

@@ -6,7 +6,7 @@
 	import { exerciseText, type Exercise, type LevelGroup } from '$lib/exercises/catalog';
 	import { firstRoot, playPattern, stopPreview } from '$lib/audio/preview';
 	import { settings } from '$lib/settings.svelte';
-	import { t, tDynamic } from '$lib/i18n';
+	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
 	import PatternPreview from './PatternPreview.svelte';
 
@@ -33,7 +33,6 @@
 		key: string;
 		label: string;
 		/** Nombre del nivel (vacío en «Mis ejercicios»). */
-		name: string;
 		color: string;
 		fg: string;
 		exercises: Exercise[];
@@ -57,12 +56,30 @@
 		return `#${c(n >> 16)}${c((n >> 8) & 255)}${c(n & 255)}`;
 	}
 
+	/**
+	 * Cuánto se oscurece el pie de la tarjeta (factor de `shade`): el ámbar se vuelve marrón si se oscurece
+	 * como los demás, así que se aclara; el naranja rojizo (nivel 3) se oscurece más para contrastar con el
+	 * texto blanco.
+	 */
+	function depth(hex: string): number {
+		const n = parseInt(hex.slice(1), 16);
+		const [r, g, b] = [n >> 16, (n >> 8) & 255, n & 255];
+		const max = Math.max(r, g, b);
+		const d = max - Math.min(r, g, b);
+		if (!d) return 0.78;
+		const h =
+			max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+		const hue = h * 60;
+		if (hue >= 40 && hue < 60) return 0.92;
+		if ((hue < 40 || hue >= 340) && max > 200) return 0.66;
+		return 0.78;
+	}
+
 	/** El orden de la rotación: niveles de menor a mayor y, al final, los propios (si hay). */
 	const groups = $derived<Group[]>([
 		...levels.map((lv) => ({
 			key: lv.level,
 			label: `${t('catalog.level')} ${lv.level}`,
-			name: tDynamic(`level.${lv.level}`, lv.name),
 			color: lv.color,
 			fg: ink(lv.color),
 			exercises: lv.exercises,
@@ -73,7 +90,6 @@
 					{
 						key: 'mine',
 						label: t('create.mine'),
-						name: '',
 						color: '#8b5cf6',
 						fg: '#fff',
 						exercises: mine,
@@ -176,7 +192,7 @@
 			? ''
 			: 'bg-surface text-fg'}"
 		style:background={view === 'card' && group
-			? `linear-gradient(180deg, ${group.color}, ${shade(group.color, 0.78)})`
+			? `linear-gradient(180deg, ${group.color}, ${shade(group.color, depth(group.color))})`
 			: undefined}
 		style:color={view === 'card' && group ? group.fg : undefined}
 		role="dialog"
@@ -201,13 +217,13 @@
 						class="level-tile {i === currentGroup ? 'level-tile-on' : ''}"
 						style:--tile={g.color}
 						style:--tile-fg={g.fg}
-						aria-label={g.isMine ? g.label : `${g.label} · ${g.name}`}
+						aria-label={g.label}
 						onclick={() => openGroup(i)}
 					>
 						<span class="text-5xl leading-none short:text-4xl">{g.isMine ? '✨' : g.key}</span>
-						<span class="max-w-full truncate px-1 text-[1.05rem]">
-							{g.isMine ? g.label : g.name}
-						</span>
+						{#if g.isMine}
+							<span class="max-w-full truncate px-1 text-[1.05rem]">{g.label}</span>
+						{/if}
 						<span class="rounded-full bg-black/15 px-2.5 text-sm">
 							{g.exercises.length}
 						</span>
@@ -230,8 +246,8 @@
 		{:else}
 			<div
 				class="ribbon flex items-center gap-2 px-3 py-2.5"
-				style:--ribbon={shade(group.color, 0.8)}
-				style:--ribbon-fg={ink(shade(group.color, 0.8))}
+				style:--ribbon={shade(group.color, depth(group.color) + 0.02)}
+				style:--ribbon-fg={ink(shade(group.color, depth(group.color) + 0.02))}
 			>
 				<button
 					class="grid h-8 w-8 shrink-0 place-items-center rounded-lg hover:bg-white/20"
@@ -242,7 +258,7 @@
 					<Icon name="back" class="h-5 w-5" />
 				</button>
 				<h3 id="browser-title" class="min-w-0 flex-1 truncate text-xl leading-tight">
-					{group.isMine ? `✨ ${group.label}` : `${group.label} · ${group.name}`}
+					{group.isMine ? `✨ ${group.label}` : group.label}
 				</h3>
 				<button
 					class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-lg hover:bg-white/20"
