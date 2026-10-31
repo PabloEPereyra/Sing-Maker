@@ -6,6 +6,9 @@
 	import TipBubble from '$lib/components/TipBubble.svelte';
 	import CustomizeDialog from '$lib/components/CustomizeDialog.svelte';
 	import CreateExerciseDialog from '$lib/components/CreateExerciseDialog.svelte';
+	import ExerciseBrowser from '$lib/components/ExerciseBrowser.svelte';
+	import FontTester from '$lib/components/FontTester.svelte';
+	import RhythmPicker from '$lib/components/RhythmPicker.svelte';
 
 	import { addMine, loadMine, mine, removeMine } from '$lib/exercises/mine.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -45,7 +48,7 @@
 	import { setUiSoundsMuted, uiClick } from '$lib/audio/uiSounds';
 	import { loadAccess } from '$lib/access.svelte';
 	import { loadTips, markAllSeen, markSeen, nextTip, recordDone } from '$lib/tips.svelte';
-	import { t, tDynamic } from '$lib/i18n';
+	import { t } from '$lib/i18n';
 
 	/** Tempo con el que arranca cada ejercicio. */
 	const DEFAULT_BPM = 90;
@@ -64,12 +67,6 @@
 		return (themes[character] ??= createSkyTheme(character));
 	}
 
-	/** Texto legible sobre el color de cinturón del nivel (blanco, amarillo… o negro). */
-	function ink(hex: string): string {
-		const n = parseInt(hex.slice(1), 16);
-		const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-		return lum > 0.6 ? '#1b2240' : '#fff';
-	}
 	let selectedId = $state(byLevel()[0].exercises[0].id);
 	let low = $state(45); // A2 (tenor)
 	let high = $state(72); // C5
@@ -87,7 +84,6 @@
 
 	let demo = $state(true); // sin micrófono hasta que se active
 	let micError = $state('');
-	let search = $state('');
 	let customizing = $state(false);
 	let creating = $state(false);
 	/** Selector de rango: se abre al tocar las notas a los lados de la barra de repeticiones. */
@@ -95,8 +91,10 @@
 
 	/** Descripción sugerida por el entrenador de IA para abrir el creador con el texto escrito. */
 	let suggestedPrompt = $state('');
-	/** Panel desplegable del escenario (ejercicios o ritmos); se cierra al elegir y al empezar a jugar. */
-	let panel = $state<'exercises' | 'rhythms' | null>(null);
+	/** Lista desplegable de ritmos del escenario; se cierra al elegir y al empezar a jugar. */
+	let panel = $state<'rhythms' | null>(null);
+	/** Visor de ejercicios (cuadrícula de niveles y tarjeta con el patrón). */
+	let browsing = $state(false);
 	/** Guía de inicio: se abre sola la primera vez y se repite desde el menú de configuración. */
 	let onboarding = $state(false);
 	/** Paso con el que abre la guía y ejercicio que recomienda tras la prueba de nivel. */
@@ -172,19 +170,8 @@
 		guide,
 		tolerance
 	});
-	const query = $derived(search.trim().toLowerCase());
-	const levels = $derived(
-		byLevel(
-			query
-				? visible.filter((e) =>
-						[e.name, e.name_en, e.category, e.parsed.meta.description, e.description_en]
-							.join(' ')
-							.toLowerCase()
-							.includes(query)
-					)
-				: visible
-		)
-	);
+	/** Niveles con los ejercicios que se ven: el catálogo y los desbloqueados de la biblioteca. */
+	const levels = $derived(byLevel(visible));
 
 	onMount(() => {
 		loadSettings();
@@ -253,6 +240,7 @@
 			!creating &&
 			!customizing &&
 			!rangeOpen &&
+			!browsing &&
 			!panel
 			? nextTip()
 			: undefined
@@ -443,7 +431,6 @@
 	});
 
 	/** Nombre del ritmo sin el compás: ya está en el título del grupo. */
-	const rhythmName = (p: DrumPattern) => p.name.replace(/\s*(4\/4|6\/8)\s*/, ' ').trim();
 
 	/** Elige el ritmo de la lista y enciende la batería. */
 	function pickRhythm(id: string) {
@@ -515,34 +502,6 @@
 	{/if}
 {/snippet}
 
-<!-- Fila de la lista de ritmos: elegir el patrón (y encender la batería); los de otro compás se ven en gris -->
-{#snippet rhythmRow(p: DrumPattern, active: boolean)}
-	{@const mineOwn = p.id.startsWith('my-drum-')}
-	<div class="mt-1 flex items-stretch gap-1">
-		<button
-			class="ex-card !mt-0 min-w-0 flex-1 {active && p.id === drumPattern.id ? 'ex-card-on' : ''}"
-			aria-pressed={active && p.id === drumPattern.id}
-			disabled={!active}
-			onclick={() => pickRhythm(p.id)}
-		>
-			<span class="min-w-0 flex-1 truncate"
-				>{#if mineOwn}✨
-				{/if}{rhythmName(p)}</span
-			>
-		</button>
-		{#if mineOwn}
-			<button
-				class="trash-btn"
-				aria-label={t('create.delete')}
-				title={t('create.delete')}
-				onclick={() => removeMyDrum(p.id)}
-			>
-				<Icon name="trash" class="h-4 w-4" />
-			</button>
-		{/if}
-	</div>
-{/snippet}
-
 <!-- Columna de la derecha (solo fuera del juego): micrófono y perfil -->
 {#snippet side()}
 	<div class="flex flex-col items-center gap-3">
@@ -563,22 +522,22 @@
 	</div>
 {/snippet}
 
-<!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): botones grandes; los dos primeros abren paneles -->
+<!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): botones grandes; el de ritmos abre un panel -->
 {#snippet menu()}
 	<div class="relative">
 		<div class="flex flex-col gap-3 pl-2">
 			<button
-				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 {panel ===
-				'exercises'
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 {browsing
 					? 'outline-4 outline-white/90'
 					: ''}"
-				aria-expanded={panel === 'exercises'}
+				aria-haspopup="dialog"
 				aria-label={t('menu.exercises')}
 				title={t('menu.exercises')}
 				data-tip="exercises"
 				onclick={() => {
 					markSeen('exercises');
-					panel = panel === 'exercises' ? null : 'exercises';
+					panel = null;
+					browsing = true;
 				}}
 			>
 				<span class="skew-icon"><Icon name="note" class="h-9 w-9" /></span>
@@ -588,13 +547,13 @@
 				'rhythms'
 					? 'outline-4 outline-white/90'
 					: ''}"
-				aria-expanded={panel === 'rhythms'}
+				aria-haspopup="dialog"
 				aria-label={t('rhythms.title')}
 				title={t('rhythms.title')}
 				data-tip="rhythms"
 				onclick={() => {
 					markSeen('rhythms');
-					panel = panel === 'rhythms' ? null : 'rhythms';
+					panel = 'rhythms';
 				}}
 			>
 				<span class="skew-icon"><Icon name="drum" class="h-9 w-9" /></span>
@@ -627,144 +586,15 @@
 				<span class="skew-icon"><Icon name="palette" class="h-9 w-9" /></span>
 			</button>
 		</div>
-		{#if panel === 'exercises'}
-			<div
-				class="panel absolute top-0 left-[5.5rem] flex max-h-[min(36rem,calc(100dvh-9rem))] w-72 max-w-[calc(100vw-7rem)] flex-col"
-			>
-				<div class="border-b border-border p-2">
-					<input
-						type="search"
-						placeholder={t('catalog.search')}
-						bind:value={search}
-						class="w-full rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm outline-none focus:border-accent"
-					/>
-				</div>
-				<div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
-					{#if mine.list.length && !query}
-						<details class="group level-card">
-							<summary
-								class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
-								style:--ribbon="#8b5cf6"
-							>
-								<span class="ribbon-dot" aria-hidden="true">✨</span>
-								<span class="truncate">{t('create.mine')}</span>
-								<span class="ml-auto rounded-full bg-black/15 px-2 text-xs font-bold"
-									>{mine.list.length}</span
-								>
-								<span class="transition group-open:rotate-90">›</span>
-							</summary>
-							<div class="px-1 pb-2">
-								{#each mine.list as e (e.id)}
-									<div class="mt-1 flex items-stretch gap-1">
-										<button
-											class="ex-card !mt-0 min-w-0 flex-1 {e.id === selectedId ? 'ex-card-on' : ''}"
-											aria-current={e.id === selectedId}
-											title={e.parsed.meta.description}
-											onclick={() => {
-												stop();
-												selectedId = e.id;
-												panel = null;
-											}}
-										>
-											<span class="min-w-0 flex-1 truncate"
-												>{exerciseText(e, settings.lang).name}</span
-											>
-										</button>
-										<button
-											class="trash-btn"
-											aria-label={t('create.delete')}
-											title={t('create.delete')}
-											onclick={() => removeMine(e.id)}
-										>
-											<Icon name="trash" class="h-4 w-4" />
-										</button>
-									</div>
-								{/each}
-							</div>
-						</details>
-					{/if}
-
-					{#each levels as lv (lv.level)}
-						<details class="group level-card" open={!!query}>
-							<summary
-								class="ribbon flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none"
-								style:--ribbon={lv.color}
-								style:--ribbon-fg={ink(lv.color)}
-							>
-								<span class="ribbon-dot" aria-hidden="true">{lv.level}</span>
-								<span class="font-bold">{t('catalog.level')} {lv.level}</span>
-								<span class="truncate text-sm font-semibold"
-									>{tDynamic(`level.${lv.level}`, lv.name)}</span
-								>
-								<span class="ml-auto rounded-full bg-black/15 px-2 text-xs font-bold"
-									>{lv.exercises.length}</span
-								>
-								<span class="transition group-open:rotate-90">›</span>
-							</summary>
-							<div class="px-1 pb-2">
-								{#each lv.exercises as e, i (e.id)}
-									<button
-										class="ex-card flex items-center gap-2 {e.id === selectedId
-											? 'ex-card-on'
-											: ''}"
-										aria-current={e.id === selectedId}
-										onclick={() => {
-											stop();
-											selectedId = e.id;
-											panel = null;
-										}}
-									>
-										<span class="ex-num" aria-hidden="true">{i + 1}</span>
-										<span class="min-w-0 flex-1">{shortName(e, settings.lang)}</span>
-									</button>
-								{/each}
-							</div>
-						</details>
-					{/each}
-				</div>
-			</div>
-		{:else if panel === 'rhythms'}
-			<div
-				class="panel absolute top-0 left-[5.5rem] flex max-h-[min(36rem,calc(100dvh-9rem))] w-72 max-w-[calc(100vw-7rem)] flex-col"
-			>
-				<div class="min-h-0 flex-1 overflow-y-auto p-2 pb-3">
-					<div class="px-2 pt-2 pb-1">
-						<div class="mb-1 text-[11px] font-bold tracking-wide text-muted uppercase">
-							{t('rhythms.speed')}
-						</div>
-						<div class="pill-group !h-8 w-full" role="group" aria-label={t('rhythms.speed')}>
-							{#each [[false, 'rhythms.speedNormal'], [true, 'rhythms.speedHalf']] as const as [half, label] (label)}
-								<button
-									class="flex-1 px-1 text-xs font-semibold transition {drumsHalf === half
-										? 'bg-accent text-white'
-										: 'hover:bg-surface-2'}"
-									aria-pressed={drumsHalf === half}
-									onclick={() => (drumsHalf = half)}
-								>
-									{t(label)}
-								</button>
-							{/each}
-						</div>
-					</div>
-					{#each rhythmGroups as g (g.meter)}
-						<div
-							class="px-2 pt-2 pb-0.5 text-sm font-extrabold {g.meter === meter
-								? 'text-accent-dark'
-								: 'text-muted'}"
-						>
-							{g.meter}
-						</div>
-						{#each g.patterns as p (p.id)}{@render rhythmRow(p, g.meter === meter)}{/each}
-					{/each}
-				</div>
-			</div>
-		{/if}
 	</div>
 {/snippet}
 
 <svelte:document onpointerdown={onPointerDown} />
 
 <div class="flex h-dvh flex-col">
+	<!-- TEMPORAL: probador de tipografías -->
+	<FontTester />
+
 	{#if micError}
 		<div class="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
 			<div
@@ -859,6 +689,35 @@
 		</main>
 	</div>
 </div>
+
+{#if browsing}
+	<ExerciseBrowser
+		{levels}
+		mine={mine.list}
+		{selectedId}
+		{low}
+		{high}
+		onPick={(id) => {
+			stop();
+			selectedId = id;
+			browsing = false;
+		}}
+		onDelete={removeMine}
+		onClose={() => (browsing = false)}
+	/>
+{/if}
+
+{#if panel === 'rhythms'}
+	<RhythmPicker
+		groups={rhythmGroups}
+		{meter}
+		activeId={drumPattern.id}
+		bind:half={drumsHalf}
+		onPick={pickRhythm}
+		onDelete={removeMyDrum}
+		onClose={() => (panel = null)}
+	/>
+{/if}
 
 {#if rangeOpen}
 	<RangePicker

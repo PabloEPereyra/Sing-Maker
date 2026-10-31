@@ -19,6 +19,7 @@
 	import type { DrumResult } from '$lib/ai/drums';
 	import type { MeterId } from '$lib/music/meter';
 	import CreateDrumPanel from './CreateDrumPanel.svelte';
+	import PatternPreview from './PatternPreview.svelte';
 	import PianoRoll from './PianoRoll.svelte';
 	import VoiceExerciseDialog from './VoiceExerciseDialog.svelte';
 	import type { PitchDetector } from '$lib/audio/pitch';
@@ -192,27 +193,6 @@
 		}
 	}
 
-	/** Contorno del patrón para la vista previa (barras por nota). */
-	const preview = $derived.by(() => {
-		if (!result) return null;
-		const notes = result.exercise.notes;
-		const pitched = notes.filter((n) => !n.rest).map((n) => n.s);
-		const lo = Math.min(...pitched);
-		const hi = Math.max(...pitched);
-		const total = notes.reduce((a, n) => a + n.d, 0);
-		let x = 0;
-		return notes.map((n) => {
-			const bar = {
-				x: (x / total) * 100,
-				w: (n.d / total) * 100,
-				y: n.rest ? null : hi === lo ? 50 : 85 - ((n.s - lo) / (hi - lo)) * 70,
-				hint: !!n.hint
-			};
-			x += n.d;
-			return bar;
-		});
-	});
-
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') onClose();
 	}
@@ -245,7 +225,7 @@
 		>
 			{#each [['exercise', 'create.tabExercise'], ['drums', 'create.tabDrums']] as const as [id, label] (id)}
 				<button
-					class="flex-1 rounded-md px-3 py-1.5 font-semibold {tab === id
+					class="flex-1 rounded-md px-3 py-1.5 font-display {tab === id
 						? 'bg-accent text-white'
 						: 'text-muted hover:text-fg'}"
 					role="tab"
@@ -429,24 +409,11 @@
 					</div>
 				{/if}
 
-				{#if result && preview}
+				{#if result}
 					<div class="mt-4 rounded-lg border border-border bg-base p-3">
 						<div class="font-bold">{result.exercise.name}</div>
 						<div class="text-sm text-muted">{result.exercise.description}</div>
-						<svg viewBox="0 0 100 100" preserveAspectRatio="none" class="mt-2 h-20 w-full">
-							{#each preview as b, i (i)}
-								{#if b.y !== null}
-									<rect
-										x={b.x + 0.3}
-										y={b.y - 4}
-										width={Math.max(0.6, b.w - 0.6)}
-										height="8"
-										rx="2"
-										class={b.hint ? 'fill-muted/40' : 'fill-accent'}
-									/>
-								{/if}
-							{/each}
-						</svg>
+						<PatternPreview notes={result.exercise.notes} class="mt-2 h-20 w-full" />
 						{#if editing}
 							<div class="mt-2">
 								<PianoRoll
