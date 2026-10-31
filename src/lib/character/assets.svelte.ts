@@ -58,6 +58,22 @@ export async function addItem(rec: Omit<ItemRecord, 'id' | 'createdAt'>): Promis
 	return plain;
 }
 
+/** Reemplaza un objeto guardado (editado). */
+export async function updateItem(rec: ItemRecord): Promise<void> {
+	const plain = $state.snapshot(rec) as ItemRecord;
+	await idbRun('items', 'readwrite', (s) => s.put(plain));
+	assets.items = assets.items.map((i) => (i.id === plain.id ? plain : i));
+}
+
+/** Copia de un objeto (una variante para retocar sin tocar el original); la hoja es una imagen que no cambia. */
+export function duplicateItem(rec: ItemRecord, suffix: string): Promise<ItemRecord> {
+	return addItem({
+		name: `${rec.name} (${suffix})`.slice(0, 30),
+		sheet: rec.sheet,
+		style: rec.style
+	});
+}
+
 export async function removeItem(id: string): Promise<void> {
 	await idbRun('items', 'readwrite', (s) => s.delete(id));
 	assets.items = assets.items.filter((i) => i.id !== id);
@@ -68,6 +84,23 @@ export async function addScene(rec: Omit<SceneRecord, 'id' | 'createdAt'>): Prom
 	await idbRun('scenes', 'readwrite', (s) => s.put(plain));
 	assets.scenes = [...assets.scenes, plain];
 	return plain;
+}
+
+/** Reemplaza un fondo guardado (editado). */
+export async function updateScene(rec: SceneRecord): Promise<void> {
+	const plain = $state.snapshot(rec) as SceneRecord;
+	await idbRun('scenes', 'readwrite', (s) => s.put(plain));
+	assets.scenes = assets.scenes.map((x) => (x.id === plain.id ? plain : x));
+}
+
+/** Copia de un fondo (una variante para retocar sin tocar el original). */
+export function duplicateScene(rec: SceneRecord, suffix: string): Promise<SceneRecord> {
+	return addScene({
+		name: `${rec.name} (${suffix})`.slice(0, 30),
+		movement: rec.movement,
+		image: rec.image,
+		ground: rec.ground
+	});
 }
 
 export async function removeScene(id: string): Promise<void> {

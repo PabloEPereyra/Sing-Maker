@@ -21,11 +21,14 @@
 	import CreateCharacterDialog from './CreateCharacterDialog.svelte';
 	import CreateItemDialog from './CreateItemDialog.svelte';
 	import CreateSceneDialog from './CreateSceneDialog.svelte';
+	import EditAssetDialog from './EditAssetDialog.svelte';
 	import SceneThumb from './SceneThumb.svelte';
 	import {
 		addItem,
 		addScene,
 		assets,
+		duplicateItem,
+		duplicateScene,
 		MAX_ITEMS,
 		MAX_SCENES,
 		removeItem,
@@ -39,6 +42,10 @@
 	let creatingItem = $state(false);
 	let creatingScene = $state(false);
 	let editing = $state<CharacterRecord | null>(null);
+	/** Objeto o fondo que se está editando (nombre y, en fondos para caminantes, altura del suelo). */
+	let editingAsset = $state<
+		{ kind: 'item'; record: ItemRecord } | { kind: 'scene'; record: SceneRecord } | null
+	>(null);
 	let importing = $state(false);
 	let importError = $state('');
 
@@ -96,6 +103,25 @@
 					: t('char.imp.notZip');
 		} finally {
 			importingAsset = false;
+		}
+	}
+	/** Duplica un objeto o un fondo y deja elegida la copia. */
+	async function duplicateAsset(kind: 'item' | 'scene', record: ItemRecord | SceneRecord) {
+		assetError = '';
+		try {
+			if (kind === 'item') {
+				if (assets.items.length >= MAX_ITEMS)
+					return (assetError = t('item.full', { n: MAX_ITEMS }));
+				const copy = await duplicateItem(record as ItemRecord, t('char.copy'));
+				settings.collectible = `custom:${copy.id}`;
+			} else {
+				if (assets.scenes.length >= MAX_SCENES)
+					return (assetError = t('scene.full', { n: MAX_SCENES }));
+				const copy = await duplicateScene(record as SceneRecord, t('char.copy'));
+				selectScene(copy.id, copy.movement);
+			}
+		} catch {
+			assetError = t('card.error');
 		}
 	}
 	const exportItem = async (it: ItemRecord) =>
@@ -359,12 +385,18 @@
 						</div>
 						<span class="max-w-full truncate text-sm font-semibold">{it.name}</span>
 					</button>
-					<button
-						class="absolute top-1 left-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-accent focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
-						aria-label={t('char.export')}
-						title={t('item.exportHelp')}
-						onclick={() => exportItem(it)}>⬇</button
+					<div
+						class="absolute top-1 left-1 flex gap-1 opacity-0 transition group-focus-within/item:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
 					>
+						{#each [{ key: 'char.export', help: 'item.exportHelp', icon: '⬇', run: () => exportItem(it) }, { key: 'item.edit', help: 'item.edit', icon: '✎', run: () => (editingAsset = { kind: 'item', record: it }) }, { key: 'item.duplicate', help: 'item.duplicate', icon: '⧉', run: () => duplicateAsset('item', it) }] as a (a.key)}
+							<button
+								class="grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted hover:text-accent"
+								aria-label={tDynamic(a.key)}
+								title={tDynamic(a.help)}
+								onclick={a.run}>{a.icon}</button
+							>
+						{/each}
+					</div>
 					<button
 						class="absolute top-1 right-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
 						aria-label={t('item.delete')}
@@ -438,12 +470,18 @@
 							>{t(sc.movement === 'fly' ? 'scene.forFlyer' : 'scene.forWalker')}</span
 						>
 					</button>
-					<button
-						class="absolute top-1 left-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-accent focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
-						aria-label={t('char.export')}
-						title={t('scene.exportHelp')}
-						onclick={() => exportScene(sc)}>⬇</button
+					<div
+						class="absolute top-1 left-1 flex gap-1 opacity-0 transition group-focus-within/item:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
 					>
+						{#each [{ key: 'char.export', help: 'scene.exportHelp', icon: '⬇', run: () => exportScene(sc) }, { key: 'scene.edit', help: 'scene.edit', icon: '✎', run: () => (editingAsset = { kind: 'scene', record: sc }) }, { key: 'scene.duplicate', help: 'scene.duplicate', icon: '⧉', run: () => duplicateAsset('scene', sc) }] as a (a.key)}
+							<button
+								class="grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted hover:text-accent"
+								aria-label={tDynamic(a.key)}
+								title={tDynamic(a.help)}
+								onclick={a.run}>{a.icon}</button
+							>
+						{/each}
+					</div>
 					<button
 						class="absolute top-1 right-1 grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted opacity-0 group-hover/item:opacity-100 hover:text-red-600 focus-visible:opacity-100 [@media(hover:none)]:opacity-100"
 						aria-label={t('scene.delete')}
@@ -508,4 +546,8 @@
 		onClose={() => (editing = null)}
 		onCreated={() => (editing = null)}
 	/>
+{/if}
+
+{#if editingAsset}
+	<EditAssetDialog target={editingAsset} onClose={() => (editingAsset = null)} />
 {/if}

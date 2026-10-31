@@ -18,6 +18,7 @@
 	import { t } from '$lib/i18n';
 	import DifficultyBadge from './DifficultyBadge.svelte';
 	import Icon from './Icon.svelte';
+	import ShareCard from './ShareCard.svelte';
 
 	interface Props {
 		theme: Theme;
@@ -52,6 +53,8 @@
 		onTryHarder?: (level: Difficulty) => void;
 		/** Tocar las notas del rango (a los lados de la barra de repeticiones): abre el selector de rango. */
 		onRange?: () => void;
+		/** Al terminar un ejercicio: porcentaje de estrellas recogidas (para el historial). */
+		onFinish?: (percent: number) => void;
 		onStart: () => void;
 		onNext: () => void;
 	}
@@ -73,6 +76,7 @@
 		side,
 		onTryHarder,
 		onRange,
+		onFinish,
 		onStart,
 		onNext
 	}: Props = $props();
@@ -82,6 +86,13 @@
 	let status = $state<GameStatus | null>(null);
 	let performance = $state<PerformanceSummary | null>(null);
 	let harder = $state<{ level: Difficulty; percent: number } | null>(null);
+	/** El canvas del juego: de ahí sale la escena de la tarjeta compartible. */
+	const sceneCanvas = () => canvas;
+	/** Tarjeta compartible del resultado (se abre desde el panel final). */
+	let cardOpen = $state(false);
+
+	// Cuenta cada fin de ejercicio una sola vez, aunque el estado se actualice varias veces en `done`.
+	let finished = false;
 
 	onMount(() => {
 		let disposed = false;
@@ -91,6 +102,13 @@
 			created = new Game(canvas, theme, (s) => {
 				status = s;
 				phase = s.phase;
+				if (s.phase === 'done' && !finished) {
+					finished = true;
+					onFinish?.(s.total ? Math.round((s.collected / s.total) * 100) : 0);
+				} else if (s.phase !== 'done') {
+					finished = false;
+					cardOpen = false;
+				}
 				if (s.phase === 'done' && created) {
 					desync = created.looksDesynced;
 					performance = created.performance;
@@ -447,6 +465,15 @@
 								<Icon name="retry" class="h-4 w-4" />
 								{t('stage.retry')}
 							</button>
+							{#if !demo}
+								<button
+									class="flex items-center gap-1.5 rounded-lg bg-surface-2 px-4 py-2 font-semibold hover:bg-border"
+									onclick={() => (cardOpen = true)}
+								>
+									<Icon name="share" class="h-4 w-4" />
+									{t('card.button')}
+								</button>
+							{/if}
 							<button
 								class="rounded-lg bg-accent px-5 py-2 font-bold text-white hover:brightness-105"
 								onclick={onNext}
@@ -460,6 +487,22 @@
 		{/if}
 	{/if}
 
+	{#if cardOpen && status}
+		<ShareCard
+			scene={sceneCanvas()}
+			info={{
+				title,
+				pct,
+				collected: status.collected,
+				total: status.total,
+				heading: t('card.heading'),
+				detail: t('card.detail', { n: status.collected, total: status.total }),
+				footer: `${diffLabel} · ${new Date().toLocaleDateString(settings.lang)}`
+			}}
+			onClose={() => (cardOpen = false)}
+		/>
+	{/if}
+
 	{#if menu && !playing}
 		<div class="absolute top-3 left-3 z-20">
 			{@render menu()}
@@ -467,7 +510,7 @@
 	{/if}
 
 	{#if side && !playing}
-		<div class="absolute top-[4.75rem] right-3 z-20">
+		<div class="absolute top-[4.75rem] right-3 z-20 short:top-14">
 			{@render side()}
 		</div>
 	{/if}
@@ -475,7 +518,7 @@
 	{#if !playing}
 		<!-- Marca: solo en reposo, abajo a la izquierda -->
 		<div class="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-2">
-			<img src="/logo.png" alt="" class="h-12 w-12 drop-shadow-md" />
+			<img src="/logo.png" alt="" class="h-12 w-12 drop-shadow-md short:h-9 short:w-9" />
 			<span class="logo-text hidden text-2xl leading-tight font-bold sm:inline">Sing Maker</span>
 		</div>
 	{/if}

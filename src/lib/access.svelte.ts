@@ -1,6 +1,8 @@
-// Código de acceso a las funciones con IA (lo reparte quien administra el sitio). Se guarda en el
-// navegador y se manda en el encabezado X-Access-Code de cada pedido al servidor.
+// Quién hace los pedidos a las funciones con IA. Siempre se manda un identificador anónimo del navegador
+// (X-Client-Id) con el que el servidor cuenta el cupo de cada persona; si el sitio reparte códigos de
+// acceso, también el código guardado (X-Access-Code).
 const KEY = 'singmaker-access';
+const CLIENT_KEY = 'singmaker-client';
 
 export const access = $state({ code: '' });
 
@@ -20,4 +22,33 @@ export function saveAccess(code: string): void {
 	} catch {
 		// sin almacenamiento: solo dura esta sesión
 	}
+}
+
+let client = '';
+
+/** Identificador anónimo de este navegador: se crea la primera vez y se guarda. */
+export function clientId(): string {
+	if (client) return client;
+	try {
+		client = localStorage.getItem(CLIENT_KEY) ?? '';
+	} catch {
+		// sin almacenamiento: el identificador dura lo que la pestaña
+	}
+	if (!client) {
+		client = crypto.randomUUID();
+		try {
+			localStorage.setItem(CLIENT_KEY, client);
+		} catch {
+			// idem
+		}
+	}
+	return client;
+}
+
+/** Encabezados de identificación de cada pedido al servidor. */
+export function identityHeaders(): Record<string, string> {
+	return {
+		'X-Client-Id': clientId(),
+		...(access.code ? { 'X-Access-Code': access.code } : {})
+	};
 }

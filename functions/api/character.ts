@@ -43,11 +43,13 @@ export async function onRequestPost({
 	} catch {
 		return json({ error: 'Invalid request.' }, 400);
 	}
-	// Las imágenes (personaje, tiras, fondos) son lo que más cuesta: tienen su propio cupo.
+	// Las imágenes son lo que más cuesta: el personaje (imagen principal) cuenta aparte de las tiras y los fondos.
 	const bucket: Bucket =
-		input.action === 'hero' || input.action === 'strip' || input.action === 'scene'
-			? 'images'
-			: 'other';
+		input.action === 'hero'
+			? 'characters'
+			: input.action === 'strip' || input.action === 'scene'
+				? 'images'
+				: 'other';
 	const gate = await charge(request, env, bucket);
 	if (!gate.ok) return json({ error: gate.error, bucket: gate.bucket }, gate.status);
 	const config = configFromEnv(env);

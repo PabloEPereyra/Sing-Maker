@@ -1,5 +1,6 @@
 // Escuchar un patrón una vez (antes de practicarlo): lo toca el piano sobre una raíz cómoda.
-import type { ParsedNote } from '$lib/music/parser';
+import { rootsInRange } from '$lib/music/generate';
+import type { Direction, ParsedNote } from '$lib/music/parser';
 import { hitsAt, patternSteps, type DrumPattern } from './drums';
 import { getContext, loadDrums, loadPiano, playDrum, playNote, stopAll } from './engine';
 
@@ -9,6 +10,19 @@ export function previewRoot(notes: ParsedNote[], low: number, high: number): num
 	const lo = Math.min(0, ...offsets);
 	const hi = Math.max(0, ...offsets);
 	return Math.round((low + high) / 2 - (lo + hi) / 2);
+}
+
+/**
+ * Raíz de la primera repetición que se cantaría en el juego (la más grave, o la más aguda si el ejercicio
+ * desciende), para que el preview suene igual que lo que viene. Si el patrón no cabe en el rango, la centrada.
+ */
+export function firstRoot(
+	notes: ParsedNote[],
+	low: number,
+	high: number,
+	direction: Direction
+): number {
+	return rootsInRange(notes, low, high, direction)[0] ?? previewRoot(notes, low, high);
 }
 
 /**

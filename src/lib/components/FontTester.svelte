@@ -52,6 +52,8 @@
 	/** Fuentes que Google Fonts no devolvió (nombre mal escrito o inexistente). */
 	let failed = $state<Record<Key, boolean>>({ display: false, sans: false });
 
+	// caché simple de los CSS ya bajados; no hace falta que sea reactiva
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const cache = new Map<string, string>();
 	const token: Record<Key, number> = { display: 0, sans: 0 };
 	const styles: Partial<Record<Key, HTMLStyleElement>> = {};

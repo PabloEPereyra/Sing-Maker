@@ -1,20 +1,21 @@
 <script lang="ts">
-	// Código de acceso a las funciones con IA y lo que lleva gastado del cupo. Solo se muestra si el
-	// servidor tiene códigos configurados (si no, el acceso es libre y esto no hace falta).
+	// Lo que lleva gastado esta persona de su cupo con IA y, si el sitio reparte códigos de acceso, el campo
+	// para escribir el código. Sin servidor de cupos (desarrollo) no se muestra nada.
 	import { onMount } from 'svelte';
-	import { access, saveAccess } from '$lib/access.svelte';
+	import { access, identityHeaders, saveAccess } from '$lib/access.svelte';
 	import type { Bucket } from '$lib/ai/http';
 	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
 
 	interface Report {
 		open: boolean;
+		codes?: boolean;
 		name?: string;
 		used?: Record<Bucket, number>;
 		limits?: Record<Bucket, number>;
 	}
 
-	/** `none`: sin servidor de cupos; `locked`: hay códigos y falta uno válido; `ok`: código válido. */
+	/** `none`: sin servidor de cupos; `locked`: hay códigos y falta uno válido; `ok`: persona reconocida. */
 	let mode = $state<'unknown' | 'none' | 'locked' | 'ok'>('unknown');
 	let report = $state<Report | null>(null);
 	let message = $state('');
@@ -26,10 +27,7 @@
 		try {
 			const res = await fetch('/api/quota', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					...(access.code ? { 'X-Access-Code': access.code } : {})
-				},
+				headers: { 'Content-Type': 'application/json', ...identityHeaders() },
 				body: '{}'
 			});
 			const data = await res.json().catch(() => null);
@@ -58,13 +56,13 @@
 	<div class="menu-row-static">
 		<div class="flex items-center gap-2.5 text-sm">
 			<Icon name="key" class="h-5 w-5 shrink-0 text-accent" />
-			{t('access.title')}
-			{#if report?.name}<span class="ml-auto truncate text-xs font-bold text-accent"
+			{report?.codes === false ? t('access.usage') : t('access.title')}
+			{#if report?.codes && report.name}<span class="ml-auto truncate text-xs font-bold text-accent"
 					>{report.name}</span
 				>{/if}
 		</div>
 		<form
-			class="mt-1.5 flex gap-1.5"
+			class="mt-1.5 flex gap-1.5 {mode === 'ok' && report?.codes === false ? 'hidden' : ''}"
 			onsubmit={(e) => {
 				e.preventDefault();
 				save();
@@ -90,7 +88,7 @@
 		{#if message}<p class="mt-1 text-xs text-red-600">{message}</p>{/if}
 		{#if report?.used && report.limits}
 			<dl class="mt-1.5 space-y-0.5 text-xs text-muted">
-				{#each ['exercises', 'images'] as const as b (b)}
+				{#each ['exercises', 'characters'] as const as b (b)}
 					<div class="flex justify-between">
 						<dt>{t(`access.used.${b}`)}</dt>
 						<dd class="font-semibold tabular-nums">{report.used[b]} / {report.limits[b]}</dd>

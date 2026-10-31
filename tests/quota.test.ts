@@ -65,9 +65,10 @@ describe('códigos y límites', () => {
 
 	it('los límites tienen valores por defecto y se pueden cambiar', () => {
 		expect(limitsFromEnv({})).toEqual(DEFAULT_LIMITS);
-		expect(DEFAULT_LIMITS).toEqual({ exercises: 500, images: 250, other: 3000 });
+		expect(DEFAULT_LIMITS).toEqual({ exercises: 200, characters: 50, images: 250, other: 3000 });
 		expect(limitsFromEnv({ LIMIT_EXERCISES: '10', LIMIT_IMAGES: '0', LIMIT_OTHER: 'x' })).toEqual({
 			exercises: 10,
+			characters: 50,
 			images: 0,
 			other: 3000
 		});
@@ -142,11 +143,65 @@ describe('cupos por persona', () => {
 		await charge(req('K3f9'), env, 'images');
 		expect(await usageFor(req('K3f9'), env)).toEqual({
 			open: false,
+			codes: true,
 			name: 'ana',
-			used: { exercises: 1, images: 2, other: 0 },
+			used: { exercises: 1, characters: 0, images: 2, other: 0 },
 			limits: DEFAULT_LIMITS
 		});
 		expect(await usageFor(req(), {})).toEqual({ open: true });
 		expect(await usageFor(req('x'), env)).toMatchObject({ ok: false, status: 401 });
+	});
+});
+
+describe('cupos por dispositivo (sin códigos)', () => {
+	const ID = 'a1b2c3d4-e5f6-4789-abcd-0123456789ab';
+	const dev = (id?: string) =>
+		new Request('https://x.test/api/generate', {
+			method: 'POST',
+			headers: id ? { 'X-Client-Id': id } : {}
+		});
+
+	it('sin códigos ni base de datos el acceso es libre', async () => {
+		expect(await charge(dev(ID), {}, 'exercises')).toEqual({ ok: true, user: null });
+	});
+
+	it('con base de datos cuenta por identificador y corta en el tope', async () => {
+		const db = fakeDb();
+		const env: QuotaEnv = { DB: db, LIMIT_EXERCISES: '2' };
+		const user = `device:${ID}`;
+		expect(await charge(dev(ID), env, 'exercises')).toEqual({ ok: true, user });
+		expect(await charge(dev(ID), env, 'exercises')).toEqual({ ok: true, user });
+		expect(await charge(dev(ID), env, 'exercises')).toMatchObject({ ok: false, status: 429 });
+		expect(await charge(dev('zzzzzzzz-other-device-id'), env, 'exercises')).toMatchObject({
+			ok: true
+		});
+	});
+
+	it('pide el identificador y rechaza uno mal formado', async () => {
+		const env: QuotaEnv = { DB: fakeDb() };
+		expect(await charge(dev(), env, 'exercises')).toMatchObject({
+			ok: false,
+			status: 400,
+			error: 'client_id_required'
+		});
+		expect(await charge(dev('corto'), env, 'exercises')).toMatchObject({ status: 400 });
+		expect(await charge(dev('con espacios y símbolos!!'), env, 'exercises')).toMatchObject({
+			status: 400
+		});
+	});
+
+	it('el personaje cuenta aparte de las imágenes y informa que no hay códigos', async () => {
+		const env: QuotaEnv = { DB: fakeDb(), LIMIT_CHARACTERS: '1' };
+		await charge(dev(ID), env, 'characters');
+		expect(await charge(dev(ID), env, 'characters')).toMatchObject({
+			status: 429,
+			bucket: 'characters'
+		});
+		expect(await charge(dev(ID), env, 'images')).toMatchObject({ ok: true });
+		expect(await usageFor(dev(ID), env)).toMatchObject({
+			open: false,
+			codes: false,
+			used: { exercises: 0, characters: 1, images: 1, other: 0 }
+		});
 	});
 });

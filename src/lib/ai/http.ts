@@ -1,10 +1,10 @@
-// Pedidos JSON al servidor (/api/*): agregan el código de acceso y traducen los errores de acceso y
+// Pedidos JSON al servidor (/api/*): agregan la identificación y traducen los errores de acceso y
 // de cupo (401 y 429) a mensajes para la persona. Los demás errores los resuelve quien llama.
-import { access } from '../access.svelte';
+import { identityHeaders } from '../access.svelte';
 import { t } from '../i18n';
 import { GenerateRequestError } from './client';
 
-export type Bucket = 'exercises' | 'images' | 'other';
+export type Bucket = 'exercises' | 'characters' | 'images' | 'other';
 
 /** Cuerpo de las respuestas: el resultado, o `error` (con `details` y, en un cupo agotado, `bucket`). */
 export interface ApiBody {
@@ -16,7 +16,7 @@ export interface ApiBody {
 
 const headers = (): Record<string, string> => ({
 	'Content-Type': 'application/json',
-	...(access.code ? { 'X-Access-Code': access.code } : {})
+	...identityHeaders()
 });
 
 /** Mensaje legible para un error de acceso o de cupo, o `null` si es otro tipo de error. */

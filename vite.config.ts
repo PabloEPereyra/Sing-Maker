@@ -38,7 +38,8 @@ function devFunctions(): Plugin {
 							method: 'POST',
 							headers: {
 								'Content-Type': 'application/json',
-								'X-Access-Code': String(req.headers['x-access-code'] ?? '')
+								'X-Access-Code': String(req.headers['x-access-code'] ?? ''),
+								'X-Client-Id': String(req.headers['x-client-id'] ?? '')
 							},
 							body: Buffer.concat(chunks)
 						}),

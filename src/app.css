@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Pantallas bajas (celular acostado): `short:` achica botones y reordena lo que no entra en vertical. */
+@custom-variant short (@media (max-height: 480px));
+
 @theme {
 	--color-base: #f4f6fb;
 	--color-surface: #ffffff;
@@ -250,6 +253,15 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 .round-btn-on:hover {
 	background: var(--color-accent);
 	filter: brightness(1.08);
+}
+@media (max-height: 480px) {
+	.round-btn {
+		height: 2.25rem;
+		min-width: 2.25rem;
+	}
+	.level-tile {
+		min-height: 5.5rem;
+	}
 }
 .pill-group {
 	display: flex;
@@ -753,4 +765,29 @@ button.skew-btn.bg-accent.text-white:not(.text-left):active:not(:disabled) {
 .browser-btn:active {
 	transform: translateY(2px);
 	box-shadow: 0 1px 0 var(--color-frame-dark);
+}
+
+/* Aviso para girar el celular: solo en pantallas táctiles en vertical (el juego se juega acostado). */
+.rotate-guard {
+	display: none;
+}
+@media (orientation: portrait) and (pointer: coarse) and (max-width: 900px) {
+	/* El resto de la página se oculta: si desborda, el navegador ensancha la ventana y el aviso se descentra. */
+	body > div > :not(.rotate-guard) {
+		display: none !important;
+	}
+	.rotate-guard {
+		position: fixed;
+		inset: 0;
+		z-index: 1000;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem;
+		text-align: center;
+		color: #fff;
+		font-family: var(--font-display);
+		background: linear-gradient(180deg, var(--color-accent), var(--color-accent-dark));
+	}
 }

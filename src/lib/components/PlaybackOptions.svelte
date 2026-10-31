@@ -54,7 +54,7 @@
 
 <div bind:this={root} class="relative">
 	<button
-		class="grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 {open
+		class="grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 short:h-10 short:w-10 {open
 			? 'outline-4 outline-white/90'
 			: ''}"
 		aria-label={t('controls.options')}

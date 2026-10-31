@@ -7,6 +7,7 @@
 	import CustomizeDialog from '$lib/components/CustomizeDialog.svelte';
 	import CreateExerciseDialog from '$lib/components/CreateExerciseDialog.svelte';
 	import ExerciseBrowser from '$lib/components/ExerciseBrowser.svelte';
+	import PracticePlan from '$lib/components/PracticePlan.svelte';
 	import FontTester from '$lib/components/FontTester.svelte';
 	import RhythmPicker from '$lib/components/RhythmPicker.svelte';
 
@@ -47,6 +48,7 @@
 	import { toleranceOf, type Difficulty } from '$lib/game/difficulty';
 	import { setUiSoundsMuted, uiClick } from '$lib/audio/uiSounds';
 	import { loadAccess } from '$lib/access.svelte';
+	import { loadHistory, recordAttempt } from '$lib/practice/history.svelte';
 	import { loadTips, markAllSeen, markSeen, nextTip, recordDone } from '$lib/tips.svelte';
 	import { t } from '$lib/i18n';
 
@@ -95,6 +97,8 @@
 	let panel = $state<'rhythms' | null>(null);
 	/** Visor de ejercicios (cuadrícula de niveles y tarjeta con el patrón). */
 	let browsing = $state(false);
+	/** «Tu rutina de hoy». */
+	let planning = $state(false);
 	/** Guía de inicio: se abre sola la primera vez y se repite desde el menú de configuración. */
 	let onboarding = $state(false);
 	/** Paso con el que abre la guía y ejercicio que recomienda tras la prueba de nivel. */
@@ -179,6 +183,7 @@
 		loadUnlocked();
 		loadTips();
 		loadAccess();
+		loadHistory();
 
 		loadMyDrums();
 		void loadCharacters();
@@ -241,6 +246,7 @@
 			!customizing &&
 			!rangeOpen &&
 			!browsing &&
+			!planning &&
 			!panel
 			? nextTip()
 			: undefined
@@ -514,6 +520,20 @@
 		>
 			<Icon name="mic" class="h-5 w-5" />
 		</button>
+		<button
+			class="round-btn text-accent {planning ? 'outline-4 outline-white/90' : ''}"
+			aria-haspopup="dialog"
+			aria-label={t('routine.title')}
+			title={t('routine.title')}
+			data-tip="routine"
+			onclick={() => {
+				markSeen('routine');
+				panel = null;
+				planning = true;
+			}}
+		>
+			<Icon name="target" class="h-5 w-5" />
+		</button>
 		<ProfileMenu
 			getDetector={micForCalibration}
 			bind:highlight={desync}
@@ -525,9 +545,9 @@
 <!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): botones grandes; el de ritmos abre un panel -->
 {#snippet menu()}
 	<div class="relative">
-		<div class="flex flex-col gap-3 pl-2">
+		<div class="flex flex-col gap-3 pl-2 short:gap-2">
 			<button
-				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 {browsing
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 short:h-11 short:w-11 {browsing
 					? 'outline-4 outline-white/90'
 					: ''}"
 				aria-haspopup="dialog"
@@ -540,10 +560,10 @@
 					browsing = true;
 				}}
 			>
-				<span class="skew-icon"><Icon name="note" class="h-9 w-9" /></span>
+				<span class="skew-icon"><Icon name="note" class="h-9 w-9 short:h-6 short:w-6" /></span>
 			</button>
 			<button
-				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 {panel ===
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 short:h-11 short:w-11 {panel ===
 				'rhythms'
 					? 'outline-4 outline-white/90'
 					: ''}"
@@ -556,10 +576,10 @@
 					panel = 'rhythms';
 				}}
 			>
-				<span class="skew-icon"><Icon name="drum" class="h-9 w-9" /></span>
+				<span class="skew-icon"><Icon name="drum" class="h-9 w-9 short:h-6 short:w-6" /></span>
 			</button>
 			<button
-				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110"
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 short:h-11 short:w-11"
 				aria-label={t('create.button')}
 				title={t('create.button')}
 				data-tip="create"
@@ -570,10 +590,10 @@
 					creating = true;
 				}}
 			>
-				<span class="skew-icon"><Icon name="wand" class="h-9 w-9" /></span>
+				<span class="skew-icon"><Icon name="wand" class="h-9 w-9 short:h-6 short:w-6" /></span>
 			</button>
 			<button
-				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110"
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 short:h-11 short:w-11"
 				aria-label={t('header.customize')}
 				title={t('header.customize')}
 				data-tip="customize"
@@ -583,7 +603,7 @@
 					customizing = true;
 				}}
 			>
-				<span class="skew-icon"><Icon name="palette" class="h-9 w-9" /></span>
+				<span class="skew-icon"><Icon name="palette" class="h-9 w-9 short:h-6 short:w-6" /></span>
 			</button>
 		</div>
 	</div>
@@ -641,6 +661,10 @@
 					menu={placement ? undefined : menu}
 					{side}
 					onTryHarder={tryHarder}
+					onFinish={(pct) => {
+						// Solo cuenta lo cantado de verdad: ni la demostración ni la prueba de nivel
+						if (!demo && !placement) recordAttempt(exercise.id, pct);
+					}}
 					onRange={() => {
 						markSeen('range');
 						rangeOpen = true;
@@ -654,7 +678,7 @@
 			{#snippet controls()}
 				<div class="flex items-center justify-center gap-2 text-sm sm:gap-3">
 					<button
-						class="grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
+						class="grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 short:h-10 short:w-10"
 						aria-label={t('controls.stop')}
 						title={t('controls.stop')}
 						onclick={stop}
@@ -663,7 +687,7 @@
 					</button>
 					<button
 						data-tip="play"
-						class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
+						class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 short:h-12 short:w-12"
 						aria-label={running
 							? t('controls.pause')
 							: phase === 'paused'
@@ -704,6 +728,24 @@
 		}}
 		onDelete={removeMine}
 		onClose={() => (browsing = false)}
+	/>
+{/if}
+
+{#if planning}
+	<PracticePlan
+		pool={visible}
+		onPick={(id) => {
+			stop();
+			selectedId = id;
+			planning = false;
+		}}
+		onCreate={(prompt) => {
+			stop();
+			suggestedPrompt = prompt;
+			planning = false;
+			creating = true;
+		}}
+		onClose={() => (planning = false)}
 	/>
 {/if}
 

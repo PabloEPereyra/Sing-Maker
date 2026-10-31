@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Iconos de la interfaz. Piano y batería son copias de los de vocalizator (src/lib/icons/); running es
 	// «user-fast-running» de Flaticon Uicons (solid rounded);
-	// back es «left» (solid rounded) y note es «music-note» (solid straight) de Flaticon Uicons; gauge, ruler, sliders, wand y los de contorno (mic-line, clock, help, volume, volume-off, globe, trash, key) son trazos de Lucide.
+	// back es «left» (solid rounded) y note es «music-note» (solid straight) de Flaticon Uicons; gauge, ruler, sliders, wand, target, download, share y los de contorno (mic-line, clock, help, volume, volume-off, globe, trash, key) son trazos de Lucide.
 	import piano from '$lib/icons/piano.svg?raw';
 	import drum from '$lib/icons/drum.svg?raw';
 	import running from '$lib/icons/running.svg?raw';
@@ -22,6 +22,9 @@
 		| 'ruler'
 		| 'sliders'
 		| 'wand'
+		| 'target'
+		| 'download'
+		| 'share'
 		| 'mic-line'
 		| 'clock'
 		| 'help'
@@ -38,6 +41,9 @@
 		'ruler',
 		'sliders',
 		'wand',
+		'target',
+		'download',
+		'share',
 		'mic-line',
 		'clock',
 		'help',
@@ -110,6 +116,18 @@
 			<path d="M7 8H3" />
 			<path d="M21 16h-4" />
 			<path d="M11 3H9" />
+		{:else if name === 'target'}
+			<circle cx="12" cy="12" r="10" />
+			<circle cx="12" cy="12" r="6" />
+			<circle cx="12" cy="12" r="2" />
+		{:else if name === 'download'}
+			<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+			<path d="m7 10 5 5 5-5" />
+			<path d="M12 15V3" />
+		{:else if name === 'share'}
+			<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+			<path d="m16 6-4-4-4 4" />
+			<path d="M12 2v13" />
 		{:else if name === 'sliders'}
 			<path d="M21 4h-7" />
 			<path d="M10 4H3" />

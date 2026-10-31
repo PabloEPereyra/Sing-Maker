@@ -1,12 +1,18 @@
-// Acceso por código y cupos por persona para los endpoints con IA. Cada persona recibe un código
-// (variable ACCESS_CODES, «nombre=código» separados por comas) y cada tipo de llamada tiene un tope
-// que se cuenta en una base D1 (binding DB) con un UPSERT atómico, así que dos pedidos a la vez no
-// pueden pasarse del límite. Sin ACCESS_CODES el acceso es libre y no se cuenta nada (desarrollo).
+// Cupos por persona para los endpoints con IA. Cada tipo de llamada tiene un tope que se cuenta en una
+// base D1 (binding DB) con un UPSERT atómico, así que dos pedidos a la vez no pueden pasarse del límite.
+// Quién es la persona se decide de dos maneras:
+// - Con ACCESS_CODES («nombre=código» separados por comas): por el código del encabezado X-Access-Code.
+// - Sin códigos (lo normal por ahora): por un identificador anónimo que cada navegador genera y manda en
+//   X-Client-Id. Se esquiva borrando los datos del sitio, pero alcanza para acotar el gasto.
+// Sin códigos y sin base D1 el acceso es libre y no se cuenta nada (desarrollo local).
 
-/** Qué se cuenta: los ejercicios y patrones de batería, las imágenes (personajes, fondos, objetos) y el resto. */
-export type Bucket = 'exercises' | 'images' | 'other';
+/**
+ * Qué se cuenta: los ejercicios y patrones de batería, los personajes (la imagen principal), el resto de las
+ * imágenes (tiras de animación y fondos) y las demás llamadas.
+ */
+export type Bucket = 'exercises' | 'characters' | 'images' | 'other';
 
-export const BUCKETS: Bucket[] = ['exercises', 'images', 'other'];
+export const BUCKETS: Bucket[] = ['exercises', 'characters', 'images', 'other'];
 
 /** Lo mínimo que se usa de la API de D1. */
 export interface D1Like {
@@ -23,6 +29,7 @@ export interface D1Like {
 export interface QuotaEnv {
 	ACCESS_CODES?: string;
 	LIMIT_EXERCISES?: string;
+	LIMIT_CHARACTERS?: string;
 	LIMIT_IMAGES?: string;
 	LIMIT_OTHER?: string;
 	DB?: D1Like;
@@ -32,8 +39,9 @@ export interface QuotaEnv {
 export type FunctionEnv = Record<string, string | undefined> & QuotaEnv;
 
 export const DEFAULT_LIMITS: Record<Bucket, number> = {
-	exercises: 500,
-	// 50 personajes: cada uno usa 3 o 4 imágenes y algunas se repiten.
+	exercises: 200,
+	characters: 50,
+	// Tiras y fondos: unas 4 por personaje, más los reintentos.
 	images: 250,
 	other: 3000
 };
@@ -41,6 +49,7 @@ export const DEFAULT_LIMITS: Record<Bucket, number> = {
 export const limitsFromEnv = (env: QuotaEnv): Record<Bucket, number> => {
 	const raw: Record<Bucket, string | undefined> = {
 		exercises: env.LIMIT_EXERCISES,
+		characters: env.LIMIT_CHARACTERS,
 		images: env.LIMIT_IMAGES,
 		other: env.LIMIT_OTHER
 	};
@@ -68,19 +77,48 @@ export function parseCodes(raw: string | undefined): Map<string, string> {
 }
 
 export const ACCESS_HEADER = 'X-Access-Code';
+export const CLIENT_HEADER = 'X-Client-Id';
 
 export type Gate =
 	{ ok: true; user: string | null } | { ok: false; status: number; error: string; bucket?: Bucket };
 
-/** Quién es (por el código del encabezado). `open` = no hay códigos configurados. */
+/** Identificador anónimo válido: solo letras, números, guiones y guiones bajos. */
+const CLIENT_ID = /^[A-Za-z0-9_-]{16,64}$/;
+
+/**
+ * Quién es. `open` = no hay nada que contar (sin códigos ni base). `mode` dice cómo se reconoció a la persona:
+ * por código o por dispositivo; `user` es `null` si falta el dato o no es válido.
+ */
 export function identify(
 	request: Request,
 	env: QuotaEnv
-): { open: true } | { open: false; user: string | null } {
+): { open: true } | { open: false; mode: 'code' | 'device'; user: string | null; sent: boolean } {
 	const codes = parseCodes(env.ACCESS_CODES);
-	if (codes.size === 0) return { open: true };
-	const code = request.headers.get(ACCESS_HEADER)?.trim() ?? '';
-	return { open: false, user: codes.get(code) ?? null };
+	if (codes.size > 0) {
+		const code = request.headers.get(ACCESS_HEADER)?.trim() ?? '';
+		return { open: false, mode: 'code', user: codes.get(code) ?? null, sent: !!code };
+	}
+	if (!env.DB) return { open: true };
+	const id = request.headers.get(CLIENT_HEADER)?.trim() ?? '';
+	return {
+		open: false,
+		mode: 'device',
+		user: CLIENT_ID.test(id) ? `device:${id}` : null,
+		sent: !!id
+	};
+}
+
+/** Error para quien no se pudo reconocer. */
+function unknownUser(who: {
+	mode: 'code' | 'device';
+	sent: boolean;
+}): Extract<Gate, { ok: false }> {
+	if (who.mode === 'device') return { ok: false, status: 400, error: 'client_id_required' };
+	return {
+		ok: false,
+		status: 401,
+		error: who.sent ? 'invalid_access_code' : 'access_code_required'
+	};
 }
 
 let ready: Promise<unknown> | null = null;
@@ -103,14 +141,7 @@ function ensureTable(db: D1Like): Promise<unknown> {
 export async function charge(request: Request, env: QuotaEnv, bucket: Bucket): Promise<Gate> {
 	const who = identify(request, env);
 	if (who.open) return { ok: true, user: null };
-	if (who.user === null) {
-		const sent = !!request.headers.get(ACCESS_HEADER)?.trim();
-		return {
-			ok: false,
-			status: 401,
-			error: sent ? 'invalid_access_code' : 'access_code_required'
-		};
-	}
+	if (who.user === null) return unknownUser(who);
 	const db = env.DB;
 	if (!db) return { ok: false, status: 500, error: 'quota_unavailable' };
 	const limit = limitsFromEnv(env)[bucket];
@@ -143,25 +174,24 @@ export async function refund(env: QuotaEnv, user: string | null, bucket: Bucket)
 }
 
 export interface UsageReport {
-	/** Sin códigos configurados: no hay cupos. */
+	/** Sin códigos ni base de datos: no hay cupos. */
 	open: boolean;
+	/** `true` si las personas se reconocen por código (y se muestra el campo para escribirlo). */
+	codes?: boolean;
 	name?: string;
 	used?: Record<Bucket, number>;
 	limits?: Record<Bucket, number>;
 }
 
-/** Consumo de quien manda el código (para mostrarlo en el perfil). */
+/** Consumo de quien hace el pedido (para mostrarlo en el perfil). */
 export async function usageFor(
 	request: Request,
 	env: QuotaEnv
 ): Promise<Extract<Gate, { ok: false }> | UsageReport> {
 	const who = identify(request, env);
 	if (who.open) return { open: true };
-	if (who.user === null) {
-		const sent = !!request.headers.get(ACCESS_HEADER)?.trim();
-		return { ok: false, status: 401, error: sent ? 'invalid_access_code' : 'access_code_required' };
-	}
-	const used: Record<Bucket, number> = { exercises: 0, images: 0, other: 0 };
+	if (who.user === null) return unknownUser(who);
+	const used: Record<Bucket, number> = { exercises: 0, characters: 0, images: 0, other: 0 };
 	if (env.DB) {
 		try {
 			await ensureTable(env.DB);
@@ -173,5 +203,11 @@ export async function usageFor(
 			return { ok: false, status: 500, error: 'quota_unavailable' };
 		}
 	}
-	return { open: false, name: who.user, used, limits: limitsFromEnv(env) };
+	return {
+		open: false,
+		codes: who.mode === 'code',
+		name: who.user,
+		used,
+		limits: limitsFromEnv(env)
+	};
 }

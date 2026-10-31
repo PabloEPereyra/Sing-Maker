@@ -13,7 +13,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
 	import { parse } from '$lib/music/parser';
-	import { playPattern, previewRoot, stopPreview } from '$lib/audio/preview';
+	import { firstRoot, playPattern, previewRoot, stopPreview } from '$lib/audio/preview';
 	import { onDestroy } from 'svelte';
 	import { toCode } from '$lib/ai/exercise';
 	import type { DrumResult } from '$lib/ai/drums';
@@ -150,7 +150,7 @@
 	/** Raíz de referencia para los nombres del piano roll: fija mientras se edita. */
 	let root = $state(60);
 
-	/** Escuchar el resultado una vez, sobre una raíz en el medio del rango. */
+	/** Escuchar el resultado una vez, en la tonalidad de la primera repetición que se cantaría. */
 	async function listen() {
 		if (!result) return;
 		if (listening) {
@@ -159,7 +159,7 @@
 		}
 		const { meta, notes } = parse(toCode(result.exercise));
 		listening = true;
-		await playPattern(notes, meta.bpm, previewRoot(notes, range.low, range.high));
+		await playPattern(notes, meta.bpm, firstRoot(notes, range.low, range.high, meta.direction));
 		listening = false;
 	}
 

@@ -4,7 +4,7 @@
 	// al primero y al revés); los botones de abajo rotan entre niveles: 1 → 2 → 3 → Mis ejercicios → 1.
 	import { onDestroy } from 'svelte';
 	import { exerciseText, type Exercise, type LevelGroup } from '$lib/exercises/catalog';
-	import { playPattern, previewRoot, stopPreview } from '$lib/audio/preview';
+	import { firstRoot, playPattern, stopPreview } from '$lib/audio/preview';
 	import { settings } from '$lib/settings.svelte';
 	import { t, tDynamic } from '$lib/i18n';
 	import Icon from './Icon.svelte';
@@ -127,9 +127,9 @@
 	async function listen() {
 		if (!exercise) return;
 		if (listening) return stop();
-		const { notes } = exercise.parsed;
+		const { notes, meta } = exercise.parsed;
 		listening = true;
-		await playPattern(notes, PREVIEW_BPM, previewRoot(notes, low, high));
+		await playPattern(notes, PREVIEW_BPM, firstRoot(notes, low, high, meta.direction));
 		listening = false;
 	}
 
@@ -169,9 +169,9 @@
 	role="presentation"
 	onclick={(e) => e.target === e.currentTarget && onClose()}
 >
-	<!-- La cuadrícula y la tarjeta comparten la misma forma vertical 3:4 (en pantallas anchas) -->
+	<!-- La cuadrícula y la tarjeta comparten la misma forma vertical 3:4 (en pantallas anchas); en las bajas, como un celular acostado, son anchas -->
 	<div
-		class="flex max-h-[92vh] w-full max-w-md flex-col overflow-y-auto md:aspect-[3/4] md:w-[min(28rem,69vh)] {view ===
+		class="flex max-h-[92vh] w-full max-w-md flex-col overflow-y-auto md:aspect-[3/4] md:w-[min(28rem,69vh)] short:aspect-auto short:w-[min(40rem,94vw)] short:max-w-none {view ===
 		'card'
 			? ''
 			: 'bg-surface text-fg'}"
@@ -193,7 +193,9 @@
 				>
 			</div>
 			<!-- Dos niveles arriba y dos abajo; «Mis ejercicios» siempre ocupa su lugar para mantener la simetría -->
-			<div class="grid flex-1 auto-rows-fr grid-cols-2 gap-3 p-4">
+			<div
+				class="grid flex-1 auto-rows-fr grid-cols-2 gap-3 p-4 short:grid-cols-4 short:gap-2 short:p-3"
+			>
 				{#each groups as g, i (g.key)}
 					<button
 						class="level-tile {i === currentGroup ? 'level-tile-on' : ''}"
@@ -202,7 +204,7 @@
 						aria-label={g.isMine ? g.label : `${g.label} · ${g.name}`}
 						onclick={() => openGroup(i)}
 					>
-						<span class="text-5xl leading-none">{g.isMine ? '✨' : g.key}</span>
+						<span class="text-5xl leading-none short:text-4xl">{g.isMine ? '✨' : g.key}</span>
 						<span class="max-w-full truncate px-1 text-[1.05rem]">
 							{g.isMine ? g.label : g.name}
 						</span>
@@ -219,7 +221,7 @@
 						disabled
 						aria-label={t('create.mine')}
 					>
-						<span class="text-5xl leading-none">✨</span>
+						<span class="text-5xl leading-none short:text-4xl">✨</span>
 						<span class="max-w-full truncate px-1 text-[1.05rem]">{t('create.mine')}</span>
 						<span class="rounded-full bg-black/15 px-2.5 text-sm">0</span>
 					</button>
@@ -249,85 +251,89 @@
 				>
 			</div>
 
-			<div class="flex min-h-0 flex-1 flex-col p-4">
-				<div class="text-center text-[1.05rem] tabular-nums opacity-80">
-					{exIdx + 1} / {group.exercises.length}
-				</div>
-				<!-- Vista previa a todo el ancho; las flechas van dentro, con borde pero discretas -->
-				<div
-					class="relative mt-1 h-44 overflow-hidden rounded-lg border-2 border-frame bg-base text-fg md:h-auto md:min-h-32 md:flex-1"
-				>
-					<PatternPreview notes={previewNotes} class="h-full w-full px-10 py-3" />
-					<button
-						class="absolute top-1/2 left-1.5 grid h-14 w-7 -translate-y-1/2 place-items-center rounded-lg border-2 border-frame bg-surface/70 text-muted transition hover:border-accent hover:text-accent"
-						aria-label={t('browser.prev')}
-						title={t('browser.prev')}
-						onclick={() => stepExercise(-1)}
+			<div class="flex min-h-0 flex-1 flex-col p-4 short:flex-row short:gap-3 short:p-3">
+				<div class="flex min-h-0 flex-1 flex-col">
+					<div class="text-center text-[1.05rem] tabular-nums opacity-80">
+						{exIdx + 1} / {group.exercises.length}
+					</div>
+					<!-- Vista previa a todo el ancho; las flechas van dentro, con borde pero discretas -->
+					<div
+						class="relative mt-1 h-44 overflow-hidden rounded-lg border-2 border-frame bg-base text-fg md:h-auto md:min-h-32 md:flex-1 short:h-auto short:min-h-24 short:flex-1"
 					>
-						<Icon name="back" class="h-4 w-4" />
-					</button>
-					<button
-						class="absolute top-1/2 right-1.5 grid h-14 w-7 -translate-y-1/2 place-items-center rounded-lg border-2 border-frame bg-surface/70 text-muted transition hover:border-accent hover:text-accent"
-						aria-label={t('browser.next')}
-						title={t('browser.next')}
-						onclick={() => stepExercise(1)}
-					>
-						<Icon name="back" class="h-4 w-4 rotate-180" />
-					</button>
-				</div>
-				<h4 class="mt-3 text-center text-2xl leading-tight">
-					{exerciseText(exercise, settings.lang).name}
-				</h4>
-				<p class="mt-1.5 line-clamp-3 text-center text-[1.05rem] opacity-85">
-					{exerciseText(exercise, settings.lang).description}
-				</p>
-
-				<div class="mt-4 flex items-stretch justify-center gap-2">
-					<button
-						class="browser-btn inline-flex items-center gap-1.5 px-4 py-2 text-[1.05rem] {listening
-							? 'border-accent text-accent'
-							: ''}"
-						onclick={listen}
-						>{listening ? '■' : '▶'}
-						{listening ? t('create.stopListen') : t('create.listen')}</button
-					>
-					<button
-						class="flex-1 rounded-lg bg-accent px-5 py-2 text-[1.05rem] text-white"
-						onclick={() => onPick(exercise.id)}>{t('create.practice')}</button
-					>
-					{#if group.isMine}
+						<PatternPreview notes={previewNotes} class="h-full w-full px-10 py-3" />
 						<button
-							class="trash-btn"
-							aria-label={t('create.delete')}
-							title={t('create.delete')}
-							onclick={remove}
+							class="absolute top-1/2 left-1.5 grid h-14 w-7 -translate-y-1/2 place-items-center rounded-lg border-2 border-frame bg-surface/70 text-muted transition hover:border-accent hover:text-accent"
+							aria-label={t('browser.prev')}
+							title={t('browser.prev')}
+							onclick={() => stepExercise(-1)}
 						>
-							<Icon name="trash" class="h-4 w-4" />
-						</button>
-					{/if}
-				</div>
-
-				<!-- Rotación de niveles: 1 → 2 → 3 → Mis ejercicios → 1 -->
-				{#if groups.length > 1}
-					<div class="mt-3 grid grid-cols-2 gap-2">
-						<button
-							class="browser-btn flex items-center justify-center gap-1.5 px-2 py-2 text-[1.05rem]"
-							aria-label={t('browser.levelPrev')}
-							onclick={() => stepLevel(-1)}
-						>
-							<span aria-hidden="true">‹</span>
-							<span class="truncate">{prevGroup.label}</span>
+							<Icon name="back" class="h-4 w-4" />
 						</button>
 						<button
-							class="browser-btn flex items-center justify-center gap-1.5 px-2 py-2 text-[1.05rem]"
-							aria-label={t('browser.levelNext')}
-							onclick={() => stepLevel(1)}
+							class="absolute top-1/2 right-1.5 grid h-14 w-7 -translate-y-1/2 place-items-center rounded-lg border-2 border-frame bg-surface/70 text-muted transition hover:border-accent hover:text-accent"
+							aria-label={t('browser.next')}
+							title={t('browser.next')}
+							onclick={() => stepExercise(1)}
 						>
-							<span class="truncate">{nextGroup.label}</span>
-							<span aria-hidden="true">›</span>
+							<Icon name="back" class="h-4 w-4 rotate-180" />
 						</button>
 					</div>
-				{/if}
+				</div>
+				<div class="flex min-h-0 flex-col short:w-[46%] short:justify-center">
+					<h4 class="mt-3 text-center text-2xl leading-tight short:mt-0">
+						{exerciseText(exercise, settings.lang).name}
+					</h4>
+					<p class="mt-1.5 line-clamp-3 text-center text-[1.05rem] opacity-85">
+						{exerciseText(exercise, settings.lang).description}
+					</p>
+
+					<div class="mt-4 flex items-stretch justify-center gap-2 short:mt-2">
+						<button
+							class="browser-btn inline-flex items-center gap-1.5 px-4 py-2 text-[1.05rem] {listening
+								? 'border-accent text-accent'
+								: ''}"
+							onclick={listen}
+							>{listening ? '■' : '▶'}
+							{listening ? t('create.stopListen') : t('create.listen')}</button
+						>
+						<button
+							class="flex-1 rounded-lg bg-accent px-5 py-2 text-[1.05rem] text-white"
+							onclick={() => onPick(exercise.id)}>{t('create.practice')}</button
+						>
+						{#if group.isMine}
+							<button
+								class="trash-btn"
+								aria-label={t('create.delete')}
+								title={t('create.delete')}
+								onclick={remove}
+							>
+								<Icon name="trash" class="h-4 w-4" />
+							</button>
+						{/if}
+					</div>
+
+					<!-- Rotación de niveles: 1 → 2 → 3 → Mis ejercicios → 1 -->
+					{#if groups.length > 1}
+						<div class="mt-3 grid grid-cols-2 gap-2 short:mt-2">
+							<button
+								class="browser-btn flex items-center justify-center gap-1.5 px-2 py-2 text-[1.05rem]"
+								aria-label={t('browser.levelPrev')}
+								onclick={() => stepLevel(-1)}
+							>
+								<span aria-hidden="true">‹</span>
+								<span class="truncate">{prevGroup.label}</span>
+							</button>
+							<button
+								class="browser-btn flex items-center justify-center gap-1.5 px-2 py-2 text-[1.05rem]"
+								aria-label={t('browser.levelNext')}
+								onclick={() => stepLevel(1)}
+							>
+								<span class="truncate">{nextGroup.label}</span>
+								<span aria-hidden="true">›</span>
+							</button>
+						</div>
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
