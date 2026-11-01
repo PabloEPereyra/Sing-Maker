@@ -359,10 +359,10 @@
 					</div>
 				{/if}
 			</div>
-			<!-- Fuera del juego el perfil ocupa la esquina (3 rem): el puntaje se corre a su izquierda -->
+			<!-- Fuera del juego el perfil ocupa la esquina (4 rem más la inclinación): el puntaje se corre a su izquierda -->
 			<div
 				class="flex items-center justify-end gap-3 pt-0.5 {side && !playing
-					? 'pr-[3.75rem] short:pr-12'
+					? 'pr-[6.25rem] short:pr-[4.5rem]'
 					: ''}"
 			>
 				<span

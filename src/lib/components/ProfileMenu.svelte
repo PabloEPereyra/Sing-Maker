@@ -39,7 +39,7 @@
 
 <div class="relative">
 	<button
-		class="grid h-12 w-12 place-items-center overflow-hidden rounded-full border-2 border-white bg-gradient-to-b from-sky to-accent shadow-md ring-2 ring-accent transition hover:scale-105 short:h-10 short:w-10"
+		class="skew-btn grid h-16 w-16 place-items-center overflow-hidden rounded-[8px] bg-accent text-white shadow hover:brightness-110 short:h-11 short:w-11"
 		aria-label={t('profile.title')}
 		title={t('profile.title')}
 		data-tip="profile"
@@ -50,7 +50,10 @@
 			highlight = false;
 		}}
 	>
-		<img src="/avatar.png" alt="" class="mt-1.5 h-12 w-12 object-cover short:h-10 short:w-10" />
+		<!-- El avatar se endereza como los iconos del menú; algo más grande que el botón para llenar las esquinas inclinadas y bajado para que se vea el pájaro entero -->
+		<span class="skew-icon h-full w-full">
+			<img src="/avatar.png" alt="" class="h-full w-full translate-y-1.5 scale-105 object-cover" />
+		</span>
 	</button>
 
 	{#if highlight && !open}

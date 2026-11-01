@@ -148,7 +148,7 @@
 			<p class="mt-1 text-sm text-muted">{t('scene.intro')}</p>
 
 			<div class="mt-4 flex gap-2" role="radiogroup" aria-label={t('scene.type')}>
-				{#each [['walk', 'character.walker'], ['fly', 'character.flyer']] as const as [m, label] (m)}
+				{#each [['walk', 'character.walker'], ['fly', 'character.flyerPick']] as const as [m, label] (m)}
 					<button
 						class="flex-1 rounded-lg border-2 px-3 py-2 text-sm font-semibold transition {movement ===
 						m
