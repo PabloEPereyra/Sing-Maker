@@ -3,6 +3,8 @@
 	// largas). Cada paso es una técnica vocal («Haz un trino de labios…») más un ejercicio del nivel de la persona. La rutina del día se guarda: no cambia al terminar un ejercicio ni al recargar, solo
 	// al cambiar de objetivo o de día. Tocar un ejercicio lo deja seleccionado en el escenario.
 	import { byLevel, shortName, type Exercise } from '$lib/exercises/catalog';
+	import { abilityOf } from '$lib/exercises/placement';
+	import { loadPassedStages } from '$lib/exercises/placementProgress';
 	import { history, setGoal, setRoutine } from '$lib/practice/history.svelte';
 	import {
 		buildRoutine,
@@ -31,6 +33,10 @@
 
 	const now = Date.now();
 	const day = dayKey(now);
+	// lo que mostró la prueba de nivel (aunque haya quedado a medias) ajusta la rutina
+	const passed = loadPassedStages();
+	const ability = passed === null ? null : abilityOf(passed);
+	const sig = ability ? `${ability.level}${ability.scales ? 's' : ''}` : '';
 	const byId = $derived(new Map(pool.map((e) => [e.id, e])));
 	const colors = $derived(new Map(byLevel(pool).map((l) => [l.level, l.color])));
 
@@ -41,13 +47,21 @@
 			saved &&
 			saved.day === day &&
 			saved.goal === history.goal &&
+			(saved.sig ?? '') === sig &&
 			// los pasos tienen que seguir el orden actual (calentar, resonar, abrir, objetivo)
 			saved.items.every((i, n) => byId.has(i.id) && techniqueById(i.tech)?.kind === KINDS[n]);
 		if (valid) return;
-		const items = buildRoutine({ pool, attempts: history.attempts, goal: history.goal, now });
+		const items = buildRoutine({
+			pool,
+			attempts: history.attempts,
+			goal: history.goal,
+			now,
+			ability
+		});
 		setRoutine({
 			day,
 			goal: history.goal,
+			sig,
 			items: items.map((i) => ({ id: i.exercise.id, tech: i.technique.id }))
 		});
 	});

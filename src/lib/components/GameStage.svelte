@@ -30,6 +30,10 @@
 		title: string;
 		/** Sin micrófono: muestra la leyenda de modo demostración. */
 		demo: boolean;
+		/** Test de nivel en curso: etapa que se juega (desde 0) y etapas en total; muestra la barra dorada. */
+		testProgress?: { stage: number; total: number };
+		/** Tocar la leyenda del modo demostración: activa el micrófono. */
+		onEnableMic?: () => void;
 		/** Fase del juego, para que la página muestre play o pausa. */
 		phase?: Phase;
 		/** Al terminar un ejercicio, si la voz parece entrar desfasada (la página señala la configuración). */
@@ -67,6 +71,8 @@
 		high,
 		title,
 		demo,
+		onEnableMic,
+		testProgress,
 		phase = $bindable('idle'),
 		desync = $bindable(false),
 		coach,
@@ -243,6 +249,8 @@
 	/** Nivel de afinación en juego y su nombre (para el tooltip de la insignia). */
 	const diff = $derived(nearestDifficulty(options.tolerance));
 	const diffLabel = $derived(t('diff.chip', { name: t(`diff.${diff}`) }));
+	/** Un tramo por etapa en la barra del test de nivel. */
+	const testSegments = $derived(Array.from({ length: testProgress?.total ?? 0 }, (_, i) => i));
 	const pct = $derived(
 		status && status.total ? Math.round((status.collected / status.total) * 100) : 0
 	);
@@ -269,12 +277,15 @@
 	></canvas>
 
 	{#if demo}
-		<div class="pointer-events-none absolute inset-x-0 bottom-[5.5rem] short:bottom-[4.5rem] flex justify-center px-28">
-			<div
-				class="rounded-lg bg-black/40 px-3 py-1.5 text-center text-sm font-semibold text-white backdrop-blur-sm"
+		<div
+			class="pointer-events-none absolute inset-x-0 bottom-[5.5rem] flex justify-center px-28 short:bottom-[4.5rem]"
+		>
+			<button
+				class="pointer-events-auto rounded-lg bg-black/40 px-3 py-1.5 text-center text-sm font-semibold text-white backdrop-blur-sm hover:bg-black/50"
+				onclick={onEnableMic}
 			>
 				{t('demo.legend')}
-			</div>
+			</button>
 		</div>
 	{/if}
 
@@ -285,44 +296,78 @@
 		>
 			<div></div>
 			<!-- Barra de repeticiones con las notas del rango a los lados: un solo objeto que abre el selector de rango -->
-			<div class="flex items-end" data-tip="range">
-				<button
-					class="hud-cap pointer-events-auto -mb-1"
-					title={t('range.title')}
-					aria-label="{t('range.title')}: {noteLabel(low)}"
-					disabled={playing}
-					onclick={onRange}>{noteLabel(low)}</button
-				>
-				<div class="-mx-4 flex w-[clamp(7rem,calc(100vw-38rem),20rem)] flex-col items-center gap-1 short:gap-0.5">
-					<div
-						class="max-w-full truncate px-4 font-display text-xs font-bold short:text-[0.65rem] short:leading-none tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)]"
+			<div class="flex flex-col items-center gap-2 short:gap-1.5">
+				<div class="flex items-end" data-tip="range">
+					<button
+						class="hud-cap pointer-events-auto -mb-1"
+						title={t('range.title')}
+						aria-label="{t('range.title')}: {noteLabel(low)}"
+						disabled={playing}
+						onclick={onRange}>{noteLabel(low)}</button
 					>
-						{title} · {noteLabel(sequence.reps[status.rep]?.rootMidi ?? 60)}
-					</div>
 					<div
-						class="hud-bar"
-						role="progressbar"
-						aria-label={t('stage.repsLabel')}
-						aria-valuemin="0"
-						aria-valuemax={status.reps}
-						aria-valuenow={repsDone}
+						class="-mx-4 flex w-[clamp(7rem,calc(100vw-38rem),20rem)] flex-col items-center gap-1 short:gap-0.5"
 					>
-						<div class="hud-bar-fill" style:width="{repsFill}%"></div>
-						<span class="hud-text">{repsDone}/{status.reps}</span>
+						<div
+							class="max-w-full truncate px-4 font-display text-xs font-bold tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)] short:text-[0.65rem] short:leading-none"
+						>
+							{title} · {noteLabel(sequence.reps[status.rep]?.rootMidi ?? 60)}
+						</div>
+						<div
+							class="hud-bar"
+							role="progressbar"
+							aria-label={t('stage.repsLabel')}
+							aria-valuemin="0"
+							aria-valuemax={status.reps}
+							aria-valuenow={repsDone}
+						>
+							<div class="hud-bar-fill" style:width="{repsFill}%"></div>
+							<span class="hud-text">{repsDone}/{status.reps}</span>
+						</div>
 					</div>
+					<button
+						class="hud-cap pointer-events-auto -mb-1"
+						title={t('range.title')}
+						aria-label="{t('range.title')}: {noteLabel(high)}"
+						disabled={playing}
+						onclick={onRange}>{noteLabel(high)}</button
+					>
 				</div>
-				<button
-					class="hud-cap pointer-events-auto -mb-1"
-					title={t('range.title')}
-					aria-label="{t('range.title')}: {noteLabel(high)}"
-					disabled={playing}
-					onclick={onRange}>{noteLabel(high)}</button
-				>
+				{#if testProgress}
+					<!-- Test de nivel: una barra dorada con un tramo por etapa; los pasados se llenan -->
+					<div
+						class="test-bar"
+						role="progressbar"
+						aria-label={t('place.bar', { n: testProgress.stage + 1, total: testProgress.total })}
+						aria-valuemin="0"
+						aria-valuemax={testProgress.total}
+						aria-valuenow={testProgress.stage}
+					>
+						{#each testSegments as i (i)}
+							<span
+								class="test-seg"
+								data-state={i < testProgress.stage
+									? 'done'
+									: i === testProgress.stage
+										? 'now'
+										: 'todo'}
+							></span>
+						{/each}
+						<span class="hud-text test-text"
+							>{t('place.bar', { n: testProgress.stage + 1, total: testProgress.total })}</span
+						>
+					</div>
+				{/if}
 			</div>
 			<!-- Fuera del juego el perfil ocupa la esquina (3 rem): el puntaje se corre a su izquierda -->
-			<div class="flex items-center justify-end gap-3 pt-0.5 {side && !playing ? 'pr-[3.75rem] short:pr-12' : ''}">
+			<div
+				class="flex items-center justify-end gap-3 pt-0.5 {side && !playing
+					? 'pr-[3.75rem] short:pr-12'
+					: ''}"
+			>
 				<span
 					class="hud-3d pointer-events-auto inline-flex"
+					data-tip="difficulty"
 					role="img"
 					title={diffLabel}
 					aria-label={diffLabel}
@@ -339,7 +384,9 @@
 
 		{#if playing}
 			<div
-				class="pointer-events-none absolute top-[5.25rem] left-1/2 short:top-[3.4rem] -translate-x-1/2 rounded-lg bg-black/30 px-3 py-1 text-sm text-white backdrop-blur-sm"
+				class="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-lg bg-black/30 px-3 py-1 text-sm text-white backdrop-blur-sm {testProgress
+					? 'top-[6.9rem] short:top-[4.8rem]'
+					: 'top-[5.25rem] short:top-[3.4rem]'}"
 			>
 				{status.sungMidi === null ? '—' : noteLabel(status.sungMidi)}
 			</div>

@@ -5,6 +5,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { DIFFICULTIES } from '$lib/game/difficulty';
 	import { t } from '$lib/i18n';
+	import { markSeen } from '$lib/tips.svelte';
 	import AccessCode from './AccessCode.svelte';
 	import DifficultyBadge from './DifficultyBadge.svelte';
 	import Icon from './Icon.svelte';
@@ -15,11 +16,14 @@
 	let {
 		getDetector,
 		highlight = $bindable(false),
-		onGuide
+		onGuide,
+		onLevelTest
 	}: {
 		getDetector: () => Promise<PitchDetector | null>;
 		highlight?: boolean;
 		onGuide: () => void;
+		/** Abre el test de nivel (o pregunta si se retoma el empezado). */
+		onLevelTest: () => void;
 	} = $props();
 
 	let open = $state(false);
@@ -38,8 +42,10 @@
 		class="grid h-12 w-12 place-items-center overflow-hidden rounded-full border-2 border-white bg-gradient-to-b from-sky to-accent shadow-md ring-2 ring-accent transition hover:scale-105 short:h-10 short:w-10"
 		aria-label={t('profile.title')}
 		title={t('profile.title')}
+		data-tip="profile"
 		aria-expanded={open}
 		onclick={() => {
+			markSeen('profile');
 			open = !open;
 			highlight = false;
 		}}
@@ -166,6 +172,16 @@
 					>
 						<Icon name="help" class="h-5 w-5 shrink-0 text-accent" />
 						{t('onb.reopen')}
+					</button>
+					<button
+						class="menu-row"
+						onclick={() => {
+							open = false;
+							onLevelTest();
+						}}
+					>
+						<Icon name="gauge" class="h-5 w-5 shrink-0 text-accent" />
+						{t('place.menu')}
 					</button>
 				</div>
 			</div>

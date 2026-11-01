@@ -14,6 +14,7 @@ import {
 	type Attempt,
 	type Goal
 } from '../src/lib/practice/routine';
+import { abilityOf, STAGES } from '../src/lib/exercises/placement';
 import { TECHNIQUES } from '../src/lib/practice/techniques';
 
 const DAY = 24 * 3600 * 1000;
@@ -119,5 +120,66 @@ describe('técnicas', () => {
 		for (const kind of KINDS) expect(TECHNIQUES.some((t) => t.kind === kind)).toBe(true);
 		for (const goal of GOALS)
 			expect(TECHNIQUES.some((t) => t.kind === 'focus' && t.goals?.includes(goal))).toBe(true);
+	});
+});
+
+describe('rutina según la prueba de nivel', () => {
+	const single = (e: (typeof exercises)[number]) => features(e).span === 0;
+	const days = Array.from({ length: 12 }, (_, i) => NOW + i * DAY);
+
+	it('lo aprobado en la prueba traduce a nivel y a si ya canta escalas', () => {
+		expect(abilityOf(0)).toEqual({ level: 1, scales: false });
+		expect(abilityOf(1)).toEqual({ level: 1, scales: false });
+		// aprobó la nota simple y la escala de 3 notas: ya canta escalas
+		expect(abilityOf(2)).toEqual({ level: 1, scales: true });
+		expect(abilityOf(5).level).toBe(2);
+		expect(abilityOf(STAGES)).toEqual({ level: 3, scales: true });
+		expect(abilityOf(99)).toEqual(abilityOf(STAGES));
+	});
+
+	it('quien ya canta escalas no recibe la nota simple y calienta sobre una escala', () => {
+		for (const goal of GOALS)
+			for (const now of days) {
+				const routine = buildRoutine({
+					pool: exercises,
+					attempts: [],
+					goal,
+					now,
+					ability: abilityOf(2)
+				});
+				expect(routine.some((i) => single(i.exercise))).toBe(false);
+				const warm = routine.find((i) => i.technique.kind === 'warm')!;
+				expect(warm.exercise.category).toMatch(/escala/i);
+			}
+	});
+
+	it('quien no pasó la escala sigue recibiendo la nota simple', () => {
+		const withSingle = days.filter((now) =>
+			buildRoutine({ pool: exercises, attempts: [], goal: 'mix', now, ability: abilityOf(1) }).some(
+				(i) => single(i.exercise)
+			)
+		);
+		expect(withSingle.length).toBeGreaterThan(0);
+	});
+
+	it('con más etapas aprobadas la rutina sube al nivel de la prueba', () => {
+		const routine = buildRoutine({
+			pool: exercises,
+			attempts: [],
+			goal: 'mix',
+			now: NOW,
+			ability: abilityOf(5)
+		});
+		expect(routine.length).toBeGreaterThan(0);
+		for (const i of routine) expect(Number(i.exercise.level)).toBe(2);
+	});
+
+	it('el historial también cuenta: una escala cantada bien alcanza para saltear la nota simple', () => {
+		const scale = ofLevel('1').find((e) => features(e).span > 0)!;
+		const attempts = [att(scale.id, 90)];
+		for (const now of days) {
+			const routine = buildRoutine({ pool: exercises, attempts, goal: 'mix', now });
+			expect(routine.some((i) => single(i.exercise))).toBe(false);
+		}
 	});
 });

@@ -1,6 +1,7 @@
 // Prueba de nivel jugada: cada etapa es un ejercicio del catálogo en 4 tonalidades repartidas por el
 // rango de la voz. Con el porcentaje de pasar se sigue a la etapa siguiente; si no, se aconseja empezar
 // en un ejercicio más fácil. Van 4 etapas del nivel 1 y 2 de cada uno de los niveles 2 y 3.
+import type { Ability } from '../practice/routine';
 import { exercises, levelExercise, type Exercise } from './catalog';
 
 /** Porcentaje de estrellas recogidas para pasar una etapa. */
@@ -37,6 +38,9 @@ const AFTER_ALL: Ref = { level: '3', n: 3 };
 
 export const STAGES = STAGE_LIST.length;
 
+/** La primera etapa que es una escala (la 2.ª): aprobarla significa que ya canta escalas. */
+const FIRST_SCALE_STAGE = 1;
+
 const pick = (r: Ref): Exercise => levelExercise(r.level, r.n) ?? exercises[0];
 
 export const stageExercise = (stage: number): Exercise => pick(STAGE_LIST[stage].exercise);
@@ -53,4 +57,16 @@ export function outcome(stage: number, percent: number): StageOutcome {
 	if (!passed) return { passed, startAt: pick(STAGE_LIST[stage].fallback) };
 	if (stage < STAGES - 1) return { passed, startAt: null };
 	return { passed, startAt: pick(AFTER_ALL) };
+}
+
+/**
+ * Lo que dicen las etapas aprobadas (0 a STAGES) de la voz: el nivel del último ejercicio que pasó y si ya
+ * canta escalas. La rutina de práctica se apoya en esto cuando el historial todavía es corto.
+ */
+export function abilityOf(passed: number): Ability {
+	const n = Math.max(0, Math.min(STAGES, Math.floor(passed) || 0));
+	return {
+		level: n > 0 ? Number(stageExercise(n - 1).level) : 1,
+		scales: n > FIRST_SCALE_STAGE
+	};
 }

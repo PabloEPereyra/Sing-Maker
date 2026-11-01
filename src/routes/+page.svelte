@@ -8,6 +8,7 @@
 	import CreateExerciseDialog from '$lib/components/CreateExerciseDialog.svelte';
 	import ExerciseBrowser from '$lib/components/ExerciseBrowser.svelte';
 	import PracticePlan from '$lib/components/PracticePlan.svelte';
+	import LevelTestDialog from '$lib/components/LevelTestDialog.svelte';
 	import RhythmPicker from '$lib/components/RhythmPicker.svelte';
 
 	import { addMine, loadMine, mine, removeMine } from '$lib/exercises/mine.svelte';
@@ -22,6 +23,11 @@
 		stageExercise,
 		STAGES
 	} from '$lib/exercises/placement';
+	import {
+		finishPlacement,
+		loadPlacementStage,
+		savePlacementStage
+	} from '$lib/exercises/placementProgress';
 	import { loadUnlocked, unlock, unlockedExercises } from '$lib/exercises/unlocked.svelte';
 	import { generateSequence } from '$lib/music/generate';
 	import { getContext, loadDrums, loadPiano } from '$lib/audio/engine';
@@ -105,6 +111,11 @@
 	let recommended = $state<string | null>(null);
 	/** Prueba de nivel en curso: la etapa que se juega (0 a 3). */
 	let placement = $state<{ stage: number } | null>(null);
+	/** Diálogo del test de nivel y etapa de una prueba empezada que se puede retomar. */
+	let levelDialog = $state(false);
+	let savedStage = $state<number | null>(null);
+	/** El globo que señala play en la primera etapa del test, ya cerrado. */
+	let placementHintDone = $state(false);
 	let loaded = $state(false);
 	let phase = $state<Phase>('idle');
 
@@ -240,6 +251,7 @@
 		loaded &&
 			phase === 'idle' &&
 			!onboarding &&
+			!levelDialog &&
 			!placement &&
 			!creating &&
 			!customizing &&
@@ -260,11 +272,15 @@
 		void start();
 	}
 
-	function closeOnboarding() {
-		onboarding = false;
+	function markOnboarded() {
 		try {
 			localStorage.setItem(ONBOARDED_KEY, '1');
 		} catch {}
+	}
+
+	function closeOnboarding() {
+		onboarding = false;
+		markOnboarded();
 	}
 
 	function openOnboarding(step: 'welcome' | 'level' | 'done' = 'welcome') {
@@ -284,19 +300,39 @@
 		}
 	}
 
-	/** Empieza la prueba de nivel: se canta de verdad, etapa por etapa. */
-	async function startPlacement() {
+	/** Empieza la prueba de nivel en la etapa `from`: se canta de verdad, etapa por etapa. */
+	async function startPlacement(from = 0) {
+		levelDialog = false;
 		onboarding = false;
+		placementHintDone = false;
+		markOnboarded();
 		stop();
 		if (!(await micForCalibration())) return openOnboarding('level');
-		placement = { stage: 0 };
-		selectedId = stageExercise(0).id;
+		placement = { stage: from };
+		savePlacementStage(from);
+		selectedId = stageExercise(from).id;
 	}
 
-	function exitPlacement() {
+	/** Botón «Test de nivel» (configuración): explica la prueba o pregunta si se retoma la empezada. */
+	function openLevelTest() {
+		savedStage = loadPlacementStage();
+		levelDialog = true;
+	}
+
+	/** Desde la guía de inicio: si había una prueba empezada, pregunta antes de pisarla. */
+	function requestPlacement() {
+		savedStage = loadPlacementStage();
+		if (savedStage === null) void startPlacement(0);
+		else levelDialog = true;
+	}
+
+	/** «Continuar luego»: deja la prueba para después, con la etapa guardada (`afterPass`: la siguiente). */
+	function pausePlacement(afterPass = false) {
+		if (!placement) return;
+		savePlacementStage(placement.stage + (afterPass ? 1 : 0));
 		stop();
 		placement = null;
-		openOnboarding('level');
+		markOnboarded();
 	}
 
 	/** Después de jugar una etapa: la siguiente, o el resultado con el ejercicio donde empezar. */
@@ -304,11 +340,14 @@
 		if (!placement) return;
 		const result = outcome(placement.stage, pct);
 		if (result.startAt) {
+			// etapas aprobadas: las anteriores a esta y esta si se pasó
+			finishPlacement(placement.stage + (result.passed ? 1 : 0));
 			placement = null;
 			recommended = result.startAt.id;
 			openOnboarding('done');
 		} else {
 			placement = { stage: placement.stage + 1 };
+			savePlacementStage(placement.stage);
 			selectedId = stageExercise(placement.stage).id;
 		}
 	}
@@ -333,6 +372,7 @@
 	}
 
 	async function start() {
+		markSeen('play');
 		panel = null;
 		getContext();
 		// Esperar el piano como mucho 1,5 s; si no llegó, suena el sintetizador.
@@ -504,6 +544,14 @@
 				{result.startAt ? t('place.result') : t('place.next')} →
 			</button>
 		</div>
+		{#if !result.startAt}
+			<button
+				class="mt-3 text-sm text-muted underline hover:text-fg"
+				onclick={() => pausePlacement(true)}
+			>
+				{t('place.later')}
+			</button>
+		{/if}
 	{/if}
 {/snippet}
 
@@ -513,7 +561,21 @@
 		getDetector={micForCalibration}
 		bind:highlight={desync}
 		onGuide={() => openOnboarding()}
+		onLevelTest={openLevelTest}
 	/>
+{/snippet}
+
+<!-- Durante el test de nivel el menú se reduce a un botón para dejarlo para después (la etapa queda guardada) -->
+{#snippet placementMenu()}
+	<div class="pl-2">
+		<button
+			class="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-[1.05rem] text-white shadow hover:brightness-110 short:px-3 short:py-1.5 short:text-sm"
+			onclick={() => pausePlacement()}
+		>
+			<Icon name="clock" class="h-5 w-5" />
+			{t('place.later')}
+		</button>
+	</div>
 {/snippet}
 
 <!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): botones grandes; el de ritmos abre un panel -->
@@ -604,7 +666,6 @@
 <svelte:document onpointerdown={onPointerDown} />
 
 <div class="flex h-dvh flex-col">
-
 	{#if micError}
 		<div class="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
 			<div
@@ -619,20 +680,6 @@
 	<div class="flex min-h-0 flex-1 flex-col">
 		<!-- Escena -->
 		<main class="flex min-h-0 min-w-0 flex-1 flex-col">
-			{#if placement}
-				<div class="panel m-2 flex items-center gap-3 px-4 py-2 text-sm">
-					<span class="font-display font-bold text-accent">
-						{t('place.banner', { n: placement.stage + 1, total: STAGES, pass: PASS_PERCENT })}
-					</span>
-					<span class="min-w-0 flex-1 truncate text-muted">{text.name}</span>
-					<button
-						class="shrink-0 rounded-lg border border-border bg-surface px-3 py-1 text-xs hover:bg-surface-2"
-						onclick={exitPlacement}
-					>
-						{t('place.exit')}
-					</button>
-				</div>
-			{/if}
 			<div class="min-h-[320px] flex-1 short:min-h-0">
 				<GameStage
 					bind:this={stage}
@@ -643,12 +690,14 @@
 					{high}
 					title={text.name}
 					{demo}
+					onEnableMic={toggleMic}
 					bind:phase
 					bind:desync
 					{coach}
 					placementDone={placement ? placementDone : undefined}
 					{controls}
-					menu={placement ? undefined : menu}
+					menu={placement ? placementMenu : menu}
+					testProgress={placement ? { stage: placement.stage, total: STAGES } : undefined}
 					{side}
 					onTryHarder={tryHarder}
 					onFinish={(pct) => {
@@ -698,14 +747,14 @@
 					</button>
 					<!-- Piano guía, batería (el ritmo se elige en «Ritmos»), tempo y zoom, en un solo panel -->
 					<PlaybackOptions
-							bind:bpm
-							bpmMin={BPM_MIN}
-							bpmMax={BPM_MAX}
-							bind:guide
-							bind:drums
-							micOn={!demo}
-							onMic={toggleMic}
-						/>
+						bind:bpm
+						bpmMin={BPM_MIN}
+						bpmMax={BPM_MAX}
+						bind:guide
+						bind:drums
+						micOn={!demo}
+						onMic={toggleMic}
+					/>
 				</div>
 			{/snippet}
 		</main>
@@ -789,9 +838,25 @@
 		startStep={onboardingStep}
 		{recommended}
 		getDetector={micForCalibration}
-		onTest={startPlacement}
+		onTest={requestPlacement}
 		onFinish={finishOnboarding}
 		onClose={closeOnboarding}
+	/>
+{/if}
+
+{#if levelDialog}
+	<LevelTestDialog {savedStage} onStart={startPlacement} onClose={() => (levelDialog = false)} />
+{/if}
+
+{#if placement && phase === 'idle' && !placementHintDone && !levelDialog && !onboarding}
+	<TipBubble
+		target="play"
+		text={t('place.playHint')}
+		onDismiss={() => (placementHintDone = true)}
+		onSkipAll={() => {
+			placementHintDone = true;
+			markAllSeen();
+		}}
 	/>
 {/if}
 

@@ -7,10 +7,12 @@ export type TipId =
 	| 'play'
 	| 'options'
 	| 'exercises'
+	| 'difficulty'
 	| 'rhythms'
 	| 'routine'
 	| 'range'
 	| 'create'
+	| 'profile'
 	| 'customize'
 	| 'voice';
 
@@ -27,10 +29,12 @@ export const TIPS: Tip[] = [
 	{ id: 'play', after: 0 },
 	{ id: 'options', after: 1 },
 	{ id: 'exercises', after: 1 },
+	{ id: 'difficulty', after: 2 },
 	{ id: 'rhythms', after: 3 },
 	{ id: 'routine', after: 2 },
 	{ id: 'range', after: 4 },
 	{ id: 'create', after: 4 },
+	{ id: 'profile', after: 4 },
 	{ id: 'customize', after: 5 },
 	{ id: 'voice', after: 0, scope: 'create' }
 ];

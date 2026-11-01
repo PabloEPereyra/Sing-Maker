@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { exercises, levelExercise } from '../src/lib/exercises/catalog';
 import { outcome, stageExercise, STAGES } from '../src/lib/exercises/placement';
+import {
+	clearPlacementStage,
+	finishPlacement,
+	loadPassedStages,
+	loadPlacementStage,
+	savePlacementStage
+} from '../src/lib/exercises/placementProgress';
 import { generateSequence } from '../src/lib/music/generate';
 
 describe('prueba de nivel', () => {
@@ -64,5 +71,61 @@ describe('prueba de nivel', () => {
 		expect(four.reps).toHaveLength(4);
 		expect(four.reps[0].rootMidi).toBe(all.reps[0].rootMidi);
 		expect(four.reps[3].rootMidi).toBe(all.reps[all.reps.length - 1].rootMidi);
+	});
+});
+
+describe('progreso guardado de la prueba', () => {
+	const store = new Map<string, string>();
+	vi.stubGlobal('localStorage', {
+		getItem: (k: string) => store.get(k) ?? null,
+		setItem: (k: string, v: string) => void store.set(k, v),
+		removeItem: (k: string) => void store.delete(k)
+	});
+	afterEach(() => store.clear());
+
+	it('guarda la etapa en que se dejó y la recupera', () => {
+		expect(loadPlacementStage()).toBeNull();
+		savePlacementStage(3);
+		expect(loadPlacementStage()).toBe(3);
+	});
+
+	it('con la primera etapa o una inválida no queda nada guardado', () => {
+		savePlacementStage(3);
+		savePlacementStage(0);
+		expect(loadPlacementStage()).toBeNull();
+		savePlacementStage(STAGES);
+		expect(loadPlacementStage()).toBeNull();
+	});
+
+	it('ignora datos rotos y se puede borrar', () => {
+		store.set('singmaker-placement', '{no es json');
+		expect(loadPlacementStage()).toBeNull();
+		savePlacementStage(2);
+		clearPlacementStage();
+		expect(loadPlacementStage()).toBeNull();
+	});
+
+	it('guarda las etapas aprobadas, también a medias y al terminar', () => {
+		expect(loadPassedStages()).toBeNull();
+		savePlacementStage(3);
+		expect(loadPassedStages()).toBe(3);
+		finishPlacement(5);
+		expect(loadPlacementStage()).toBeNull();
+		expect(loadPassedStages()).toBe(5);
+		finishPlacement(0);
+		expect(loadPassedStages()).toBe(0);
+		finishPlacement(STAGES + 1);
+		expect(loadPassedStages()).toBe(0);
+	});
+});
+
+describe('Nota simple repetida', () => {
+	it('la guía es una blanca y la nota a cantar otra blanca (4 tiempos)', () => {
+		const e = exercises.find((x) => x.name === 'Nota simple repetida')!;
+		const notes = e.parsed.notes;
+		expect(notes.map((n) => [n.duration, !!n.isHint])).toEqual([
+			[2, true],
+			[2, false]
+		]);
 	});
 });

@@ -182,7 +182,7 @@ const es = {
 	'controls.resume': 'Seguir',
 	'mic.on': 'Micrófono activo (tocá para pasar a modo demostración)',
 	'mic.off': 'Activar micrófono',
-	'demo.legend': 'Modo demostración - Activa el micrófono para vocalizar',
+	'demo.legend': 'Modo demostración · Toca aquí para activar el micrófono',
 	'customize.character': 'Personaje',
 	'character.bird': 'Pájaro',
 	'character.bunny': 'Coneja',
@@ -199,7 +199,7 @@ const es = {
 	'controls.tolerance': 'Tolerancia',
 	'controls.options': 'Micrófono, piano, batería, tempo y zoom',
 	'controls.mic': 'Micrófono',
-	'controls.guide': 'Piano guía',
+	'controls.guide': 'Piano',
 	'controls.drums': 'Batería',
 	'controls.drumPattern': 'Patrón de batería',
 	'controls.drumHalf': 'Batería a la mitad de velocidad',
@@ -265,7 +265,11 @@ const es = {
 	'tip.skipAll': 'No más pistas',
 	'tip.play': 'Pulsa ▶ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
 	'tip.options':
-		'Aquí están el piano guía, la batería, el tempo y el zoom. Si va muy rápido o muy lento, cambia el tempo.',
+		'Aquí están el micrófono (para cantar o volver al modo demostración), el piano guía, la batería, el tempo y el zoom, que también se cambia con la rueda del mouse o pellizcando. Si va muy rápido o muy lento, cambia el tempo.',
+	'tip.difficulty':
+		'Este diamante es la dificultad de afinación: cuánto margen tiene cada nota para contar. Puedes cambiarla en Configuración.',
+	'tip.profile':
+		'Aquí está la configuración: idioma, dificultad, sonidos, calibrar el micrófono y la voz, tu cupo de IA y esta guía de inicio.',
 	'tip.exercises':
 		'Aquí están todos los ejercicios, ordenados por niveles, junto con los que creas tú.',
 	'tip.rhythms':
@@ -278,19 +282,36 @@ const es = {
 		'¿Quieres algo a tu medida? Toca la varita, describe un ejercicio y la IA lo crea para tu rango.',
 	'tip.customize':
 		'Toca la paleta para cambiar el personaje, los fondos y lo que recoges. ¡Puedes crear los tuyos con IA!',
-	'onb.level.title': 'Prueba de nivel',
+	'onb.level.title': 'Test de nivel',
 	'onb.level.body':
 		'Para saber dónde empezar vas a cantar de verdad: son hasta {total} etapas, cada una con un ejercicio en 4 tonalidades. Con el {pass}% de las notas pasas a la etapa siguiente; si no, te aconsejo por dónde empezar. Si prefieres, sáltala y empieza desde el principio.',
 	'onb.level.start': 'Comenzar prueba',
 	'onb.done.body': 'Te recomiendo empezar por el ejercicio {n} · {name} (nivel {level}).',
-	'place.banner': 'Prueba de nivel · etapa {n} de {total} · {pass}% para pasar',
+	'place.bar': 'Test de nivel {n}/{total}',
 	'place.stage': 'Etapa {n} de {total}',
 	'place.passed': '¡Etapa superada!',
 	'place.passedAll': '¡Superaste toda la prueba!',
 	'place.failed': 'No llegaste al {pass}%. No pasa nada: así sé por dónde conviene empezar.',
 	'place.next': 'Siguiente etapa',
 	'place.result': 'Ver mi nivel',
-	'place.exit': 'Salir de la prueba',
+	'how.title': 'Cómo se juega',
+	'how.intro': 'Antes del test de nivel, lo básico para jugar:',
+	'how.play': 'Pulsa play (▶) para empezar el ejercicio.',
+	'how.listen': 'Primero suenan las notas que tendrás que cantar: escúchalas sin cantar.',
+	'how.guide':
+		'Antes de cada repetición suena una nota guía y aparece su nombre en grande. No se canta: es tu punto de partida.',
+	'how.collect':
+		'Después canta siguiendo al personaje: cada nota que afines recoge un objeto (estrella, nota…).',
+	'how.gray':
+		'Si un objeto queda en gris, esa nota no estuvo afinada. Para pasar cada etapa del test necesitas el {pass}%.',
+	'place.playHint':
+		'Pulsa play para empezar la etapa: primero suenan las notas, luego cantas. Un objeto en gris es una nota desafinada.',
+	'place.later': 'Continuar luego',
+	'place.menu': 'Test de nivel',
+	'place.resumeInfo':
+		'Tienes un test de nivel empezado: vas por la etapa {n} de {total}. ¿Quieres continuar donde lo dejaste o empezar de nuevo?',
+	'place.resume': 'Continuar en la etapa {n}',
+	'place.restart': 'Empezar de nuevo',
 	'onb.reopen': 'Guía de inicio',
 	'onb.step': 'Paso {n} de {total}',
 	'onb.skip': 'Saltar guía',
@@ -298,11 +319,18 @@ const es = {
 	'onb.back': 'Atrás',
 	'onb.welcome.title': '¡Bienvenido a Sing Maker!',
 	'onb.welcome.body':
-		'Cantas y el personaje se mueve con tu voz. Te guío en unos pasos cortos (unos 2 minutos) para dejar todo a tu medida: micrófono, rango, retraso de la voz y un nivel para empezar.',
+		'Cantas y el personaje se mueve con tu voz. Te guío en unos pasos cortos (unos 2 minutos) para dejar todo a tu medida: micrófono, rango, retraso de la voz, dificultad y un nivel para empezar.',
 	'onb.welcome.go': 'Empezar',
 	'onb.mic.title': 'Activa tu micrófono',
 	'onb.mic.body':
 		'Busca un lugar tranquilo y, si puedes, usa auriculares con cable. Al activarlo mido el ruido de la sala: quédate en silencio unos segundos.',
+	'onb.mic.later':
+		'Sin micrófono el juego queda en modo demostración. Puedes activarlo después tocando el aviso de la pantalla o desde el botón de opciones de abajo.',
+	'onb.diff.title': 'Dificultad de afinación',
+	'onb.diff.body':
+		'Define cuánto margen tiene cada nota para contar como acertada. Empieza en Normal; puedes cambiarla cuando quieras en Configuración. La prueba de nivel siempre usa Normal.',
+	'onb.done.menu':
+		'A la izquierda están los ejercicios, tu rutina, los ritmos, la varita (crear con IA) y la paleta; arriba a la derecha, la configuración.',
 	'onb.mic.on': 'Activar micrófono',
 	'onb.mic.ok': 'Micrófono listo ✓',
 	'onb.mic.level': 'Ajustar volumen',
@@ -664,7 +692,7 @@ const en: Record<Key, string> = {
 	'controls.resume': 'Resume',
 	'mic.on': 'Microphone on (tap for demo mode)',
 	'mic.off': 'Turn on microphone',
-	'demo.legend': 'Demo mode - Turn on the microphone to sing',
+	'demo.legend': 'Demo mode · Tap here to turn on the microphone',
 	'customize.character': 'Character',
 	'character.bird': 'Bird',
 	'character.bunny': 'Bunny',
@@ -681,7 +709,7 @@ const en: Record<Key, string> = {
 	'controls.tolerance': 'Tolerance',
 	'controls.options': 'Microphone, piano, drums, tempo and zoom',
 	'controls.mic': 'Microphone',
-	'controls.guide': 'Piano guide',
+	'controls.guide': 'Piano',
 	'controls.drums': 'Drums',
 	'controls.drumPattern': 'Drum pattern',
 	'controls.drumHalf': 'Drums at half speed',
@@ -747,7 +775,11 @@ const en: Record<Key, string> = {
 	'tip.skipAll': 'No more tips',
 	'tip.play': 'Press ▶ to start: a guide note plays, then you sing following the character.',
 	'tip.options':
-		'The guide piano, drums, tempo and zoom are here. Too fast or too slow? Change the tempo.',
+		'The microphone (to sing or go back to demo mode), guide piano, drums, tempo and zoom are here; zoom also works with the mouse wheel or a pinch. Too fast or too slow? Change the tempo.',
+	'tip.difficulty':
+		'This diamond is the tuning difficulty: how much margin each note has to count. You can change it in Settings.',
+	'tip.profile':
+		'Settings are here: language, difficulty, sounds, microphone and voice calibration, your AI quota and this getting started guide.',
 	'tip.exercises': 'All the exercises are here, sorted by level, along with the ones you create.',
 	'tip.rhythms':
 		'Pick the drum rhythm and its speed: normal or half. You can also create one with AI.',
@@ -764,14 +796,31 @@ const en: Record<Key, string> = {
 		'To find where to start you will actually sing: up to {total} stages, each one an exercise in 4 keys. With {pass}% of the notes you move on to the next stage; if not, I suggest where to start. If you prefer, skip it and start from the beginning.',
 	'onb.level.start': 'Start the test',
 	'onb.done.body': 'I recommend starting with exercise {n} · {name} (level {level}).',
-	'place.banner': 'Level test · stage {n} of {total} · {pass}% to pass',
+	'place.bar': 'Level test {n}/{total}',
 	'place.stage': 'Stage {n} of {total}',
 	'place.passed': 'Stage passed!',
 	'place.passedAll': 'You passed the whole test!',
 	'place.failed': 'You did not reach {pass}%. That is fine: now I know where it is best to start.',
 	'place.next': 'Next stage',
 	'place.result': 'See my level',
-	'place.exit': 'Exit the test',
+	'how.title': 'How to play',
+	'how.intro': 'Before the level test, the basics:',
+	'how.play': 'Press play (▶) to start the exercise.',
+	'how.listen': 'First you hear the notes you will have to sing: just listen.',
+	'how.guide':
+		'Before each repetition a guide note plays and its name appears in big letters. You do not sing it: it is your starting point.',
+	'how.collect':
+		'Then sing following the character: each note you hit in tune collects an item (star, note…).',
+	'how.gray':
+		'If an item turns gray, that note was out of tune. To pass each stage of the test you need {pass}%.',
+	'place.playHint':
+		'Press play to start the stage: first you hear the notes, then you sing. A gray item is an out-of-tune note.',
+	'place.later': 'Continue later',
+	'place.menu': 'Level test',
+	'place.resumeInfo':
+		'You have a level test in progress: you are at stage {n} of {total}. Do you want to continue where you left off or start over?',
+	'place.resume': 'Continue at stage {n}',
+	'place.restart': 'Start over',
 	'onb.reopen': 'Getting started guide',
 	'onb.step': 'Step {n} of {total}',
 	'onb.skip': 'Skip guide',
@@ -779,11 +828,18 @@ const en: Record<Key, string> = {
 	'onb.back': 'Back',
 	'onb.welcome.title': 'Welcome to Sing Maker!',
 	'onb.welcome.body':
-		'You sing and the character moves with your voice. I will walk you through a few short steps (about 2 minutes) to set everything up for you: microphone, range, voice delay and a level to start from.',
+		'You sing and the character moves with your voice. I will walk you through a few short steps (about 2 minutes) to set everything up for you: microphone, range, voice delay, difficulty and a level to start from.',
 	'onb.welcome.go': 'Start',
 	'onb.mic.title': 'Turn on your microphone',
 	'onb.mic.body':
 		'Find a quiet place and, if you can, use wired headphones. When it turns on I measure the room noise: stay quiet for a few seconds.',
+	'onb.mic.later':
+		'Without a microphone the game stays in demo mode. You can turn it on later by tapping the notice on screen or from the options button below.',
+	'onb.diff.title': 'Tuning difficulty',
+	'onb.diff.body':
+		'It sets how much margin each note has to count as a hit. It starts at Normal; you can change it any time in Settings. The level test always uses Normal.',
+	'onb.done.menu':
+		'On the left are the exercises, your routine, the rhythms, the wand (create with AI) and the palette; at the top right, settings.',
 	'onb.mic.on': 'Turn on microphone',
 	'onb.mic.ok': 'Microphone ready ✓',
 	'onb.mic.level': 'Adjust volume',

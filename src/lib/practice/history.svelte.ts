@@ -12,6 +12,8 @@ export interface SavedRoutine {
 	goal: Goal;
 	/** Cada paso: el ejercicio del catálogo (`id`) y la técnica que se hace con él (`tech`). */
 	items: { id: string; tech: string }[];
+	/** Lo que mostró la prueba de nivel al armarla: si cambia, la rutina se arma de nuevo. */
+	sig?: string;
 }
 
 export const history = $state<{ attempts: Attempt[]; goal: Goal; routine: SavedRoutine | null }>({
@@ -51,7 +53,7 @@ export function loadHistory(): void {
 					typeof i?.id === 'string' && typeof i?.tech === 'string'
 			)
 		)
-			history.routine = r;
+			history.routine = { ...r, sig: typeof r.sig === 'string' ? r.sig : undefined };
 	} catch {}
 }
 

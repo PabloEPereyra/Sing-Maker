@@ -6,6 +6,7 @@
 	import { loadDrums } from '$lib/audio/engine';
 	import { settings, ZOOM_MAX, ZOOM_MIN } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
+	import { markSeen } from '$lib/tips.svelte';
 	import Icon from './Icon.svelte';
 
 	let {
@@ -54,7 +55,7 @@
 
 {#snippet toggle(icon: 'mic' | 'piano' | 'drum', label: string, on: boolean, onclick: () => void)}
 	<button
-		class="flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold {on
+		class="flex w-full items-center gap-2 rounded-lg border px-3 py-2 font-display text-sm font-semibold {on
 			? 'border-accent bg-accent text-white'
 			: 'border-border bg-surface text-muted'}"
 		aria-pressed={on}
@@ -74,14 +75,15 @@
 		title={t('controls.options')}
 		data-tip="options"
 		aria-expanded={open}
-		onclick={() => (open = !open)}
+		onclick={() => {
+			markSeen('options');
+			open = !open;
+		}}
 	>
 		<Icon name="sliders" class="h-5 w-5" />
 	</button>
 	{#if open}
-		<div
-			class="panel absolute right-0 bottom-full z-40 mb-4 w-72 space-y-3 p-3"
-		>
+		<div class="panel absolute right-0 bottom-full z-40 mb-4 w-72 space-y-3 p-3">
 			{@render toggle('mic', t('controls.mic'), micOn, onMic)}
 			<div class="grid grid-cols-2 gap-2">
 				{@render toggle('piano', t('controls.guide'), guide, () => (guide = !guide))}

@@ -19,6 +19,14 @@ export interface Attempt {
 	pct: number;
 }
 
+/** Lo que se sabe de la voz por la prueba de nivel (aunque quedara a medias). */
+export interface Ability {
+	/** Nivel del catálogo del último ejercicio aprobado. */
+	level: number;
+	/** Ya canta escalas: no hace falta la nota simple y el calentamiento puede ser sobre una escala. */
+	scales: boolean;
+}
+
 export interface RoutineItem {
 	technique: Technique;
 	exercise: Exercise;
@@ -146,29 +154,46 @@ export interface RoutineInput {
 	goal: Goal;
 	/** Ahora (ms): define el día de la rutina. */
 	now: number;
+	/** Lo que mostró la prueba de nivel, completa o a medias; sin ella manda solo el historial. */
+	ability?: Ability | null;
 }
 
-export function buildRoutine({ pool, attempts, goal, now }: RoutineInput): RoutineItem[] {
+export function buildRoutine({ pool, attempts, goal, now, ability }: RoutineInput): RoutineItem[] {
 	const catalog = pool.filter((e) => !Number.isNaN(Number(e.level)));
 	if (!catalog.length) return [];
-	const comfort = comfortLevel(attempts, catalog);
+	// el nivel cómodo es el mayor entre lo que muestra el historial y lo que mostró la prueba de nivel
+	const comfort = Math.max(comfortLevel(attempts, catalog), ability?.level ?? 1);
 	const best = bestById(attempts);
 	const random = rng(`${dayKey(now)}|${goal}`);
 	const feats = new Map(catalog.map((e) => [e.id, features(e)]));
+	// ya canta escalas: lo dice la prueba o un ejercicio con recorrido cantado bien (70 % o más)
+	const scales =
+		!!ability?.scales ||
+		catalog.some((e) => (best.get(e.id) ?? 0) >= 70 && feats.get(e.id)!.span > 0);
 	const chosen = new Set<string>();
 	const categories = new Set<string>();
 
 	// todos los ejercicios son del nivel cómodo; si ahí no alcanzan, también los de abajo
 	const level = (e: Exercise) => Number(e.level);
 	const atLevel = catalog.filter((e) => level(e) === comfort);
-	const candidates =
+	const base =
 		atLevel.length >= KINDS.length ? atLevel : catalog.filter((e) => level(e) <= comfort);
+	// la nota simple repetida (sin recorrido) es solo para quien todavía le cuesta afinar
+	const moving = base.filter((e) => feats.get(e.id)!.span > 0);
+	const candidates = (scales || comfort > 1) && moving.length >= KINDS.length ? moving : base;
+	const isScale = (e: Exercise) => /escala|scale/i.test(e.category);
+	// quien ya hace escalas calienta sobre una escala
+	const scaleCandidates = scales ? candidates.filter(isScale) : [];
 
 	/** El patrón que mejor le va a la técnica, con un desempate al azar y sin repetir. */
 	const pick = (technique: Technique): Exercise | undefined => {
 		let top: Exercise | undefined;
 		let topScore = -Infinity;
-		for (const e of candidates) {
+		const from =
+			technique.kind === 'warm' && scaleCandidates.some((e) => !chosen.has(e.id))
+				? scaleCandidates
+				: candidates;
+		for (const e of from) {
 			if (chosen.has(e.id)) continue;
 			const last = lastPercent(attempts, e.id);
 			// ya dominado: puede aparecer, pero después; misma categoría que otro de hoy: un poco menos;

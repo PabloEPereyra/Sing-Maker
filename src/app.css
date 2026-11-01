@@ -49,6 +49,30 @@ body {
 		linear-gradient(180deg, #cfe6ff 0%, #e6f1ff 40%, #f1f5fd 100%) fixed;
 }
 
+/* La interfaz no es texto para seleccionar: sin cursor de texto, sin selección y sin el caret que se
+   cuela junto a números y títulos (como el conteo regresivo). Solo se escribe en los campos de texto. */
+body {
+	cursor: default;
+	user-select: none;
+	-webkit-user-select: none;
+	caret-color: transparent;
+}
+textarea,
+input:is(
+	:not([type]),
+	[type='text'],
+	[type='search'],
+	[type='number'],
+	[type='email'],
+	[type='password']
+),
+[contenteditable='true'] {
+	cursor: text;
+	user-select: text;
+	-webkit-user-select: text;
+	caret-color: auto;
+}
+
 h1,
 h2,
 h3,
@@ -618,6 +642,60 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	paint-order: stroke fill;
 	letter-spacing: 0.03em;
 }
+/* Barra del test de nivel (debajo de la de repeticiones): mismo borde que ella pero dorado, con un tramo por
+   etapa. Los tramos pasados se llenan de dorado; el actual late suave. */
+.test-bar {
+	position: relative;
+	display: flex;
+	width: clamp(7rem, calc(100vw - 38rem), 20rem);
+	height: 1.35rem;
+	gap: 3px;
+	padding: 2px;
+	overflow: hidden;
+	border-radius: 9999px;
+	border: 3px solid transparent;
+	background:
+		linear-gradient(#4a2a0a, #4a2a0a) padding-box,
+		linear-gradient(180deg, rgb(255 255 255 / 0.3), rgb(255 255 255 / 0) 55%) border-box,
+		linear-gradient(180deg, #ffe066, #ff9d1c) border-box;
+	box-shadow:
+		0 3px 0 #b45309,
+		inset 0 2px 4px rgb(0 0 0 / 0.35);
+}
+.test-seg {
+	flex: 1;
+	border-radius: 9999px;
+	background: rgb(255 255 255 / 0.1);
+}
+.test-seg[data-state='done'] {
+	background-image: linear-gradient(180deg, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0) 55%);
+	background-color: #ffb81c;
+	box-shadow: inset 0 -2px 0 rgb(0 0 0 / 0.15);
+}
+.test-seg[data-state='now'] {
+	background-color: #ffb81c;
+	opacity: 0.45;
+	animation: test-pulse 1.4s ease-in-out infinite;
+}
+@keyframes test-pulse {
+	50% {
+		opacity: 0.85;
+	}
+}
+.test-text {
+	position: absolute;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	font-size: 0.78rem;
+	-webkit-text-stroke: 3px #5b2a06;
+	pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.test-seg[data-state='now'] {
+		animation: none;
+	}
+}
 /* Celular acostado: la barra de arriba (progreso, notas del rango, puntaje) ocupa menos alto. */
 @media (max-height: 480px) {
 	.hud-bar {
@@ -639,6 +717,15 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	.hud-text {
 		font-size: 0.8rem;
 		-webkit-text-stroke-width: 3px;
+	}
+	.test-bar {
+		height: 1.05rem;
+		border-width: 2px;
+		padding: 1px;
+	}
+	.test-text {
+		font-size: 0.65rem;
+		-webkit-text-stroke-width: 2.5px;
 	}
 	.hud-score {
 		-webkit-text-stroke-width: 3px;

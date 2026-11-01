@@ -4,7 +4,7 @@
 		"name": "Nota simple repetida",
 		"category": "Tecnica y Sostenido",
 		"level": "1",
-		"code": "@name: Nota simple repetida\n@description: Sostén la nota con \"mm\" para practicar tu afinación\n@level: basic\n@bpm: 60\n@syllable: mm\n\n# Guide note (1 beat), then hold the root note (3 beats)\n1 = !hint\n3 =\n",
+		"code": "@name: Nota simple repetida\n@description: Sostén la nota con \"mm\" para practicar tu afinación\n@level: basic\n@bpm: 60\n@syllable: mm\n\n# Guide note (2 beats), then hold the root note (2 beats)\n2 = !hint\n2 =\n",
 		"name_en": "Single note, repeated",
 		"description_en": "Hold the note on \"mm\" to practice your tuning"
 	},
