@@ -2,8 +2,9 @@
 	// "Crear fondo con IA": Spark interpreta el lugar, Muse Image pinta un fondo ancho que se repite al avanzar y,
 	// para los que caminan, Spark mira la imagen y dice dónde empieza el suelo (se puede ajustar con el deslizador).
 	import { onDestroy } from 'svelte';
-	import type { Brief } from '$lib/ai/character';
+	import type { Brief, BriefTurn } from '$lib/ai/character';
 	import { characterApi } from '$lib/ai/characterClient';
+	import ClarifyChat from './ClarifyChat.svelte';
 	import { GenerateRequestError } from '$lib/ai/client';
 	import { addScene, assets, MAX_SCENES } from '$lib/character/assets.svelte';
 	import { blobToRaster, rasterToJpegUrl } from '$lib/character/create';
@@ -26,6 +27,8 @@
 	let phase = $state<Phase>('form');
 	let error = $state('');
 	let note = $state<{ kind: 'clarify' | 'refuse'; text: string } | null>(null);
+	/** Preguntas de la IA ya respondidas en el chat (ver ClarifyChat). */
+	let thread = $state<BriefTurn[]>([]);
 	let image = $state.raw<Blob | null>(null);
 	let imageUrl = $state('');
 	let ground = $state(0.8);
@@ -39,6 +42,13 @@
 	const full = $derived(assets.scenes.length >= MAX_SCENES);
 	const canCreate = $derived(!full && prompt.trim().length > 0 && phase === 'form');
 
+	/** Respuesta a la pregunta de la IA: sigue la conversación y vuelve a pedir lo mismo. */
+	async function reply(text: string) {
+		if (note?.kind !== 'clarify') return;
+		thread = [...thread, { q: note.text, a: text }];
+		await create();
+	}
+
 	async function create() {
 		if (!canCreate) return;
 		error = '';
@@ -49,7 +59,8 @@
 				prompt.trim(),
 				settings.lang,
 				undefined,
-				'scene'
+				'scene',
+				thread
 			);
 			if (disposed) return;
 			if (brief.status !== 'ok') {
@@ -57,6 +68,7 @@
 				phase = 'form';
 				return;
 			}
+			thread = [];
 			name = brief.name;
 			const dataUrl = await characterApi.scene(brief.visual, style, movement);
 			const blob = await (await fetch(dataUrl)).blob();
@@ -166,6 +178,10 @@
 
 			<textarea
 				bind:value={prompt}
+				oninput={() => {
+					thread = [];
+					if (note?.kind === 'clarify') note = null;
+				}}
 				rows="3"
 				maxlength="600"
 				placeholder={t('scene.placeholder')}
@@ -184,14 +200,14 @@
 				{/each}
 			</div>
 
-			{#if note}
+			{#if note?.kind === 'clarify'}
+				<ClarifyChat {thread} question={note.text || t('char.clarify')} onReply={reply} />
+			{:else if note}
 				<div
 					role="alert"
-					class="mt-3 rounded-lg border p-3 text-sm {note.kind === 'refuse'
-						? 'border-red-200 bg-red-50 text-red-700'
-						: 'border-accent/40 bg-accent/10'}"
+					class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
 				>
-					{note.text || (note.kind === 'refuse' ? t('char.refused') : t('char.clarify'))}
+					{note.text || t('char.refused')}
 				</div>
 			{/if}
 			{#if error}

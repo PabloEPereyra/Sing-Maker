@@ -113,20 +113,17 @@ suena una vez la primera repetición antes de la cuenta, sin la nota guía (que 
 Proveedor configurable (API compatible con OpenAI), en `.dev.vars` para desarrollo (ver `.dev.vars.example`)
 o como variables del proyecto en Cloudflare:
 
-| Variable               | Desarrollo sin créditos (opcional)  | Hackathon (Meta)                                                                   |
-| ---------------------- | ----------------------------------- | ---------------------------------------------------------------------------------- |
-| `LLM_API_KEY`          | clave de OpenRouter                 | clave de la Meta Model API                                                         |
-| `LLM_BASE_URL`         | `https://openrouter.ai/api/v1`      | `https://api.meta.ai/v1`                                                           |
-| `LLM_MODEL`            | `nvidia/nemotron-3.5-super-vl:free` | `muse-spark-1.3-contributor`                                                       |
-| `LLM_VISION_MODEL`     | igual a `LLM_MODEL` (sin relectura) | `muse-wonder-1.0` (por defecto con Meta): clave de fa, «Releer», revisión de poses |
-| `LLM_IMAGE_MODEL`      | —                                   | `muse-image-1.0` (por defecto)                                                     |
-| `LLM_SEGMENT_MODEL`    | —                                   | `sam-3.1` (por defecto)                                                            |
-| `LLM_TRANSCRIBE_MODEL` | — (el dictado necesita Meta)        | `muse-voice-transcribe-1.0`                                                        |
-| `LLM_JSON_MODE`        | `schema` (por defecto)              | `schema`, u `object`/`none` si no lo admite                                        |
-| `LLM_REASONING_EFFORT` | `none` (por defecto en OpenRouter)  | `low` (por defecto en Meta)                                                        |
-
-> El modelo gratis de NVIDIA por OpenRouter sirve para desarrollar sin gastar créditos, pero no lee partituras ni
-> dibujos, ni dibuja personajes: la entrega del hackathon usa los modelos de Meta.
+| Variable               | Hackathon (Meta)                                                                   |
+| ---------------------- |---------------------------------------------------------------------------------- |
+| `LLM_API_KEY`          |  clave de la Meta Model API                                                         |
+| `LLM_BASE_URL`         | `https://api.meta.ai/v1`                                                           |
+| `LLM_MODEL`            | `muse-spark-1.3-contributor`                                                       |
+| `LLM_VISION_MODEL`     |  `muse-wonder-1.0` (por defecto con Meta): clave de fa, «Releer», revisión de poses |
+| `LLM_IMAGE_MODEL`      | `muse-image-1.0` (por defecto)                                                     |
+| `LLM_SEGMENT_MODEL`    |  `sam-3.1` (por defecto)                                                            |
+| `LLM_TRANSCRIBE_MODEL` |  `muse-voice-transcribe-1.0`                                                        |
+| `LLM_JSON_MODE`        |  `schema`, u `object`/`none` si no lo admite                                        |
+| `LLM_REASONING_EFFORT` | `low` (por defecto en Meta)                                                        |
 
 ## Personajes, objetos y fondos con IA
 

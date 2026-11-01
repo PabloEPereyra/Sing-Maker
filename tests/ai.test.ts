@@ -8,7 +8,13 @@ import {
 	type GeneratedExercise
 } from '../src/lib/ai/exercise';
 import { configFromEnv, generateExercise, GenerateError } from '../src/lib/ai/generate';
-import { reviewStrip, stripPrompt } from '../src/lib/ai/character';
+import {
+	CharacterRequestSchema,
+	makeBrief,
+	MAX_THREAD,
+	reviewStrip,
+	stripPrompt
+} from '../src/lib/ai/character';
 import { parse } from '../src/lib/music/parser';
 
 const VALID: GeneratedExercise = {
@@ -323,5 +329,63 @@ describe('revisión de hojas de poses con Wonder', () => {
 		expect(
 			stripPrompt('move', 'a fox', 'cute3d', 'walk', undefined, 'Draw exactly 6 poses.')
 		).toContain('fix this problem from the previous attempt: Draw exactly 6 poses.');
+	});
+});
+
+describe('preguntas de la IA al crear: la conversación sigue', () => {
+	const meta = configFromEnv({ LLM_API_KEY: 'k', LLM_BASE_URL: 'https://api.meta.ai/v1' });
+	const OK = JSON.stringify({
+		status: 'ok',
+		message: '',
+		name: 'Zorro',
+		noun: 'fox',
+		visual: 'an orange fox',
+		flight: ''
+	});
+	type Body = { messages: { role: string; content: string }[] };
+
+	it('sin respuestas va solo el pedido', async () => {
+		const { calls, fetchImpl } = fakeModel([OK]);
+		await makeBrief({ prompt: 'algo lindo', lang: 'es' }, meta, fetchImpl);
+		expect((calls[0] as unknown as Body).messages.map((m) => m.role)).toEqual(['system', 'user']);
+	});
+
+	it('la pregunta y la respuesta se agregan como turnos del chat, en orden', async () => {
+		const { calls, fetchImpl } = fakeModel([OK]);
+		await makeBrief(
+			{
+				prompt: 'algo lindo',
+				lang: 'es',
+				thread: [{ q: '¿Qué animal?', a: 'un zorro' }]
+			},
+			meta,
+			fetchImpl
+		);
+		const m = (calls[0] as unknown as Body).messages;
+		expect(m.map((x) => x.role)).toEqual(['system', 'user', 'assistant', 'user']);
+		expect(m[2].content).toContain('¿Qué animal?');
+		expect(m[2].content).toContain('"status":"clarify"');
+		expect(m[3].content).toBe('un zorro');
+	});
+
+	it('a la última ronda se le pide que ya no pregunte', async () => {
+		const { calls, fetchImpl } = fakeModel([OK]);
+		const thread = Array.from({ length: MAX_THREAD }, (_, i) => ({ q: `q${i}`, a: `a${i}` }));
+		await makeBrief({ prompt: 'x', lang: 'en', thread }, meta, fetchImpl);
+		const users = (calls[0] as unknown as Body).messages.filter((m) => m.role === 'user');
+		expect(users[1].content).toBe('a0');
+		expect(users[MAX_THREAD].content).toContain('Do not ask anything else');
+	});
+
+	it('el servidor acepta hasta MAX_THREAD respuestas y rechaza más', () => {
+		const base = { action: 'brief', prompt: 'x' };
+		const turns = (n: number) => Array.from({ length: n }, () => ({ q: 'q', a: 'a' }));
+		expect(CharacterRequestSchema.safeParse({ ...base, thread: turns(MAX_THREAD) }).success).toBe(
+			true
+		);
+		expect(
+			CharacterRequestSchema.safeParse({ ...base, thread: turns(MAX_THREAD + 1) }).success
+		).toBe(false);
+		expect(CharacterRequestSchema.safeParse(base).success).toBe(true);
 	});
 });

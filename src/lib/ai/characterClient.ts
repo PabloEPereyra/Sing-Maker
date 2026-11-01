@@ -1,6 +1,6 @@
 // Cliente del navegador para /api/character (la clave de Meta nunca pasa por acá).
 import type { Movement, StripKind, StyleId } from '../character/spec';
-import type { Brief, Refined } from './character';
+import type { Brief, BriefTurn, Refined } from './character';
 import { t } from '../i18n';
 import { GenerateRequestError } from './client';
 import { postJson } from './http';
@@ -22,8 +22,9 @@ export const characterApi = {
 		prompt: string,
 		lang: 'es' | 'en',
 		image?: string,
-		kind: 'character' | 'item' | 'scene' = 'character'
-	) => call<Brief>({ action: 'brief', prompt, lang, image, kind }),
+		kind: 'character' | 'item' | 'scene' = 'character',
+		thread: BriefTurn[] = []
+	) => call<Brief>({ action: 'brief', prompt, lang, image, kind, thread }),
 	scene: (visual: string, style: StyleId, movement: Movement) =>
 		call<{ image: string }>({ action: 'scene', visual, style, movement }).then((r) => r.image),
 	ground: (image: string) =>

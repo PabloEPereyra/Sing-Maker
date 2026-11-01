@@ -37,6 +37,14 @@ const dataUrl = z
 	.max(8_000_000)
 	.regex(/^data:image\/(png|jpeg|webp);base64,/);
 
+/** Cuántas respuestas a preguntas de Spark se aceptan por pedido; a la última ronda ya no puede preguntar más. */
+export const MAX_THREAD = 3;
+
+export interface BriefTurn {
+	q: string;
+	a: string;
+}
+
 export const CharacterRequestSchema = z.discriminatedUnion('action', [
 	z.object({
 		action: z.literal('brief'),
@@ -44,7 +52,12 @@ export const CharacterRequestSchema = z.discriminatedUnion('action', [
 		kind: z.enum(['character', 'item', 'scene']).default('character'),
 		prompt: z.string().max(600).default(''),
 		image: dataUrl.optional(),
-		lang: z.enum(['es', 'en']).default('es')
+		lang: z.enum(['es', 'en']).default('es'),
+		/** Preguntas que hizo Spark y lo que respondió la persona, en orden (la conversación hasta ahora). */
+		thread: z
+			.array(z.object({ q: z.string().max(600), a: z.string().max(300) }))
+			.max(MAX_THREAD)
+			.default([])
 	}),
 	z.object({
 		action: z.literal('objects'),
@@ -172,12 +185,15 @@ export async function makeBrief(
 		image?: string;
 		lang: 'es' | 'en';
 		kind?: 'character' | 'item' | 'scene';
+		/** Lo que Spark preguntó y lo que se respondió: sigue la conversación en vez de empezar de nuevo. */
+		thread?: BriefTurn[];
 	},
 	config: LlmConfig,
 	fetchImpl: typeof fetch = fetch
 ): Promise<Brief> {
 	if (!req.prompt.trim() && !req.image) throw new GenerateError('Empty request.', 400);
 	const text = req.prompt.trim() || 'Use the subject of the photo.';
+	const thread = (req.thread ?? []).slice(0, MAX_THREAD);
 	const messages: Message[] = [
 		{ role: 'system', content: briefSystem(req.lang, req.kind) },
 		{
@@ -188,7 +204,28 @@ export async function makeBrief(
 						{ type: 'image_url', image_url: { url: req.image } }
 					]
 				: text
-		}
+		},
+		...thread.flatMap((turn, i): Message[] => [
+			{
+				role: 'assistant',
+				content: JSON.stringify({
+					status: 'clarify',
+					message: turn.q,
+					name: '',
+					noun: '',
+					visual: '',
+					flight: ''
+				})
+			},
+			{
+				role: 'user',
+				// A la última ronda ya no se vuelve a preguntar: lo que falte lo decide el modelo.
+				content:
+					i === MAX_THREAD - 1
+						? `${turn.a}\n\n(Do not ask anything else: choose the missing details yourself and answer "ok", or "refuse" if it is not allowed.)`
+						: turn.a
+			}
+		])
 	];
 	return askJson(messages, config, fetchImpl, BriefSchema, BRIEF_JSON_SCHEMA, 'character_brief');
 }

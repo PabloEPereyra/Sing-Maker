@@ -3,8 +3,9 @@
 	// reconoce qué hay en una foto; SAM 3.1 recorta (un objeto de la foto y cada pose de las tiras);
 	// Muse Image dibuja las poses. Después se anima en vivo para aprobarlo y queda guardado en el dispositivo.
 	import { onDestroy, onMount } from 'svelte';
-	import type { Brief } from '$lib/ai/character';
+	import type { Brief, BriefTurn } from '$lib/ai/character';
 	import { characterApi } from '$lib/ai/characterClient';
+	import ClarifyChat from './ClarifyChat.svelte';
 	import { GenerateRequestError } from '$lib/ai/client';
 	import {
 		blobToRaster,
@@ -68,6 +69,8 @@
 	let error = $state('');
 	let details = $state<string[]>([]);
 	let note = $state<{ kind: 'clarify' | 'refuse'; text: string } | null>(null);
+	/** Preguntas de la IA ya respondidas en el chat (ver ClarifyChat). */
+	let thread = $state<BriefTurn[]>([]);
 	let result = $state.raw<CreatedStrips | null>(null);
 	let saving = $state(false);
 	let disposed = false;
@@ -194,7 +197,9 @@
 			const brief: Brief = await characterApi.brief(
 				subject,
 				settings.lang,
-				photoUrl && !chosen ? photoUrl : undefined
+				photoUrl && !chosen ? photoUrl : undefined,
+				'character',
+				thread
 			);
 			if (disposed) return;
 			if (brief.status !== 'ok') {
@@ -202,6 +207,7 @@
 				phase = 'form';
 				return;
 			}
+			thread = [];
 			let ref = reference;
 			if (photo && !ref) ref = (await cutSubject(photo, brief.noun)).reference;
 			name = brief.name;
@@ -223,6 +229,13 @@
 			fail(e);
 			phase = 'form';
 		}
+	}
+
+	/** Respuesta a la pregunta de la IA: sigue la conversación y vuelve a pedir lo mismo. */
+	async function reply(text: string) {
+		if (note?.kind !== 'clarify') return;
+		thread = [...thread, { q: note.text, a: text }];
+		await create();
 	}
 
 	/** Hay algo que retocar: texto, o un estilo nuevo si se rehace todo. */
@@ -524,6 +537,10 @@
 
 			<textarea
 				bind:value={prompt}
+				oninput={() => {
+					thread = [];
+					if (note?.kind === 'clarify') note = null;
+				}}
 				rows="3"
 				maxlength="600"
 				placeholder={photo ? t('char.placeholderPhoto') : t('char.placeholder')}
@@ -608,14 +625,14 @@
 				{/if}
 			</div>
 
-			{#if note}
+			{#if note?.kind === 'clarify'}
+				<ClarifyChat {thread} question={note.text || t('char.clarify')} onReply={reply} />
+			{:else if note}
 				<div
 					role="alert"
-					class="mt-3 rounded-lg border p-3 text-sm {note.kind === 'refuse'
-						? 'border-red-200 bg-red-50 text-red-700'
-						: 'border-accent/40 bg-accent/10'}"
+					class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
 				>
-					{note.text || (note.kind === 'refuse' ? t('char.refused') : t('char.clarify'))}
+					{note.text || t('char.refused')}
 				</div>
 			{/if}
 			{#if error}
