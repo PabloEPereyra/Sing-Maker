@@ -89,7 +89,9 @@ pegándola con Ctrl+V; en el celular se puede sacar con la cámara). Se achica e
 - **Partitura** (impresa o escrita a mano): el modelo transcribe la melodía principal escribiendo el nombre de cada nota
   tal como está escrita y la app calcula los intervalos (es más confiable que la cuenta del modelo).
 - **Dibujo de la melodía**: rectángulos más altos o más bajos, de izquierda a derecha; el ancho de cada uno es su
-  duración y las palabras que lleve encima son las notas (DO, RE, MI…). Si no tiene nombres, se escribe la escala en el
+  duración y las palabras que lleve encima son las notas (DO, RE, MI…). Se puede subir la foto de un dibujo en papel o
+  dibujarlo en el **lienzo** del diálogo (`DrawPattern.svelte`: se arrastra para dibujar bloques, se estiran desde el
+  borde derecho y se les puede poner nombre); el lienzo se convierte en una imagen y la lee el mismo modelo. Si no tiene nombres, se escribe la escala en el
   cuadro de texto («quiero este ejercicio en do mayor») y, si no se escribe nada, el modelo pregunta en qué escala leerlo.
 
 **Quién lee la imagen**: Spark primero, porque es más barato. Si lee una partitura en **clave de fa** (donde Spark

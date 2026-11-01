@@ -17,6 +17,7 @@
 	import { firstRoot, playPattern, previewRoot, stopPreview } from '$lib/audio/preview';
 	import { onDestroy } from 'svelte';
 	import { toCode } from '$lib/ai/exercise';
+	import DrawPattern, { type Block } from './DrawPattern.svelte';
 	import PatternPreview from './PatternPreview.svelte';
 	import PianoRoll from './PianoRoll.svelte';
 	import VoiceExerciseDialog from './VoiceExerciseDialog.svelte';
@@ -121,6 +122,11 @@
 	/** Partitura adjunta (data URL, ya achicada). */
 	let score = $state<string | null>(null);
 	let dragging = $state(false);
+	/** Lienzo para dibujar el patrón (en vez de subir una foto); los bloques se conservan al volver a abrirlo. */
+	let drawing = $state(false);
+	let blocks = $state<Block[]>([]);
+	/** La imagen adjunta salió del lienzo (se puede volver a editar). */
+	let fromDrawing = $state(false);
 	let fileInput = $state<HTMLInputElement>();
 
 	async function attach(file: File | null | undefined) {
@@ -128,6 +134,7 @@
 		error = '';
 		try {
 			score = await imageToDataUrl(file);
+			fromDrawing = false;
 		} catch {
 			error = t('score.unreadable');
 		}
@@ -246,6 +253,16 @@
 				<div class="min-w-0 flex-1 text-sm">
 					<div class="font-semibold">🎼 {t('score.attached')}</div>
 					<div class="text-xs text-muted">{t('score.attachedHint')}</div>
+					{#if fromDrawing}
+						<button
+							class="mt-1 text-xs font-semibold text-accent underline"
+							onclick={() => {
+								score = null;
+								asking = '';
+								drawing = true;
+							}}>✏ {t('draw.edit')}</button
+						>
+					{/if}
 				</div>
 				<button
 					class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2"
@@ -253,29 +270,51 @@
 					onclick={() => {
 						score = null;
 						asking = '';
+						fromDrawing = false;
 					}}>✕</button
 				>
 			</div>
+		{:else if drawing}
+			<DrawPattern
+				bind:blocks
+				onUse={(image) => {
+					score = image;
+					fromDrawing = true;
+					drawing = false;
+					error = '';
+				}}
+				onCancel={() => (drawing = false)}
+			/>
 		{:else}
-			<button
-				class="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-3 text-sm transition {dragging
-					? 'border-accent bg-accent/10 text-accent'
-					: 'border-border text-muted hover:border-accent/50 hover:text-fg'}"
-				onclick={() => fileInput?.click()}
-				ondragover={(e) => {
-					e.preventDefault();
-					dragging = true;
-				}}
-				ondragleave={() => (dragging = false)}
-				ondrop={(e) => {
-					e.preventDefault();
-					dragging = false;
-					void attach(e.dataTransfer?.files[0]);
-				}}
-			>
-				<span class="text-lg">📷</span>
-				<span>{t('score.upload')}</span>
-			</button>
+			<div class="mt-3 flex gap-2">
+				<button
+					class="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border-2 border-dashed px-3 py-3 text-sm transition {dragging
+						? 'border-accent bg-accent/10 text-accent'
+						: 'border-border text-muted hover:border-accent/50 hover:text-fg'}"
+					onclick={() => fileInput?.click()}
+					ondragover={(e) => {
+						e.preventDefault();
+						dragging = true;
+					}}
+					ondragleave={() => (dragging = false)}
+					ondrop={(e) => {
+						e.preventDefault();
+						dragging = false;
+						void attach(e.dataTransfer?.files[0]);
+					}}
+				>
+					<span class="text-lg">📷</span>
+					<span>{t('score.upload')}</span>
+				</button>
+				<button
+					class="flex shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-border px-3 py-2 text-xs text-muted transition hover:border-accent/50 hover:text-fg"
+					title={t('draw.hint')}
+					onclick={() => (drawing = true)}
+				>
+					<span class="text-lg">✏️</span>
+					<span>{t('draw.open')}</span>
+				</button>
+			</div>
 		{/if}
 
 		{#if asking}
