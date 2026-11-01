@@ -306,7 +306,7 @@
 						onclick={onRange}>{noteLabel(low)}</button
 					>
 					<div
-						class="-mx-4 flex w-[clamp(7rem,calc(100vw-38rem),20rem)] flex-col items-center gap-1 short:gap-0.5"
+						class="-mx-4 flex w-(--hud-bar-w) flex-col items-center gap-1 short:gap-0.5"
 					>
 						<div
 							class="max-w-full truncate px-4 font-display text-xs font-bold tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)] short:text-[0.65rem] short:leading-none"

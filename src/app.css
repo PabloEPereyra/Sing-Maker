@@ -566,6 +566,10 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 
 /* Barra de progreso de repeticiones (arriba al centro del escenario). El borde es el mismo degradado azul
    que las tapas de las notas, para que las tres piezas se vean como un solo objeto. */
+/* Ancho de las barras de repeticiones y de nivel: un cuarto de la pantalla. */
+:root {
+	--hud-bar-w: clamp(7rem, 25vw, 40rem);
+}
 .hud-bar {
 	position: relative;
 	display: grid;
@@ -647,7 +651,7 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 .test-bar {
 	position: relative;
 	display: flex;
-	width: clamp(7rem, calc(100vw - 38rem), 20rem);
+	width: var(--hud-bar-w);
 	height: 1.35rem;
 	gap: 3px;
 	padding: 2px;
