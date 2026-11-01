@@ -7,6 +7,7 @@ import { measureBeats, tickBeats } from '$lib/music/meter';
 import type { Sequence, TimedNote } from '$lib/music/generate';
 import { midiToNote } from '$lib/music/notes';
 import { COLLECTIBLES, type CollectibleSkin } from './collectibles';
+import { OctaveWatch } from './octave';
 import {
 	bestShift,
 	buildStars,
@@ -60,6 +61,8 @@ export interface GameStatus {
 	sungMidi: number | null;
 	/** Nota guía que acaba de empezar a sonar (id distinto en cada una), para anunciarla en pantalla. */
 	guide: { id: number; midi: number } | null;
+	/** Cuántas veces se avisó "octava equivocada" en este ejercicio (sube en 1 cada aviso). */
+	octaveWarns: number;
 }
 
 /** Devuelve el tono cantado (MIDI, fraccionario) o null. Recibe el tiempo del ejercicio. */
@@ -127,6 +130,8 @@ export class Game {
 	private listenEnd = 0;
 	/** Índice (en seq.notes) de la última nota guía que ya empezó a sonar; -1 si ninguna. */
 	private guideNote = -1;
+	private octave = new OctaveWatch();
+	private octaveWarns = 0;
 
 	private birdMidi = 60;
 	private birdVy = 0;
@@ -240,6 +245,8 @@ export class Game {
 		this.source = source;
 		this.latency = latency;
 		this.guideNote = -1;
+		this.octave.reset();
+		this.octaveWarns = 0;
 		const ctx = getContext();
 		// Escucha previa: suena una vez la primera repetición, sin la nota guía (esa queda para la
 		// práctica); arranca directo en la primera nota a cantar.
@@ -441,6 +448,9 @@ export class Game {
 		this.sung = guide?.isHint ? guide.midi : voice;
 		this.history.push({ time, midi: this.sung });
 		this.run.push({ time, midi: voice });
+		const target = guide && !guide.isHint ? guide : null;
+		if (this.phase === 'playing' && this.octave.feed(target, voice, time, this.opts.tolerance))
+			this.octaveWarns++;
 		while (this.history.length && this.history[0].time < time - 4) this.history.shift();
 		this.updateBird(dt);
 	}
@@ -843,7 +853,7 @@ export class Game {
 		const sungMidi = this.sung === null ? null : Math.round(this.sung);
 		const guideOn = this.phase === 'countin' || this.phase === 'playing' || this.phase === 'paused';
 		const guideNote = guideOn ? this.guideNote : -1;
-		const key = `${this.phase}|${collected}|${missed}|${rep}|${countIn}|${sungMidi}|${guideNote}|${Math.round(time * 4)}`;
+		const key = `${this.phase}|${collected}|${missed}|${rep}|${countIn}|${sungMidi}|${guideNote}|${this.octaveWarns}|${Math.round(time * 4)}`;
 		if (!force && key === this.lastStatusKey) return;
 		this.lastStatusKey = key;
 		this.onStatus({
@@ -857,7 +867,8 @@ export class Game {
 			progress: this.seq.duration ? Math.max(0, Math.min(1, time / this.seq.duration)) : 0,
 			countIn,
 			sungMidi,
-			guide: guideNote >= 0 ? { id: guideNote, midi: this.seq.notes[guideNote].midi } : null
+			guide: guideNote >= 0 ? { id: guideNote, midi: this.seq.notes[guideNote].midi } : null,
+			octaveWarns: this.octaveWarns
 		});
 	}
 }

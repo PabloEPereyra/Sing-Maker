@@ -786,6 +786,42 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	}
 }
 
+/* Aviso de octava equivocada: aparece, se queda un momento y se esfuma. */
+@keyframes octave-toast {
+	0% {
+		opacity: 0;
+		transform: translateY(-8px) scale(0.92);
+	}
+	12% {
+		opacity: 1;
+		transform: none;
+	}
+	78% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+.octave-toast {
+	max-width: 100%;
+	padding: 0.45rem 1.1rem;
+	border: 3px solid #7c2d12;
+	border-radius: 9999px;
+	background-image: linear-gradient(180deg, #ffe066 0%, #ffa41b 100%);
+	box-shadow: 0 4px 0 #7c2d12;
+	font-family: var(--font-display);
+	font-size: 1.3rem;
+	color: #4a1d06;
+	text-align: center;
+	animation: octave-toast 2600ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+	.octave-toast {
+		animation-name: guide-flash-soft;
+	}
+}
+
 /* Puntuación y diamante de dificultad: sin contenedor, solo relieve que "sale" de la pantalla. */
 .hud-3d {
 	filter: drop-shadow(0 2px 0 rgb(20 30 80 / 0.55)) drop-shadow(0 5px 5px rgb(10 15 50 / 0.4));

@@ -403,6 +403,18 @@
 			{/key}
 		{/if}
 
+		{#if status.octaveWarns > 0}
+			<!-- Varias notas seguidas bien de nombre pero en otra octava: aviso corto que se esfuma solo -->
+			{#key status.octaveWarns}
+				<div
+					class="pointer-events-none absolute inset-x-0 top-[26%] grid place-items-center px-4"
+					role="status"
+				>
+					<div class="octave-toast">{t('stage.octave')}</div>
+				</div>
+			{/key}
+		{/if}
+
 		{#if status.phase === 'listen'}
 			<div class="pointer-events-none absolute inset-x-0 top-[18%] grid place-items-center">
 				<div
