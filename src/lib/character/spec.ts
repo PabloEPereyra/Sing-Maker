@@ -37,3 +37,7 @@ export const STRIPS = {
 	item: { cols: 2, rows: 1, ask: 2, min: 2, max: 2 }
 } as const;
 export type StripKind = keyof typeof STRIPS;
+
+/** Forma de las plataformas de los personajes terrestres sobre un fondo propio (ver game/themes/platform.ts). */
+export const PLATFORM_STYLES = ['log', 'stone', 'ice', 'cloud', 'crystal', 'mushroom'] as const;
+export type PlatformStyle = (typeof PLATFORM_STYLES)[number];

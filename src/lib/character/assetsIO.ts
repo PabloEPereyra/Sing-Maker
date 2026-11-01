@@ -3,7 +3,7 @@
 import type { ItemRecord, SceneRecord } from './assets.svelte';
 import { slug } from './export';
 import { ImportError, MAX_ZIP_BYTES, readZip, toSheet } from './import';
-import { STYLES, type StyleId } from './spec';
+import { PLATFORM_STYLES, STYLES, type PlatformStyle, type StyleId } from './spec';
 import { zipStore } from './zip';
 
 const json = (v: unknown) => new TextEncoder().encode(JSON.stringify(v, null, '\t') + '\n');
@@ -46,7 +46,7 @@ export async function buildItemZip(
 }
 
 export async function buildSceneZip(
-	scene: Pick<SceneRecord, 'name' | 'movement' | 'image' | 'ground'>
+	scene: Pick<SceneRecord, 'name' | 'movement' | 'image' | 'ground' | 'platform'>
 ): Promise<Blob> {
 	const bytes = new Uint8Array(await scene.image.arrayBuffer());
 	const file = `${slug(scene.name, 'fondo')}.${sceneExtension(bytes) ?? 'png'}`;
@@ -61,8 +61,9 @@ export async function buildSceneZip(
 						name: scene.name,
 						movement: scene.movement,
 						ground: scene.ground,
+						platform: scene.platform,
 						image: file,
-						note: 'Imagen ancha que se repite al avanzar. ground: altura del suelo como fracción del alto.'
+						note: 'Imagen ancha que se repite al avanzar. ground: altura del suelo como fracción del alto. platform: forma de las plataformas (log, stone, ice, cloud, crystal, mushroom).'
 					})
 				}
 			]) as BlobPart
@@ -150,6 +151,9 @@ export async function importScene(file: Blob): Promise<ImportedScene> {
 		name: cleanName(m.name, 'Fondo'),
 		movement: m.movement,
 		image,
-		ground: Math.max(0.5, Math.min(0.95, ground))
+		ground: Math.max(0.5, Math.min(0.95, ground)),
+		platform: (PLATFORM_STYLES as readonly string[]).includes(m.platform as string)
+			? (m.platform as PlatformStyle)
+			: undefined
 	};
 }

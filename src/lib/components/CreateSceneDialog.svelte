@@ -8,7 +8,15 @@
 	import { GenerateRequestError } from '$lib/ai/client';
 	import { addScene, assets, MAX_SCENES } from '$lib/character/assets.svelte';
 	import { blobToRaster, rasterToJpegUrl } from '$lib/character/create';
-	import { STYLES, type Movement, type StyleId } from '$lib/character/spec';
+	import {
+		PLATFORM_STYLES,
+		STYLES,
+		type Movement,
+		type PlatformStyle,
+		type StyleId
+	} from '$lib/character/spec';
+	import { loadImage } from '$lib/game/themes/common';
+	import { drawPlatform, samplePalette } from '$lib/game/themes/platform';
 	import { t } from '$lib/i18n';
 	import { settings } from '$lib/settings.svelte';
 
@@ -32,6 +40,9 @@
 	let image = $state.raw<Blob | null>(null);
 	let imageUrl = $state('');
 	let ground = $state(0.8);
+	/** Forma de las plataformas (la propone Spark al mirar el fondo; se puede cambiar). */
+	let platform = $state<PlatformStyle>('log');
+	let preview = $state<HTMLCanvasElement>();
 	let saving = $state(false);
 	let disposed = false;
 	onDestroy(() => {
@@ -77,9 +88,12 @@
 				// Spark mira el fondo y dice en qué fracción del alto empieza el suelo (si falla, un valor razonable).
 				try {
 					const small = rasterToJpegUrl(await blobToRaster(blob, 800), 0.8);
-					ground = await characterApi.ground(small);
+					const info = await characterApi.ground(small);
+					ground = info.ground;
+					platform = info.platform;
 				} catch {
 					ground = 0.8;
+					platform = 'log';
 				}
 			} else ground = 0.865;
 			if (disposed) return;
@@ -104,7 +118,8 @@
 				name: name.trim() || t('scene.defaultName'),
 				movement,
 				image,
-				ground
+				ground,
+				platform: movement === 'walk' ? platform : undefined
 			});
 			if (movement === 'walk') settings.backgroundWalk = rec.id;
 			else settings.backgroundFly = rec.id;
@@ -115,6 +130,43 @@
 			saving = false;
 		}
 	}
+
+	// Vista previa de las plataformas sobre el fondo, con los colores que sacaría el juego.
+	$effect(() => {
+		if (phase !== 'review' || movement !== 'walk' || !preview || !imageUrl) return;
+		const canvas = preview;
+		const style = platform;
+		const groundAt = ground;
+		let cancelled = false;
+		loadImage(imageUrl).then((img) => {
+			const g = canvas.getContext('2d');
+			if (cancelled || !g) return;
+			// Se ve la franja de abajo del fondo: el suelo y un poco del paisaje de arriba.
+			const from = Math.max(0, groundAt - 0.42);
+			const to = Math.min(1, groundAt + 0.08);
+			const sy = from * img.height;
+			g.drawImage(
+				img,
+				0,
+				sy,
+				img.width,
+				(to - from) * img.height,
+				0,
+				0,
+				canvas.width,
+				canvas.height
+			);
+			const line = ((groundAt - from) / (to - from)) * canvas.height;
+			const pal = samplePalette(img, groundAt);
+			for (const [x, w, lift] of [
+				[36, 120, 34],
+				[190, 90, 66],
+				[330, 130, 40]
+			])
+				drawPlatform(g, style, x, line - lift, w, 11, pal, false);
+		});
+		return () => (cancelled = true);
+	});
 
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape' && phase !== 'working') onClose();
@@ -284,6 +336,33 @@
 						style:--fill="{((ground - 0.5) / 0.45) * 100}%"
 					/>
 				</label>
+				<div class="mt-3">
+					<span class="mb-1 block text-xs text-muted">{t('scene.platform')}</span>
+					<canvas
+						bind:this={preview}
+						width="480"
+						height="135"
+						class="block w-full rounded-lg border border-border"
+						aria-hidden="true"
+					></canvas>
+					<div
+						class="mt-2 flex flex-wrap gap-1.5"
+						role="radiogroup"
+						aria-label={t('scene.platform')}
+					>
+						{#each PLATFORM_STYLES as p (p)}
+							<button
+								class="rounded-lg border px-2.5 py-1 text-xs font-semibold transition {platform ===
+								p
+									? 'border-accent bg-accent text-white'
+									: 'border-border bg-surface-2 hover:border-accent/50'}"
+								role="radio"
+								aria-checked={platform === p}
+								onclick={() => (platform = p)}>{t(`platform.${p}`)}</button
+							>
+						{/each}
+					</div>
+				</div>
 			{/if}
 			<label class="mt-4 block text-sm">
 				<span class="mb-1 block text-xs text-muted">{t('char.name')}</span>

@@ -50,6 +50,30 @@ describe('exportar objetos y fondos', () => {
 	});
 });
 
+describe('forma de las plataformas del fondo', () => {
+	it('el zip de un fondo guarda la forma y no se pierde al armarlo', async () => {
+		const files = await filesOf(
+			await buildSceneZip({
+				name: 'Cumbre',
+				movement: 'walk',
+				image: new Blob([PNG]),
+				ground: 0.8,
+				platform: 'ice'
+			})
+		);
+		const m = JSON.parse(new TextDecoder().decode(files.get('scene.json')));
+		expect(m.platform).toBe('ice');
+	});
+
+	it('un fondo viejo, sin forma, no la lleva en el manifiesto', async () => {
+		const files = await filesOf(
+			await buildSceneZip({ name: 'Viejo', movement: 'walk', image: new Blob([PNG]), ground: 0.8 })
+		);
+		const m = JSON.parse(new TextDecoder().decode(files.get('scene.json')));
+		expect(m.platform).toBeUndefined();
+	});
+});
+
 describe('importar objetos y fondos', () => {
 	it('rechaza un zip de fondo al importar un objeto y al revés', async () => {
 		const scene = await buildSceneZip({

@@ -134,6 +134,11 @@ revisa cada hoja** (¿una pose por celda, ninguna cortada, el mismo personaje, f
 se vuelve a dibujar diciéndole qué corregir, y **SAM** recorta cada pose. El navegador arma las hojas de cuadros
 (`src/lib/character/`). Todo se guarda en el dispositivo y se puede exportar e importar.
 
+En los fondos para personajes que caminan, **Spark también mira la imagen** para decir dónde empieza el suelo y qué tipo de
+plataformas le van al paisaje (tronco, piedra, hielo, nube, cristal u hongo; se puede cambiar en la vista previa). Los
+colores de las plataformas se miden del propio fondo y se dibujan por código (`src/lib/game/themes/platform.ts`): no
+cuesta ninguna imagen más.
+
 ## Cupos y gasto
 
 Para acotar el gasto de créditos, cada dispositivo tiene topes por defecto (se cambian con las variables `LIMIT_*`):

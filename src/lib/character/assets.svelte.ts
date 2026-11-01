@@ -1,7 +1,7 @@
 // Objetos para recoger y fondos creados con IA, guardados en el dispositivo (ver idb.ts).
 import { idbRun } from './idb';
 import type { SheetRecord } from './store.svelte';
-import type { Movement, StyleId } from './spec';
+import type { Movement, PlatformStyle, StyleId } from './spec';
 
 /** Topes (cada objeto pesa unos cientos de KB; cada fondo, ~0,5 MB). */
 export const MAX_ITEMS = 12;
@@ -26,6 +26,8 @@ export interface SceneRecord {
 	image: Blob;
 	/** Caminantes: altura del suelo como fracción del alto (por donde camina el personaje). */
 	ground: number;
+	/** Caminantes: forma de las plataformas (sus colores salen del fondo). Sin valor: tronco. */
+	platform?: PlatformStyle;
 }
 
 export const assets = $state<{ items: ItemRecord[]; scenes: SceneRecord[]; loaded: boolean }>({
@@ -99,7 +101,8 @@ export function duplicateScene(rec: SceneRecord, suffix: string): Promise<SceneR
 		name: `${rec.name} (${suffix})`.slice(0, 30),
 		movement: rec.movement,
 		image: rec.image,
-		ground: rec.ground
+		ground: rec.ground,
+		platform: rec.platform
 	});
 }
 

@@ -99,7 +99,7 @@ export async function onRequestPost({
 			case 'review':
 				return json(await reviewStrip(input, config));
 			case 'ground':
-				return json({ ground: await detectGround(input.image, config) });
+				return json(await detectGround(input.image, config));
 			case 'facing':
 				return json({ facing: await detectFacing(input.image, config) });
 			case 'segment':

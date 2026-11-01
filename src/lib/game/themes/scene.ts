@@ -1,8 +1,16 @@
 // Fondo creado con IA puesto sobre un tema de fábrica: se cambia solo lo que se ve de fondo (y, para los
-// caminantes, la altura del suelo); el personaje, las plataformas y el punto de partida siguen siendo del tema.
+// caminantes, la altura del suelo y las plataformas, que toman los colores del fondo y la forma que eligió Spark);
+// el personaje y el punto de partida siguen siendo del tema.
 import type { SceneRecord } from '$lib/character/assets.svelte';
 import type { Theme } from '../theme';
-import { drawScrollingBackground, loadImage } from './common';
+import { drawPerchLabel, drawScrollingBackground, loadImage } from './common';
+import {
+	css,
+	DEFAULT_PALETTE,
+	drawPlatform,
+	samplePalette,
+	type PlatformPalette
+} from './platform';
 
 /** Velocidad del fondo respecto de las notas (paralaje), como en los temas de fábrica. */
 const PARALLAX = { walk: 0.45, fly: 0.3 } as const;
@@ -10,10 +18,11 @@ const PARALLAX = { walk: 0.45, fly: 0.3 } as const;
 const cache = new Map<string, Theme>();
 
 export function withScene(theme: Theme, scene: SceneRecord): Theme {
-	const key = `${theme.id}|${scene.id}`;
+	const key = `${theme.id}|${scene.id}|${scene.platform ?? ''}`;
 	const cached = cache.get(key);
 	if (cached) return cached;
 	let image: HTMLImageElement | null = null;
+	let palette: PlatformPalette = DEFAULT_PALETTE;
 	const walker = theme.movement === 'walk';
 	const out: Theme = {
 		...theme,
@@ -24,6 +33,7 @@ export function withScene(theme: Theme, scene: SceneRecord): Theme {
 			const url = URL.createObjectURL(scene.image);
 			try {
 				image = await loadImage(url);
+				palette = samplePalette(image, scene.ground);
 			} finally {
 				URL.revokeObjectURL(url);
 			}
@@ -40,7 +50,15 @@ export function withScene(theme: Theme, scene: SceneRecord): Theme {
 				g.fillRect(0, 0, w, h);
 			}
 		},
-		startSurface: walker ? (h) => h * scene.ground : theme.startSurface
+		startSurface: walker ? (h) => h * scene.ground : theme.startSurface,
+		drawPerch: walker
+			? (g, x, y, width, info) => {
+					// La plataforma de la nota guía (vacía, solo contorno) sigue siendo la del tema.
+					if (info.hint || !image) return theme.drawPerch(g, x, y, width, info);
+					drawPlatform(g, scene.platform ?? 'log', x, info.footY, width, 11, palette, info.past);
+					drawPerchLabel(g, x, y, info.label, info.past, css(palette.dark, 0.6));
+				}
+			: theme.drawPerch
 	};
 	cache.set(key, out);
 	return out;

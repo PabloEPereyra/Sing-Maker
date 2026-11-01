@@ -9,7 +9,15 @@
 import { z } from 'zod';
 import { complete, GenerateError, type LlmConfig, type Message } from './generate';
 
-import { STRIPS, STYLES, type Movement, type StripKind, type StyleId } from '../character/spec';
+import {
+	PLATFORM_STYLES,
+	STRIPS,
+	STYLES,
+	type Movement,
+	type PlatformStyle,
+	type StripKind,
+	type StyleId
+} from '../character/spec';
 export { STRIPS, STYLES };
 export type { Movement, StripKind, StyleId };
 
@@ -658,30 +666,46 @@ export function scenePrompt(visual: string, style: StyleId, movement: Movement):
 export const GROUND_JSON_SCHEMA = {
 	type: 'object',
 	additionalProperties: false,
-	required: ['ground'],
-	properties: { ground: { type: 'number' } }
+	required: ['ground', 'platform'],
+	properties: {
+		ground: { type: 'number' },
+		platform: { type: 'string', enum: [...PLATFORM_STYLES] }
+	}
 };
-const GroundSchema = z.object({ ground: z.number() });
+const GroundSchema = z.object({
+	ground: z.number(),
+	// Un valor desconocido no tira abajo la creación del fondo: queda el tronco de siempre.
+	platform: z.enum(PLATFORM_STYLES).catch('log')
+});
 
-/** En qué fracción del alto (0 arriba, 1 abajo) empieza el suelo por donde camina el personaje; 0,5–0,95. */
+export interface GroundInfo {
+	/** Fracción del alto (0 arriba, 1 abajo) donde empieza el suelo; 0,5–0,95. */
+	ground: number;
+	/** Forma de las plataformas que mejor va con este paisaje. */
+	platform: PlatformStyle;
+}
+
+/** Dónde empieza el suelo por donde camina el personaje y qué tipo de plataformas le van al paisaje. */
 export async function detectGround(
 	image: string,
 	config: LlmConfig,
 	fetchImpl: typeof fetch = fetch
-): Promise<number> {
+): Promise<GroundInfo> {
 	const messages: Message[] = [
 		{
 			role: 'user',
 			content: [
 				{
 					type: 'text',
-					text: 'This is the background of a side-scrolling game. At what fraction of the image height (0 = top edge, 1 = bottom edge) is the top edge of the flat ground or path where a character would stand and walk? Answer with a number between 0.5 and 0.95.'
+					text: `This is the background of a side-scrolling game. Answer with JSON:
+- "ground": at what fraction of the image height (0 = top edge, 1 = bottom edge) is the top edge of the flat ground or path where a character would stand and walk? A number between 0.5 and 0.95.
+- "platform": the kind of small floating platforms the character hops between that best fits this scenery: "log" (forest, meadow, farm, jungle), "stone" (caves, ruins, mountains, castles, deserts, volcanoes), "ice" (snow, glaciers, winter), "cloud" (sky, heaven, dreamy pastel places), "crystal" (magic, gems, night, space, neon, underwater), "mushroom" (fairy tale, candy, whimsical gardens, toys).`
 				},
 				{ type: 'image_url', image_url: { url: image } }
 			]
 		}
 	];
-	const { ground } = await askJson(
+	const { ground, platform } = await askJson(
 		messages,
 		config,
 		fetchImpl,
@@ -689,5 +713,5 @@ export async function detectGround(
 		GROUND_JSON_SCHEMA,
 		'ground'
 	);
-	return Math.min(0.95, Math.max(0.5, ground));
+	return { ground: Math.min(0.95, Math.max(0.5, ground)), platform };
 }

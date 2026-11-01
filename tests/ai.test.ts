@@ -10,6 +10,7 @@ import {
 import { configFromEnv, generateExercise, GenerateError } from '../src/lib/ai/generate';
 import {
 	CharacterRequestSchema,
+	detectGround,
 	makeBrief,
 	MAX_THREAD,
 	reviewStrip,
@@ -387,5 +388,29 @@ describe('preguntas de la IA al crear: la conversación sigue', () => {
 			CharacterRequestSchema.safeParse({ ...base, thread: turns(MAX_THREAD + 1) }).success
 		).toBe(false);
 		expect(CharacterRequestSchema.safeParse(base).success).toBe(true);
+	});
+});
+
+describe('suelo y plataformas de un fondo', () => {
+	const meta = configFromEnv({ LLM_API_KEY: 'k', LLM_BASE_URL: 'https://api.meta.ai/v1' });
+	const IMG = 'data:image/jpeg;base64,AAAA';
+
+	it('devuelve la altura del suelo (acotada) y la forma que eligió Spark', async () => {
+		const { fetchImpl } = fakeModel([JSON.stringify({ ground: 0.99, platform: 'ice' })]);
+		expect(await detectGround(IMG, meta, fetchImpl)).toEqual({ ground: 0.95, platform: 'ice' });
+	});
+
+	it('una forma desconocida no tira la creación: queda el tronco', async () => {
+		const { fetchImpl } = fakeModel([JSON.stringify({ ground: 0.8, platform: 'lava' })]);
+		expect(await detectGround(IMG, meta, fetchImpl)).toEqual({ ground: 0.8, platform: 'log' });
+	});
+
+	it('pide la forma con el esquema estricto', async () => {
+		const { calls, fetchImpl } = fakeModel([JSON.stringify({ ground: 0.8, platform: 'stone' })]);
+		await detectGround(IMG, meta, fetchImpl);
+		const body = calls[0] as unknown as {
+			response_format: { json_schema: { schema: { required: string[] } } };
+		};
+		expect(body.response_format.json_schema.schema.required).toEqual(['ground', 'platform']);
 	});
 });
