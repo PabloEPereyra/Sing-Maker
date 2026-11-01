@@ -36,7 +36,13 @@ export const GeneratedExerciseSchema = z.object({
 	beatsPerMeasure: z.number(),
 	direction: z.enum(['asc', 'desc']),
 	syllable: z.string(),
-	notes: z.array(GeneratedNoteSchema)
+	notes: z.array(GeneratedNoteSchema),
+	/** Solo al leer una imagen: si es una partitura impresa o un dibujo a mano de la melodía. */
+	kind: z.enum(['score', 'drawing']).optional(),
+	/** Solo en partituras: la clave que leyó el modelo (la de fa se vuelve a leer con Muse Wonder). */
+	clef: z.enum(['treble', 'bass', 'other']).optional(),
+	/** Solo en dibujos sin notas escritas ni indicación: la pregunta que el modelo le hace a la persona. */
+	ask: z.string().optional()
 });
 
 export type GeneratedExercise = z.infer<typeof GeneratedExerciseSchema>;
@@ -71,6 +77,18 @@ export const GENERATED_EXERCISE_JSON_SCHEMA = {
 				}
 			}
 		}
+	}
+} as const;
+
+/** Esquema al leer una imagen: el de siempre más qué es (partitura o dibujo), la clave y la pregunta. */
+export const IMAGE_EXERCISE_JSON_SCHEMA = {
+	...GENERATED_EXERCISE_JSON_SCHEMA,
+	required: [...GENERATED_EXERCISE_JSON_SCHEMA.required, 'kind', 'clef', 'ask'],
+	properties: {
+		...GENERATED_EXERCISE_JSON_SCHEMA.properties,
+		kind: { type: 'string', enum: ['score', 'drawing'] },
+		clef: { type: ['string', 'null'], enum: ['treble', 'bass', 'other', null] },
+		ask: { type: ['string', 'null'] }
 	}
 } as const;
 

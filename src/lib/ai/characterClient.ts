@@ -54,7 +54,8 @@ export const characterApi = {
 		style: StyleId,
 		movement: Movement,
 		reference: string,
-		flight?: string
+		flight?: string,
+		fix?: string
 	) =>
 		call<{ image: string }>({
 			action: 'strip',
@@ -63,8 +64,12 @@ export const characterApi = {
 			style,
 			movement,
 			reference,
-			flight
+			flight,
+			fix
 		}).then((r) => r.image),
+	/** Muse Wonder revisa la hoja de poses; `ok: false` trae qué corregir al volver a dibujarla. */
+	review: (kind: StripKind, image: string, reference?: string) =>
+		call<{ ok: boolean; problems: string[] }>({ action: 'review', kind, image, reference }),
 	facing: (image: string) =>
 		call<{ facing: 'left' | 'right' | 'front' | 'unclear' }>({ action: 'facing', image }).then(
 			(r) => r.facing

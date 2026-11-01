@@ -12,6 +12,7 @@ import {
 	makeBrief,
 	scenePrompt,
 	refineBrief,
+	reviewStrip,
 	mediaConfigFromEnv,
 	segmentImage,
 	SIZE,
@@ -75,7 +76,14 @@ export async function onRequestPost({
 			case 'strip':
 				return json({
 					image: await generateImage(
-						stripPrompt(input.kind, input.visual, input.style, input.movement, input.flight),
+						stripPrompt(
+							input.kind,
+							input.visual,
+							input.style,
+							input.movement,
+							input.flight,
+							input.fix
+						),
 						media,
 						{ size: sizeFor(input.kind), reference: input.reference }
 					)
@@ -88,6 +96,8 @@ export async function onRequestPost({
 						{ size: SIZE.scene }
 					)
 				});
+			case 'review':
+				return json(await reviewStrip(input, config));
 			case 'ground':
 				return json({ ground: await detectGround(input.image, config) });
 			case 'facing':

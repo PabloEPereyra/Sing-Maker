@@ -1,7 +1,8 @@
 <script lang="ts">
-	// Crear un ejercicio desde texto, la voz o la foto de una partitura: el servidor le pide al modelo el
-	// patrón (o la transcripción), lo valida (y le hace corregir si hace falta) y devuelve el ejercicio
-	// en el formato de la app. Antes de practicar se puede escuchar y editar en el piano roll.
+	// Crear un ejercicio desde texto, la voz o la foto de una partitura o de un dibujo de la melodía: el
+	// servidor le pide al modelo el patrón (o la lectura), lo valida (y le hace corregir si hace falta) y
+	// devuelve el ejercicio en el formato de la app. Las imágenes las lee Spark; se puede releer con Wonder.
+	// Antes de practicar se puede escuchar y editar en el piano roll.
 	import { startDictation, type Dictation } from '$lib/audio/dictation';
 	import {
 		imageToDataUrl,
@@ -47,6 +48,11 @@
 	let error = $state('');
 	let details = $state<string[]>([]);
 	let result = $state<GeneratedResponse | null>(null);
+	/** Pregunta del modelo sobre un dibujo sin escala indicada; la respuesta va en el cuadro de texto. */
+	let asking = $state('');
+	/** Quién está leyendo la imagen ahora (para el texto del botón). */
+	let readingWith = $state<'spark' | 'wonder'>('spark');
+	let promptEl = $state<HTMLTextAreaElement>();
 	// ---------- dictado: se habla, Muse Voice Transcribe lo pasa a texto y se crea el ejercicio ----------
 	const DICTATION_MAX_SEC = 30;
 	let dictation: Dictation | null = null;
@@ -157,23 +163,34 @@
 
 	const EXAMPLES = ['create.ex1', 'create.ex2', 'create.ex3', 'create.ex4'] as const;
 
-	async function create() {
+	async function create(engine?: 'spark' | 'wonder') {
 		if ((!prompt.trim() && !score) || loading) return;
 		meter = meterFromText(prompt) ?? meter;
 		stopPreview();
 		editing = false;
 		loading = true;
+		readingWith = engine ?? 'spark';
 		error = '';
 		details = [];
 		result = null;
+		asking = '';
 		try {
-			result = await requestExercise(
+			const made = await requestExercise(
 				prompt,
 				settings.lang,
 				range,
 				score ?? undefined,
-				score ? undefined : meter
+				score ? undefined : meter,
+				engine
 			);
+			if (made.ask) {
+				// Un dibujo sin notas escritas ni escala: se pregunta y se espera la respuesta.
+				asking = made.ask;
+				prompt = '';
+				promptEl?.focus();
+				return;
+			}
+			result = made;
 			root = previewRoot(parse(result.code).notes, range.low, range.high);
 		} catch (e) {
 			error = e instanceof Error ? e.message : t('create.error');
@@ -233,7 +250,10 @@
 				<button
 					class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-2"
 					aria-label={t('score.remove')}
-					onclick={() => (score = null)}>✕</button
+					onclick={() => {
+						score = null;
+						asking = '';
+					}}>✕</button
 				>
 			</div>
 		{:else}
@@ -258,16 +278,25 @@
 			</button>
 		{/if}
 
+		{#if asking}
+			<div role="status" class="mt-3 rounded-lg border border-accent/40 bg-accent/5 p-3 text-sm">
+				<div class="text-xs font-semibold text-accent">{t('score.ask')}</div>
+				<div class="mt-0.5 font-semibold">{asking}</div>
+			</div>
+		{/if}
 		<div class="relative mt-3">
 			<textarea
+				bind:this={promptEl}
 				bind:value={prompt}
 				rows="3"
 				maxlength="1000"
 				placeholder={dictating === 'recording'
 					? t('dictation.listening')
-					: score
-						? t('score.placeholder')
-						: t('create.placeholder')}
+					: asking
+						? t('score.askPlaceholder')
+						: score
+							? t('score.placeholder')
+							: t('create.placeholder')}
 				class="w-full resize-none rounded-lg border border-border bg-base py-2 pr-28 pl-3 text-sm outline-none focus:border-accent"
 				onkeydown={(e) => {
 					if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void create();
@@ -350,15 +379,19 @@
 				{/if}
 				<button
 					class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
-					disabled={(!prompt.trim() && !score) || loading}
-					onclick={create}
+					disabled={(!prompt.trim() && !score) || (!!asking && !prompt.trim()) || loading}
+					onclick={() => create()}
 					>{loading
 						? score
-							? t('score.reading')
+							? readingWith === 'wonder'
+								? t('score.rereading')
+								: t('score.reading')
 							: t('create.working')
-						: score
-							? t('score.submit')
-							: t('create.submit')}</button
+						: asking
+							? t('score.answer')
+							: score
+								? t('score.submit')
+								: t('create.submit')}</button
 				>
 			</div>
 
@@ -394,6 +427,24 @@
 						{result.exercise.bpm} bpm · {result.exercise.syllable || '—'} ·
 						{t('create.attempts', { n: result.attempts, model: result.model })}
 					</div>
+					{#if score && result.engine}
+						<!-- Spark lee primero (más barato); si no quedó bien, Wonder la vuelve a leer -->
+						<div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+							<span
+								>{t('score.readBy', {
+									engine: result.engine === 'wonder' ? 'Wonder' : 'Spark'
+								})}</span
+							>
+							{#if result.engine === 'spark'}
+								<button
+									class="rounded-lg border border-border bg-surface px-3 py-1 text-xs font-semibold text-fg hover:border-accent/50 disabled:opacity-50"
+									title={t('score.rereadHint')}
+									disabled={loading}
+									onclick={() => create('wonder')}>👁 {t('score.reread')}</button
+								>
+							{/if}
+						</div>
+					{/if}
 					<div class="mt-3 flex justify-end gap-2">
 						<button
 							class="mr-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {listening
@@ -405,7 +456,7 @@
 						>
 						<button
 							class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"
-							onclick={create}>{t('create.again')}</button
+							onclick={() => create()}>{t('create.again')}</button
 						>
 						<button
 							class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 {editing

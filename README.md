@@ -4,8 +4,20 @@
 tu rango de voz y lo cantás guiando a un personaje. Las notas son perchas (ramas) con estrellas; el pájaro vuela
 a la altura que cantás y junta las estrellas cuando afinás la nota.
 
-Proyecto para el **Meta AI Developer Hackathon** (27 oct – 4 nov 2026). Próximo paso: un chat con Muse (Meta)
-que crea ejercicios a partir de texto, de una frase cantada o de la foto de una partitura.
+Proyecto para el **Meta AI Developer Hackathon** (27 oct – 4 nov 2026). La IA es un **compositor de ejercicios
+vocales a pedido**: crea ejercicios a partir de texto, de una frase hablada o cantada, de la foto de una partitura o de
+un dibujo, y también dibuja los personajes, objetos y fondos del juego. Usa los modelos de Meta (ver la tabla de abajo).
+
+## Qué incluye
+
+- **El juego**: cantás y el personaje sigue tu voz; dificultad de afinación en 4 niveles, batería (4/4 y 6/8), piano guía,
+  tempo, zoom, modo demo sin micrófono y español/inglés.
+- **Ejercicios**: catálogo de 30 ejercicios en 3 niveles (más una biblioteca oculta de 51 que se desbloquea) y «Mis
+  ejercicios», creados con IA.
+- **Test de nivel y rutina**: una prueba jugada de 8 etapas (se puede dejar para después y retomar) y «Tu rutina de hoy»,
+  con técnicas vocales y ejercicios del nivel de la persona.
+- **Personalizar**: personajes, objetos para recoger y fondos propios creados con IA, que se exportan e importan.
+- **Tarjeta compartible** con el resultado, hecha con el canvas del juego (sin gasto de IA).
 
 ## Cómo correrlo
 
@@ -40,9 +52,19 @@ El botón de **batería** acompaña con un patrón del compás del ejercicio (la
 metrónomo aparte) (`src/lib/audio/drums.ts`): Básico, Rock y Rock + fill en 4/4 (los de vocalizator) y Básico y Balada en 6/8
 (el 6/8 de vocalizator tenía el bombo cada dos corcheas, como un 3/4; acá va bombo en 1 y caja en 4). Usa la
 muestra de batería de vocalizator. El botón **/2** la pasa a la mitad de velocidad (cada paso dura el doble),
-para que en ritmos rápidos las negras de la melodía suenen como corcheas. La pestaña **«Batería»** de «Crear con
-IA» le pide al modelo un patrón nuevo (`/api/drums`: grilla de pasos por instrumento, validada) que se suma a la
-lista del compás elegido.
+para que en ritmos rápidos las negras de la melodía suenen como corcheas. El botón **«Crear con
+IA»** del popup de ritmos le pide al modelo un patrón nuevo (`/api/drums`: grilla de pasos por instrumento, validada)
+que se suma a la lista del compás elegido.
+
+## Modelos de Meta que usa
+
+| Modelo                    | Para qué                                                                                                                                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Muse Spark 1.3**        | Compone los ejercicios y los patrones de batería (JSON validado), lee partituras y dibujos, da la recomendación al terminar un ejercicio e interpreta los pedidos de personajes, objetos y fondos. |
+| **Muse Wonder**           | Relee las partituras en clave de fa (a pedido también cualquier otra imagen) y **revisa cada hoja de poses** que dibuja Muse Image antes de usarla.                                                |
+| **Muse Image**            | Dibuja los personajes y sus hojas de poses, los objetos y los fondos.                                                                                                                              |
+| **SAM 3.1**               | Recorta cada pose y los objetos de las fotos.                                                                                                                                                      |
+| **Muse Voice Transcribe** | Dictado: se habla y la frase se convierte en el pedido de un ejercicio.                                                                                                                            |
 
 ## Crear ejercicios con IA
 
@@ -58,15 +80,22 @@ navegador y `/api/transcribe` lo pasa a texto con **Muse Voice Transcribe** (`PO
 ese texto se crea el ejercicio directamente. Si el pedido nombra el compás («seis por ocho»), se elige solo.
 
 **Compás**: al componer se elige 4/4 o 6/8. El modelo recibe las reglas de ese compás y el servidor verifica
-que el patrón (guía incluida) llene compases enteros; si no, le pide que corrija. Así la batería y el
-batería nunca se desfasan.
+que el patrón (guía incluida) llene compases enteros; si no, le pide que corrija. Así la batería y las
+notas nunca se desfasan.
 
-**Desde una partitura**: en el mismo diálogo se sube una foto o imagen (también arrastrándola o pegándola con
-Ctrl+V; en el celular se puede sacar con la cámara). Se achica en el navegador y el modelo transcribe la melodía
-principal: escribe el nombre de cada nota tal como está escrita y la app calcula los intervalos (es más confiable
-que la cuenta del modelo). En las pruebas, Muse leyó perfecto la clave de sol; en clave de fa, Muse Wonder acierta
-el ritmo, el compás y el tempo, pero a veces equivoca alguna nota, que se corrige en el piano roll. Por eso las
-imágenes van al modelo de `LLM_VISION_MODEL` (Wonder).
+**Desde una imagen** (partitura o dibujo): en el mismo diálogo se sube una foto o imagen (también arrastrándola o
+pegándola con Ctrl+V; en el celular se puede sacar con la cámara). Se achica en el navegador y el modelo la lee. Dos casos:
+
+- **Partitura** (impresa o escrita a mano): el modelo transcribe la melodía principal escribiendo el nombre de cada nota
+  tal como está escrita y la app calcula los intervalos (es más confiable que la cuenta del modelo).
+- **Dibujo de la melodía**: rectángulos más altos o más bajos, de izquierda a derecha; el ancho de cada uno es su
+  duración y las palabras que lleve encima son las notas (DO, RE, MI…). Si no tiene nombres, se escribe la escala en el
+  cuadro de texto («quiero este ejercicio en do mayor») y, si no se escribe nada, el modelo pregunta en qué escala leerlo.
+
+**Quién lee la imagen**: Spark primero, porque es más barato. Si lee una partitura en **clave de fa** (donde Spark
+confunde alturas), el servidor la relee solo con **Muse Wonder**, que en las pruebas acierta mucho más ahí. Y en
+cualquier lectura el botón **«Releer con Wonder»** vuelve a leerla con el modelo más fuerte (también mide mejor los
+anchos de un dibujo), a costa de más créditos. El resultado siempre se puede escuchar y corregir en el piano roll.
 
 **Cantar el patrón** (botón de nota junto al micrófono, en «Crear ejercicio»): se graban unos segundos cantando o tarareando. La transcripción es local
 (`src/lib/music/transcribe.ts`, sin mandar audio a ningún lado): separa las notas por cambios de tono
@@ -82,18 +111,36 @@ suena una vez la primera repetición antes de la cuenta, sin la nota guía (que 
 Proveedor configurable (API compatible con OpenAI), en `.dev.vars` para desarrollo (ver `.dev.vars.example`)
 o como variables del proyecto en Cloudflare:
 
-| Variable               | Pruebas (hoy)                       | Hackathon                                   |
-| ---------------------- | ----------------------------------- | ------------------------------------------- |
-| `LLM_API_KEY`          | clave de OpenRouter                 | clave de la Meta Model API                  |
-| `LLM_BASE_URL`         | `https://openrouter.ai/api/v1`      | `https://api.meta.ai/v1`                    |
-| `LLM_MODEL`            | `nvidia/nemotron-3.5-super-vl:free` | `muse-spark-1.3-contributor`                |
-| `LLM_VISION_MODEL`     | igual a `LLM_MODEL`                 | `muse-wonder-1.0` (lee partituras)          |
-| `LLM_TRANSCRIBE_MODEL` | — (el dictado necesita Meta)        | `muse-voice-transcribe-1.0`                 |
-| `LLM_JSON_MODE`        | `schema` (por defecto)              | `schema`, u `object`/`none` si no lo admite |
-| `LLM_REASONING_EFFORT` | `none` (por defecto en OpenRouter)  | `low` (por defecto en Meta)                 |
+| Variable               | Desarrollo sin créditos (opcional)  | Hackathon (Meta)                                                                   |
+| ---------------------- | ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `LLM_API_KEY`          | clave de OpenRouter                 | clave de la Meta Model API                                                         |
+| `LLM_BASE_URL`         | `https://openrouter.ai/api/v1`      | `https://api.meta.ai/v1`                                                           |
+| `LLM_MODEL`            | `nvidia/nemotron-3.5-super-vl:free` | `muse-spark-1.3-contributor`                                                       |
+| `LLM_VISION_MODEL`     | igual a `LLM_MODEL` (sin relectura) | `muse-wonder-1.0` (por defecto con Meta): clave de fa, «Releer», revisión de poses |
+| `LLM_IMAGE_MODEL`      | —                                   | `muse-image-1.0` (por defecto)                                                     |
+| `LLM_SEGMENT_MODEL`    | —                                   | `sam-3.1` (por defecto)                                                            |
+| `LLM_TRANSCRIBE_MODEL` | — (el dictado necesita Meta)        | `muse-voice-transcribe-1.0`                                                        |
+| `LLM_JSON_MODE`        | `schema` (por defecto)              | `schema`, u `object`/`none` si no lo admite                                        |
+| `LLM_REASONING_EFFORT` | `none` (por defecto en OpenRouter)  | `low` (por defecto en Meta)                                                        |
 
-> El modelo de NVIDIA por OpenRouter es solo para desarrollar mientras llegan los créditos: la entrega
-> del hackathon usa los modelos de Meta.
+> El modelo gratis de NVIDIA por OpenRouter sirve para desarrollar sin gastar créditos, pero no lee partituras ni
+> dibujos, ni dibuja personajes: la entrega del hackathon usa los modelos de Meta.
+
+## Personajes, objetos y fondos con IA
+
+«Personalizar» crea un personaje (que corre o vuela), un objeto para recoger o un fondo a partir de un texto o de una
+foto. Es una cadena de modelos, del más barato al más caro: **Spark** interpreta el pedido (y rechaza lo que no
+corresponde), **Muse Image** dibuja al personaje y sus hojas de poses (una grilla, una pose por celda), **Muse Wonder
+revisa cada hoja** (¿una pose por celda, ninguna cortada, el mismo personaje, fondo verde liso?) y, si ve un defecto claro,
+se vuelve a dibujar diciéndole qué corregir, y **SAM** recorta cada pose. El navegador arma las hojas de cuadros
+(`src/lib/character/`). Todo se guarda en el dispositivo y se puede exportar e importar.
+
+## Cupos y gasto
+
+Para acotar el gasto de créditos, cada dispositivo tiene topes por defecto (se cambian con las variables `LIMIT_*`):
+**200 ejercicios y patrones de batería**, **40 personajes**, 300 imágenes (hojas de poses y fondos, con sus reintentos) y
+3000 llamadas menores. Se cuentan en una base D1 de Cloudflare (`src/lib/server/quota.ts`); sin la base, todo queda abierto
+(desarrollo local). Hay que fijar además un tope de gasto en la cuenta de Meta.
 
 ## Origen del código (regla "new work only")
 

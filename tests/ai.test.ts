@@ -8,6 +8,7 @@ import {
 	type GeneratedExercise
 } from '../src/lib/ai/exercise';
 import { configFromEnv, generateExercise, GenerateError } from '../src/lib/ai/generate';
+import { reviewStrip, stripPrompt } from '../src/lib/ai/character';
 import { parse } from '../src/lib/music/parser';
 
 const VALID: GeneratedExercise = {
@@ -190,5 +191,137 @@ describe('bucle de generación', () => {
 		const body = calls[0] as unknown as Record<string, unknown>;
 		expect(body.reasoning).toEqual({ enabled: false });
 		expect(body.max_tokens).toBe(8000);
+	});
+});
+
+describe('imágenes: Spark lee primero y Wonder en clave de fa o a pedido', () => {
+	const IMAGE = 'data:image/png;base64,AAAA';
+	const meta = configFromEnv({
+		LLM_API_KEY: 'k',
+		LLM_BASE_URL: 'https://api.meta.ai/v1',
+		LLM_MODEL: 'muse-spark-1.3-contributor'
+	});
+	const read = (extra: Record<string, unknown>) => JSON.stringify({ ...VALID, ...extra });
+	const modelsOf = (calls: unknown[]) => calls.map((c) => (c as { model: string }).model);
+
+	it('con Meta, el lector fuerte es Wonder por defecto; con otro proveedor, el mismo modelo', () => {
+		expect(meta.visionModel).toBe('muse-wonder-1.0');
+		expect(
+			configFromEnv({ LLM_BASE_URL: 'https://api.meta.ai/v1', LLM_VISION_MODEL: 'x' }).visionModel
+		).toBe('x');
+		const other = configFromEnv({ LLM_BASE_URL: 'https://example.com/v1', LLM_MODEL: 'm' });
+		expect(other.visionModel).toBe('m');
+	});
+
+	it('una partitura en clave de sol la lee Spark y nada más', async () => {
+		const { calls, fetchImpl } = fakeModel([read({ kind: 'score', clef: 'treble' })]);
+		const r = await generateExercise({ prompt: '', image: IMAGE, lang: 'es' }, meta, fetchImpl);
+		expect(modelsOf(calls)).toEqual(['muse-spark-1.3-contributor']);
+		expect(r.engine).toBe('spark');
+	});
+
+	it('si Spark ve la clave de fa, la vuelve a leer sola con Wonder', async () => {
+		const { calls, fetchImpl } = fakeModel([
+			read({ kind: 'score', clef: 'bass', name: 'Spark' }),
+			read({ kind: 'score', clef: 'bass', name: 'Wonder' })
+		]);
+		const r = await generateExercise({ prompt: '', image: IMAGE, lang: 'es' }, meta, fetchImpl);
+		expect(modelsOf(calls)).toEqual(['muse-spark-1.3-contributor', 'muse-wonder-1.0']);
+		expect(r.exercise.name).toBe('Wonder');
+		expect(r.engine).toBe('wonder');
+	});
+
+	it('si Wonder falla al releer, queda la lectura de Spark', async () => {
+		let n = 0;
+		const fetchImpl = (async () => {
+			n++;
+			if (n > 1) return new Response('boom', { status: 500 });
+			return new Response(
+				JSON.stringify({
+					choices: [{ message: { content: read({ kind: 'score', clef: 'bass', name: 'Spark' }) } }]
+				}),
+				{ status: 200 }
+			);
+		}) as unknown as typeof fetch;
+		const r = await generateExercise({ prompt: '', image: IMAGE, lang: 'es' }, meta, fetchImpl);
+		expect(r.exercise.name).toBe('Spark');
+		expect(r.engine).toBe('spark');
+	});
+
+	it('pedir Wonder lo usa directo, sin pasar por Spark', async () => {
+		const { calls, fetchImpl } = fakeModel([read({ kind: 'score', clef: 'treble' })]);
+		const r = await generateExercise(
+			{ prompt: '', image: IMAGE, lang: 'es', engine: 'wonder' },
+			meta,
+			fetchImpl
+		);
+		expect(modelsOf(calls)).toEqual(['muse-wonder-1.0']);
+		expect(r.engine).toBe('wonder');
+	});
+
+	it('sin un lector distinto no hay relectura', async () => {
+		const same = { ...meta, visionModel: meta.model };
+		const { calls, fetchImpl } = fakeModel([read({ kind: 'score', clef: 'bass' })]);
+		await generateExercise({ prompt: '', image: IMAGE, lang: 'es' }, same, fetchImpl);
+		expect(calls).toHaveLength(1);
+	});
+
+	it('pide el esquema de imagen (con tipo, clave y pregunta)', async () => {
+		const { calls, fetchImpl } = fakeModel([read({ kind: 'score', clef: 'treble' })]);
+		await generateExercise({ prompt: '', image: IMAGE, lang: 'es' }, meta, fetchImpl);
+		const body = calls[0] as unknown as {
+			response_format: { json_schema: { name: string; schema: { required: string[] } } };
+		};
+		expect(body.response_format.json_schema.name).toBe('vocal_exercise_from_image');
+		expect(body.response_format.json_schema.schema.required).toEqual(
+			expect.arrayContaining(['kind', 'clef', 'ask'])
+		);
+	});
+
+	it('un dibujo sin escala ni texto devuelve la pregunta del modelo', async () => {
+		const { fetchImpl } = fakeModel([
+			read({ kind: 'drawing', clef: null, ask: '¿En qué escala?' })
+		]);
+		const r = await generateExercise({ prompt: '', image: IMAGE, lang: 'es' }, meta, fetchImpl);
+		expect(r.ask).toBe('¿En qué escala?');
+	});
+
+	it('si la persona ya escribió algo, la pregunta se ignora y se crea el ejercicio', async () => {
+		const { fetchImpl } = fakeModel([
+			read({ kind: 'drawing', clef: null, ask: '¿En qué escala?' })
+		]);
+		const r = await generateExercise(
+			{ prompt: 'en do mayor', image: IMAGE, lang: 'es' },
+			meta,
+			fetchImpl
+		);
+		expect(r.ask).toBeUndefined();
+		expect(r.code).toContain('@name:');
+	});
+});
+
+describe('revisión de hojas de poses con Wonder', () => {
+	const IMG = 'data:image/jpeg;base64,AAAA';
+	const meta = configFromEnv({ LLM_API_KEY: 'k', LLM_BASE_URL: 'https://api.meta.ai/v1' });
+
+	it('mira la hoja y el personaje con Wonder y devuelve a lo sumo 3 problemas', async () => {
+		const { calls, fetchImpl } = fakeModel([
+			JSON.stringify({ ok: false, problems: ['a', 'b', 'c', 'd'] })
+		]);
+		const r = await reviewStrip({ kind: 'move', image: IMG, reference: IMG }, meta, fetchImpl);
+		expect(r).toEqual({ ok: false, problems: ['a', 'b', 'c'] });
+		const body = calls[0] as unknown as {
+			model: string;
+			messages: { content: { type: string }[] }[];
+		};
+		expect(body.model).toBe('muse-wonder-1.0');
+		expect(body.messages[0].content.filter((p) => p.type === 'image_url')).toHaveLength(2);
+	});
+
+	it('el pedido de una hoja que falló lleva lo que hay que corregir', () => {
+		expect(stripPrompt('move', 'a fox', 'cute3d', 'walk')).not.toContain('IMPORTANT');
+		expect(
+			stripPrompt('move', 'a fox', 'cute3d', 'walk', undefined, 'Draw exactly 6 poses.')
+		).toContain('fix this problem from the previous attempt: Draw exactly 6 poses.');
 	});
 });

@@ -127,17 +127,19 @@ Musical content:
   or copyrighted melodies. (Transcribing a score image that the user uploads is different: then copy exactly
   what is printed.)
 - "name": short and clear. "description": "<type> | <scale degrees> | <rhythm>" like the examples.
-- Write "name" and "description" in ${language}.`;
+- Write "name", "description" and "ask" (when you must ask something) in ${language}.`;
 }
 
 /** Nombre que devuelve el modelo cuando la imagen no tiene una partitura legible. */
 export const NO_SCORE = 'NO_SCORE';
 
-/** Pedido para transcribir la foto o imagen de una partitura (va junto con la imagen). */
+/** Pedido para leer la imagen: una partitura impresa o escrita a mano, o un dibujo de la melodía (va junto con la imagen). */
 export function scoreInstruction(extra: string): string {
-	return `Transcribe the melody of the score in this image into ONE exercise, with the same JSON as always.
+	return `Turn the melody in this image into ONE exercise, with the same JSON as always plus three fields: "kind" ("score" for music notation, "drawing" for a hand drawing of blocks), "clef" and "ask".
+First decide what the image is.
 
-How to read it:
+A) SCORE (printed or handwritten notation) - "kind": "score".
+- Set "clef": "treble", "bass" or "other" (the clef of the staff you transcribe); "ask": null.
 - Read the clef, key signature, time signature and accidentals first. Treble clef: bottom line E4, lines
   E4 G4 B4 D5 F5, spaces F4 A4 C5 E5, C4 on the first ledger line below. Bass clef: lines G2 B2 D3 F3 A3,
   spaces A2 C3 E3 G3, C4 on the first ledger line above. Accidentals last until the bar line.
@@ -147,15 +149,24 @@ How to read it:
 - Check every complete measure: its beats must add up to the time signature. Re-read it if not.
 - "beatsPerMeasure" from the time signature in quarter beats: 4/4 -> 4, 3/4 -> 3, 2/4 -> 2, 6/8 -> 3.
 - "bpm" from the tempo marking if there is one, otherwise 80.
-- For every sung note write "n": its pitch as printed, with the key signature and accidentals applied
-  (e.g. "F3", "Bb3", "C#4"). Name each note from its own line or space on the staff, not by counting
-  intervals. The app computes the intervals from "n"; still fill "s" = semitones from the first sung note.
-- Start with the guide note { "d": 2, "s": 0, "hint": true } (1.5 in 6/8), then the transcription.
 - Take only the main melody (the vocal line or the top voice); ignore lyrics, chord symbols and other staves.
-- If it does not fit the limits (64 notes, the semitone span), transcribe only the first phrase(s) that fit
-  and say so in "description".
+
+B) DRAWING (rectangles or bars on a page, with or without words) - "kind": "drawing".
+- Read it left to right: ONE block = ONE note. Set "clef": null.
+- HEIGHT is pitch: a block drawn higher is a higher note; blocks at the same height are the same note.
+- WIDTH is duration: compare the widths with each other and keep their proportions (a block twice as wide lasts twice as long; for example 0.5 : 1 : 2). Pick the base so the shortest block is 0.5 or 1 beat and the whole thing is about 4 to 16 beats.
+- The normal spacing between blocks is NOT a rest. Add a rest only when the drawing marks one on purpose (a block labelled R or "silencio", an empty dashed block, a pause sign).
+- A word written above or beside a block is its note name: DO RE MI FA SOL LA SI = C D E F G A B (also letters; "b" or "#" after it are accidentals). When the blocks have names, use them (and the heights only to choose the octave).
+- Without names: the steps follow the scale or key the user names (e.g. "en do mayor", "in A minor"): consecutive heights are consecutive degrees of that scale; do not skip degrees. If the user names no scale or key, set "ask" to ONE short question asking in which key or scale to read the drawing (only the scale type really matters: the app moves the exercise to the singer's range), and still fill the notes with your best guess in a major scale. In every other case "ask" is null.
+- A drawing has no time signature: "beatsPerMeasure" 4 and "bpm" 80, unless the user says otherwise.
+- "name": a short description of the melody (use the user's title if there is one).
+
+For BOTH:
+- For every sung note write "n": its pitch with the octave (e.g. "F3", "Bb3", "C#4"). In a score name each note from its own line or space on the staff, not by counting intervals. In a drawing put the first note in octave 4 and go up or down as the drawing does. The app computes the intervals from "n"; still fill "s" = semitones from the first sung note.
+- Start with the guide note { "d": 2, "s": 0, "hint": true } (1.5 in 6/8), then the notes.
+- If it does not fit the limits (64 notes, the semitone span), keep only the first part that fits and say so in "description".
 - "name": the printed title if there is one, otherwise a short description of the melody.
-- If the image has no readable music notation, answer with "name": "${NO_SCORE}" and two placeholder notes.${
+- If the image has neither readable notation nor a readable drawing of a melody, answer with "name": "${NO_SCORE}" and two placeholder notes.${
 		extra ? `\n\nThe user adds: ${extra}` : ''
 	}`;
 }

@@ -40,9 +40,9 @@ export type FunctionEnv = Record<string, string | undefined> & QuotaEnv;
 
 export const DEFAULT_LIMITS: Record<Bucket, number> = {
 	exercises: 200,
-	characters: 50,
-	// Tiras y fondos: unas 4 por personaje, más los reintentos.
-	images: 250,
+	characters: 40,
+	// Tiras y fondos: unas 4 por personaje, más los reintentos (también los que pide la revisión de Wonder).
+	images: 300,
 	other: 3000
 };
 

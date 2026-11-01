@@ -2,7 +2,9 @@
 //   Muse Spark 1.3 (LLM_MODEL): interpreta el pedido y, si hay foto, lista qué personajes/objetos contiene.
 //   SAM 3.1: recorta (un objeto de una foto; y cada pose de una tira, con borde limpio).
 //   Muse Image: dibuja el personaje y sus tiras de poses (a partir de texto o de una imagen de referencia).
-// Muse Wonder no se usa: Spark lee bien las fotos para esto.
+//   Muse Wonder: revisa cada hoja de poses que dibujó Muse Image (¿una pose por celda, el mismo personaje,
+//   fondo verde liso?) y, si encuentra un defecto claro, se vuelve a pedir indicándole qué corregir.
+// Spark lee bien las fotos para interpretar el pedido, así que Wonder se reserva para mirar lo que dibuja Muse Image.
 // El servidor solo reenvía y valida; el procesado de imágenes (cortar, alinear, armar las tiras) es del navegador.
 import { z } from 'zod';
 import { complete, GenerateError, type LlmConfig, type Message } from './generate';
@@ -77,7 +79,17 @@ export const CharacterRequestSchema = z.discriminatedUnion('action', [
 		style: z.enum(STYLES).default('cute3d'),
 		movement: z.enum(['walk', 'fly']),
 		flight: z.string().max(300).optional(),
-		reference: dataUrl
+		reference: dataUrl,
+		/** Qué corregir respecto del intento anterior (lo dijo la revisión de Wonder). */
+		fix: z.string().max(400).optional()
+	}),
+	z.object({
+		action: z.literal('review'),
+		kind: z.enum(['move', 'jump', 'stand', 'item']),
+		/** La hoja de poses que dibujó Muse Image. */
+		image: dataUrl,
+		/** El personaje de referencia, para comprobar que es el mismo en todas las poses. */
+		reference: dataUrl.optional()
 	}),
 	z.object({ action: z.literal('segment'), image: dataUrl, noun: z.string().min(1).max(80) }),
 	z.object({ action: z.literal('facing'), image: dataUrl }),
@@ -239,12 +251,14 @@ export async function askJson<T>(
 	fetchImpl: typeof fetch,
 	schema: z.ZodType<T>,
 	jsonSchema: object,
-	name: string
+	name: string,
+	/** Modelo que responde (por defecto Spark). */
+	model: string = config.model
 ): Promise<T> {
 	if (!config.apiKey) throw new GenerateError('Missing LLM_API_KEY on the server.', 500);
 	let lastError = '';
 	for (let attempt = 0; attempt < 2; attempt++) {
-		const content = await complete(messages, config, config.model, fetchImpl, {
+		const content = await complete(messages, config, model, fetchImpl, {
 			name,
 			schema: jsonSchema
 		});
@@ -334,16 +348,20 @@ export function stripPrompt(
 	visual: string,
 	style: StyleId,
 	movement: Movement,
-	flight?: string
+	flight?: string,
+	fix?: string
 ): string {
 	const { cols, rows, ask } = STRIPS[kind];
+	const retry = fix?.trim()
+		? ` IMPORTANT, fix this problem from the previous attempt: ${fix.trim()}`
+		: '';
 	if (kind === 'item')
-		return `Sprite sheet of the SAME item as the reference image (${visual}), laid out as ONE row of ${cols} equal cells, exactly one pose per cell, left to right. Each pose sits fully inside its own cell, centered, with generous empty space on all sides: nothing may touch or cross the edges of its cell or touch another pose. Same size and same art style in every pose. ${ITEM_POSES}. ${STYLE_PROMPT[style]}. The whole object is visible and not cropped. ${BACKDROP} background everywhere, no grid lines, no borders, no shadows, no text, no numbers.`;
+		return `Sprite sheet of the SAME item as the reference image (${visual}), laid out as ONE row of ${cols} equal cells, exactly one pose per cell, left to right. Each pose sits fully inside its own cell, centered, with generous empty space on all sides: nothing may touch or cross the edges of its cell or touch another pose. Same size and same art style in every pose. ${ITEM_POSES}. ${STYLE_PROMPT[style]}. The whole object is visible and not cropped. ${BACKDROP} background everywhere, no grid lines, no borders, no shadows, no text, no numbers.${retry}`;
 	const layout =
 		rows === 1
 			? `ONE row of ${cols} equal cells`
 			: `a grid of ${cols} columns by ${rows} rows (${ask} equal cells)`;
-	return `Sprite sheet of the SAME character as the reference image (${visual}), laid out as ${layout}, exactly one pose per cell, in reading order (left to right, then top to bottom) as the animation order. Each pose sits fully inside its own cell, centered, with generous empty space on all sides: nothing (limbs, tools, rotor blades, capes, tails, effects) may touch or cross the edges of its cell or touch another pose. Same size and same art style in every pose. Side view with the character facing RIGHT: the front of the character or of its vehicle (face, nose, cockpit) points toward the right edge of the image. ${POSES(flight)[movement][kind]}. ${STYLE_PROMPT[style]}. Each pose shows the whole body fully visible and not cropped. ${BACKDROP} background everywhere, no grid lines, no borders, no shadows, no ground line, no text, no numbers.`;
+	return `Sprite sheet of the SAME character as the reference image (${visual}), laid out as ${layout}, exactly one pose per cell, in reading order (left to right, then top to bottom) as the animation order. Each pose sits fully inside its own cell, centered, with generous empty space on all sides: nothing (limbs, tools, rotor blades, capes, tails, effects) may touch or cross the edges of its cell or touch another pose. Same size and same art style in every pose. Side view with the character facing RIGHT: the front of the character or of its vehicle (face, nose, cockpit) points toward the right edge of the image. ${POSES(flight)[movement][kind]}. ${STYLE_PROMPT[style]}. Each pose shows the whole body fully visible and not cropped. ${BACKDROP} background everywhere, no grid lines, no borders, no shadows, no ground line, no text, no numbers.${retry}`;
 }
 
 interface ImageResponse {
@@ -484,6 +502,60 @@ export async function detectFacing(
 	];
 	return (await askJson(messages, config, fetchImpl, FacingSchema, FACING_JSON_SCHEMA, 'facing'))
 		.facing;
+}
+
+// ---------- Wonder: revisar la hoja de poses ----------
+
+export const REVIEW_JSON_SCHEMA = {
+	type: 'object',
+	additionalProperties: false,
+	required: ['ok', 'problems'],
+	properties: { ok: { type: 'boolean' }, problems: { type: 'array', items: { type: 'string' } } }
+};
+const ReviewSchema = z.object({ ok: z.boolean(), problems: z.array(z.string()) });
+export type StripReview = z.infer<typeof ReviewSchema>;
+
+/**
+ * Muse Wonder mira la hoja que dibujó Muse Image y dice si sirve. Solo marca defectos claros (poses de menos,
+ * cortadas o pegadas, otro personaje, rejilla o texto): lo que no es grave no vale otra imagen. Los
+ * `problems` son instrucciones cortas para el próximo intento.
+ */
+export async function reviewStrip(
+	req: { kind: StripKind; image: string; reference?: string },
+	config: LlmConfig,
+	fetchImpl: typeof fetch = fetch
+): Promise<StripReview> {
+	const { cols, rows, ask } = STRIPS[req.kind];
+	const layout = rows === 1 ? `one row of ${cols} cells` : `${cols} columns by ${rows} rows`;
+	const who = req.kind === 'item' ? 'item' : 'character';
+	const text = `You are the quality checker of a sprite-sheet generator for a game. ${
+		req.reference
+			? 'The first image is the sheet to check; the second is the character it must show.'
+			: 'The image is the sheet to check.'
+	}
+The sheet should be a grid of ${layout} (${ask} cells) with exactly ONE pose of the SAME ${who} per cell, each pose whole and inside its own cell, on a flat solid green background.
+Look only for CLEAR defects:
+- fewer or more than ${ask} poses, an empty cell, or two poses in one cell;
+- a pose cropped by the edge of its cell or of the image, or touching/overlapping another pose;
+- ${req.reference ? 'a different character (other colors, accessories or proportions) than the reference' : 'poses that are not the same character'};
+- a visible grid, borders, text, numbers, a shadow or a ground line, or a background that is not flat green;
+- all poses identical copies (they should be different phases of the motion).
+Answer with JSON: "ok" is true when the sheet is usable even if not perfect, false only for a serious defect; "problems" has at most 3 short sentences in English, written as instructions for redrawing it (e.g. "Draw exactly ${ask} poses, one per cell, none touching the edges"). Empty list when ok.`;
+	const content: Message['content'] = [
+		{ type: 'text', text },
+		{ type: 'image_url', image_url: { url: req.image } },
+		...(req.reference ? [{ type: 'image_url' as const, image_url: { url: req.reference } }] : [])
+	];
+	const review = await askJson(
+		[{ role: 'user', content }],
+		config,
+		fetchImpl,
+		ReviewSchema,
+		REVIEW_JSON_SCHEMA,
+		'strip_review',
+		config.visionModel
+	);
+	return { ok: review.ok, problems: review.problems.slice(0, 3) };
 }
 
 // ---------- Spark: retocar la descripción ----------

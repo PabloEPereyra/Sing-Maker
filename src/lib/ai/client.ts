@@ -8,6 +8,10 @@ export interface GeneratedResponse {
 	code: string;
 	attempts: number;
 	model: string;
+	/** Con imagen: qué modelo la leyó. */
+	engine?: 'spark' | 'wonder';
+	/** Dibujo sin escala indicada: la pregunta que hay que contestar antes de crear el ejercicio. */
+	ask?: string;
 }
 
 export class GenerateRequestError extends Error {
@@ -21,7 +25,7 @@ export class GenerateRequestError extends Error {
 
 /**
  * Achica una foto (máximo 1800 px de lado) y la pasa a JPEG como data URL, para mandarla liviana.
- * Una partitura sigue legible a ese tamaño.
+ * Una partitura o un dibujo siguen legibles a ese tamaño.
  */
 export async function imageToDataUrl(file: Blob, maxSide = 1800): Promise<string> {
 	const bitmap = await createImageBitmap(file);
@@ -43,14 +47,16 @@ export async function requestExercise(
 	lang: 'es' | 'en',
 	range?: VoiceRange,
 	image?: string,
-	meter?: '4/4' | '6/8'
+	meter?: '4/4' | '6/8',
+	engine?: 'spark' | 'wonder'
 ): Promise<GeneratedResponse> {
 	const { res, data } = await postJson<GeneratedResponse>('/api/generate', {
 		prompt,
 		lang,
 		range,
 		image,
-		meter
+		meter,
+		engine
 	});
 	if (!res.ok)
 		throw new GenerateRequestError(data.error ?? `HTTP ${res.status}`, data.details ?? []);

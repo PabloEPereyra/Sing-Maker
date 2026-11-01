@@ -11,6 +11,7 @@ import {
 	extractJson,
 	GENERATED_EXERCISE_JSON_SCHEMA,
 	GeneratedExerciseSchema,
+	IMAGE_EXERCISE_JSON_SCHEMA,
 	toCode,
 	validateGenerated,
 	type GeneratedExercise,
@@ -22,8 +23,9 @@ export interface LlmConfig {
 	baseUrl: string;
 	model: string;
 	/**
-	 * Modelo para leer imágenes de partituras. En las pruebas Muse Wonder leyó la clave de fa mucho
-	 * mejor que Spark; por defecto es el mismo `model`.
+	 * Muse Wonder: el lector fuerte de imágenes. Se usa cuando la partitura está en clave de fa (Spark
+	 * se equivoca más ahí), cuando la persona pide releer con él y para revisar las imágenes que dibuja
+	 * Muse Image. Con Meta es `muse-wonder-1.0`; en otro proveedor, el mismo `model` (sin releer).
 	 */
 	visionModel: string;
 	apiKey: string;
@@ -40,19 +42,30 @@ export interface LlmConfig {
 
 export interface GenerateRequest {
 	prompt: string;
-	/** Foto o imagen de una partitura (data URL): se transcribe en vez de componer. */
+	/** Foto o imagen de una partitura o de un dibujo de la melodía (data URL): se transcribe en vez de componer. */
 	image?: string;
+	/**
+	 * Quién lee la imagen: Spark (por defecto, más barato) o Wonder. Con Spark, una partitura en clave de fa se
+	 * vuelve a leer sola con Wonder.
+	 */
+	engine?: Engine;
 	/** Compás elegido (al componer): el resultado tiene que llenar compases enteros de ese compás. */
 	meter?: '4/4' | '6/8';
 	lang: 'es' | 'en';
 	range?: VoiceRange;
 }
 
+export type Engine = 'spark' | 'wonder';
+
 export interface GenerateResult {
 	exercise: GeneratedExercise;
 	code: string;
 	attempts: number;
 	model: string;
+	/** Con imagen: qué modelo la leyó (`wonder` si fue pedido o por la clave de fa). */
+	engine?: Engine;
+	/** Con un dibujo sin notas escritas ni indicación: lo que el modelo necesita saber para leerlo. */
+	ask?: string;
 }
 
 export class GenerateError extends Error {
@@ -68,6 +81,7 @@ export class GenerateError extends Error {
 const MAX_ATTEMPTS = 3;
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_MODEL = 'nvidia/nemotron-3.5-super-vl:free';
+const DEFAULT_VISION_MODEL = 'muse-wonder-1.0';
 
 export function configFromEnv(env: Record<string, string | undefined>): LlmConfig {
 	const jsonMode = env.LLM_JSON_MODE;
@@ -84,7 +98,11 @@ export function configFromEnv(env: Record<string, string | undefined>): LlmConfi
 	return {
 		baseUrl,
 		model: env.LLM_MODEL || DEFAULT_MODEL,
-		visionModel: env.LLM_VISION_MODEL || env.LLM_MODEL || DEFAULT_MODEL,
+		visionModel:
+			env.LLM_VISION_MODEL ||
+			(baseUrl.includes('meta.ai') || baseUrl.includes('meta.com')
+				? DEFAULT_VISION_MODEL
+				: env.LLM_MODEL || DEFAULT_MODEL),
 		apiKey: env.LLM_API_KEY || '',
 		jsonMode: jsonMode === 'object' || jsonMode === 'none' ? jsonMode : 'schema',
 		maxTokens: Number(env.LLM_MAX_TOKENS) || 8000,
@@ -112,7 +130,35 @@ export async function generateExercise(
 	if (!config.apiKey) throw new GenerateError('Missing LLM_API_KEY on the server.', 500);
 	const prompt = req.prompt.trim().slice(0, 1000);
 	if (!prompt && !req.image) throw new GenerateError('Empty request.', 400);
+	if (!req.image) return compose(req, prompt, config, config.model, fetchImpl);
 
+	// Imagen: Spark lee primero (más barato). Una partitura en clave de fa se vuelve a leer con Wonder, que
+	// acierta más las notas ahí, salvo que ya lo haya leído él.
+	const canUpgrade = config.visionModel !== config.model;
+	const wonder = req.engine === 'wonder' && canUpgrade;
+	const first = await compose(
+		req,
+		prompt,
+		config,
+		wonder ? config.visionModel : config.model,
+		fetchImpl
+	);
+	if (first.ask || wonder || !canUpgrade || first.exercise.clef !== 'bass') return first;
+	try {
+		return await compose(req, prompt, config, config.visionModel, fetchImpl);
+	} catch {
+		return first; // si Wonder falla, queda la lectura de Spark (que se puede corregir en el piano roll)
+	}
+}
+
+/** Pide el ejercicio al modelo y lo valida; si no sirve, le devuelve los errores (hasta MAX_ATTEMPTS). */
+async function compose(
+	req: GenerateRequest,
+	prompt: string,
+	config: LlmConfig,
+	model: string,
+	fetchImpl: typeof fetch
+): Promise<GenerateResult> {
 	const messages: Message[] = [
 		{
 			role: 'system',
@@ -129,11 +175,18 @@ export async function generateExercise(
 				: prompt
 		}
 	];
+	const format: ResponseFormat | undefined = req.image
+		? { name: 'vocal_exercise_from_image', schema: IMAGE_EXERCISE_JSON_SCHEMA }
+		: undefined;
+	const engine: Engine | undefined = req.image
+		? model === config.visionModel && model !== config.model
+			? 'wonder'
+			: 'spark'
+		: undefined;
 
-	const model = req.image ? config.visionModel : config.model;
 	let lastErrors: string[] = [];
 	for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-		const content = await complete(messages, config, model, fetchImpl);
+		const content = await complete(messages, config, model, fetchImpl, format);
 		let errors: string[];
 		let exercise: GeneratedExercise | null = null;
 		try {
@@ -142,8 +195,11 @@ export async function generateExercise(
 				throw new GenerateError('No readable score was found in the image.', 422);
 			}
 			if (parsed.success) {
-				// Partitura: los semitonos salen de los nombres de nota que leyó el modelo.
+				// La pregunta solo vale si la persona no escribió nada (si ya dijo la escala, se lee con eso).
+				const ask = !prompt && parsed.data.kind === 'drawing' ? parsed.data.ask?.trim() : '';
+				// Imagen: los semitonos salen de los nombres de nota que leyó el modelo.
 				exercise = req.image ? applyNoteNames(parsed.data) : parsed.data;
+				if (ask) return { exercise, code: toCode(exercise), attempts: attempt, model, engine, ask };
 				errors = validateGenerated(exercise, req.range, req.image ? undefined : req.meter);
 			} else {
 				errors = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
@@ -153,7 +209,7 @@ export async function generateExercise(
 			errors = [`Invalid JSON: ${(e as Error).message}`];
 		}
 		if (exercise && errors.length === 0) {
-			return { exercise, code: toCode(exercise), attempts: attempt, model };
+			return { exercise, code: toCode(exercise), attempts: attempt, model, engine };
 		}
 		lastErrors = errors;
 		messages.push(

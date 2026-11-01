@@ -211,10 +211,30 @@ function opaqueArea(r: Raster): number {
 	return n;
 }
 
-/** Una tira: imagen -> SAM -> poses -> tira. Si sale mal (pocas poses, error) se vuelve a pedir. */
+/**
+ * Muse Wonder mira la hoja que dibujó Muse Image. Nunca frena la creación: si la revisión falla, la hoja se
+ * da por buena.
+ */
+async function reviewOf(
+	kind: StripKind,
+	raster: Raster,
+	reference: string
+): Promise<{ ok: boolean; problems: string[] }> {
+	try {
+		return await characterApi.review(kind, rasterToJpegUrl(raster, 0.8), reference);
+	} catch {
+		return { ok: true, problems: [] };
+	}
+}
+
+/**
+ * Una tira: imagen -> revisión de Wonder -> SAM -> poses -> tira. Si sale mal (pocas poses, error o un
+ * defecto que ve Wonder) se vuelve a pedir; en el segundo intento se le dice qué corregir.
+ */
 async function makeStrip(kind: StripKind, input: CreateInput, reference: string): Promise<Strip> {
 	let lastError: unknown;
 	let visual = input.visual;
+	let fix: string | undefined;
 	for (let attempt = 0; attempt < MAX_TRIES; attempt++) {
 		try {
 			const image = await characterApi.strip(
@@ -223,9 +243,19 @@ async function makeStrip(kind: StripKind, input: CreateInput, reference: string)
 				input.style,
 				input.movement,
 				reference,
-				input.flight
+				input.flight,
+				fix
 			);
 			const raster = await dataUrlToRaster(image);
+			// Solo se revisa si queda un intento para corregir; el último se usa como salga.
+			if (attempt < MAX_TRIES - 1) {
+				const review = await reviewOf(kind, raster, reference);
+				if (!review.ok) {
+					fix = review.problems.join(' ');
+					lastError = new CharacterError('fewPoses', fix || 'The sheet did not pass the review.');
+					continue;
+				}
+			}
 			const background = estimateBackground(raster);
 			const { cols, rows, min } = STRIPS[kind];
 			// SAM marca las poses (semillas) y, en paralelo, Spark mira hacia dónde apuntan.

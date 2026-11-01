@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { configFromEnv, generateExercise, GenerateError } from '../../src/lib/ai/generate';
 import { charge, refund, type FunctionEnv } from '../../src/lib/server/quota';
 
-/** Imagen de partitura como data URL (PNG, JPEG o WebP), hasta ~5 MB. */
+/** Imagen de una partitura o de un dibujo de la melodía como data URL (PNG, JPEG o WebP), hasta ~5 MB. */
 const ImageSchema = z
 	.string()
 	.max(7_000_000)
@@ -17,6 +17,8 @@ const RequestSchema = z
 	.object({
 		prompt: z.string().max(1000).default(''),
 		image: ImageSchema.optional(),
+		/** Quién lee la imagen: Spark (por defecto) o Wonder (releer con el modelo más fuerte). */
+		engine: z.enum(['spark', 'wonder']).optional(),
 		meter: z.enum(['4/4', '6/8']).optional(),
 		lang: z.enum(['es', 'en']).default('es'),
 		range: z
@@ -52,6 +54,8 @@ export async function onRequestPost({
 	if (!gate.ok) return json({ error: gate.error, bucket: gate.bucket }, gate.status);
 	try {
 		const result = await generateExercise(input, configFromEnv(env));
+		// El modelo solo hizo una pregunta (dibujo sin escala): todavía no se creó nada, no cuenta.
+		if (result.ask) await refund(env, gate.user, 'exercises');
 		return json(result);
 	} catch (e) {
 		if (e instanceof GenerateError && e.status < 500) {

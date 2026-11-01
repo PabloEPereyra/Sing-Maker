@@ -11,7 +11,8 @@ LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
 # LLM_API_KEY=...
 # LLM_BASE_URL=https://api.meta.ai/v1
 # LLM_MODEL=muse-spark-1.3-contributor   (o muse-spark-1.3, muse-wonder-1.0)
-# Modelo para leer fotos de partituras (por defecto, el mismo LLM_MODEL). Wonder lee mucho mejor la clave de fa.
+# Muse Wonder: relee las partituras en clave de fa, el botón «Releer con Wonder» y revisa las hojas de poses de los
+# personajes. Con Meta es muse-wonder-1.0 por defecto; con otro proveedor, el mismo LLM_MODEL (sin relectura).
 # LLM_VISION_MODEL=muse-wonder-1.0
 # Dictado (voz hablada -> texto), solo con Meta. Por defecto muse-voice-transcribe-1.0.
 # LLM_TRANSCRIBE_MODEL=muse-voice-transcribe-1.0
