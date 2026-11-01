@@ -8,7 +8,6 @@
 	import CreateExerciseDialog from '$lib/components/CreateExerciseDialog.svelte';
 	import ExerciseBrowser from '$lib/components/ExerciseBrowser.svelte';
 	import PracticePlan from '$lib/components/PracticePlan.svelte';
-	import FontTester from '$lib/components/FontTester.svelte';
 	import RhythmPicker from '$lib/components/RhythmPicker.svelte';
 
 	import { addMine, loadMine, mine, removeMine } from '$lib/exercises/mine.svelte';
@@ -453,7 +452,7 @@
 		drumPick = { ...drumPick, [patternMeter]: pattern.id };
 		drums = true;
 		void loadDrums();
-		creating = false;
+		panel = null;
 	}
 
 	function next() {
@@ -508,38 +507,13 @@
 	{/if}
 {/snippet}
 
-<!-- Columna de la derecha (solo fuera del juego): micrófono y perfil -->
+<!-- Esquina de arriba a la derecha (solo fuera del juego): perfil. El micrófono vive en el panel de controles. -->
 {#snippet side()}
-	<div class="flex flex-col items-center gap-3">
-		<button
-			class="round-btn {demo ? 'text-muted' : 'round-btn-on'}"
-			aria-pressed={!demo}
-			aria-label={demo ? t('mic.off') : t('mic.on')}
-			title={demo ? t('mic.off') : t('mic.on')}
-			onclick={toggleMic}
-		>
-			<Icon name="mic" class="h-5 w-5" />
-		</button>
-		<button
-			class="round-btn text-accent {planning ? 'outline-4 outline-white/90' : ''}"
-			aria-haspopup="dialog"
-			aria-label={t('routine.title')}
-			title={t('routine.title')}
-			data-tip="routine"
-			onclick={() => {
-				markSeen('routine');
-				panel = null;
-				planning = true;
-			}}
-		>
-			<Icon name="target" class="h-5 w-5" />
-		</button>
-		<ProfileMenu
-			getDetector={micForCalibration}
-			bind:highlight={desync}
-			onGuide={() => openOnboarding()}
-		/>
-	</div>
+	<ProfileMenu
+		getDetector={micForCalibration}
+		bind:highlight={desync}
+		onGuide={() => openOnboarding()}
+	/>
 {/snippet}
 
 <!-- Menú del escenario (arriba a la izquierda, solo fuera del juego): botones grandes; el de ritmos abre un panel -->
@@ -561,6 +535,24 @@
 				}}
 			>
 				<span class="skew-icon"><Icon name="note" class="h-9 w-9 short:h-6 short:w-6" /></span>
+			</button>
+			<button
+				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 short:h-11 short:w-11 {planning
+					? 'outline-4 outline-white/90'
+					: ''}"
+				aria-haspopup="dialog"
+				aria-label={t('routine.title')}
+				title={t('routine.title')}
+				data-tip="routine"
+				onclick={() => {
+					markSeen('routine');
+					panel = null;
+					planning = true;
+				}}
+			>
+				<span class="skew-icon"
+					><Icon name="notebook-pen" class="h-9 w-9 short:h-6 short:w-6" /></span
+				>
 			</button>
 			<button
 				class="skew-btn grid h-16 w-16 place-items-center rounded-[8px] bg-accent text-white shadow hover:brightness-110 short:h-11 short:w-11 {panel ===
@@ -612,8 +604,6 @@
 <svelte:document onpointerdown={onPointerDown} />
 
 <div class="flex h-dvh flex-col">
-	<!-- TEMPORAL: probador de tipografías -->
-	<FontTester />
 
 	{#if micError}
 		<div class="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
@@ -626,11 +616,11 @@
 		</div>
 	{/if}
 
-	<div class="flex min-h-0 flex-1 flex-col gap-3 p-2">
+	<div class="flex min-h-0 flex-1 flex-col">
 		<!-- Escena -->
-		<main class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+		<main class="flex min-h-0 min-w-0 flex-1 flex-col">
 			{#if placement}
-				<div class="panel flex items-center gap-3 px-4 py-2 text-sm">
+				<div class="panel m-2 flex items-center gap-3 px-4 py-2 text-sm">
 					<span class="font-display font-bold text-accent">
 						{t('place.banner', { n: placement.stage + 1, total: STAGES, pass: PASS_PERCENT })}
 					</span>
@@ -643,7 +633,7 @@
 					</button>
 				</div>
 			{/if}
-			<div class="min-h-[320px] flex-1">
+			<div class="min-h-[320px] flex-1 short:min-h-0">
 				<GameStage
 					bind:this={stage}
 					{theme}
@@ -707,7 +697,15 @@
 						{/if}
 					</button>
 					<!-- Piano guía, batería (el ritmo se elige en «Ritmos»), tempo y zoom, en un solo panel -->
-					<PlaybackOptions bind:bpm bpmMin={BPM_MIN} bpmMax={BPM_MAX} bind:guide bind:drums />
+					<PlaybackOptions
+							bind:bpm
+							bpmMin={BPM_MIN}
+							bpmMax={BPM_MAX}
+							bind:guide
+							bind:drums
+							micOn={!demo}
+							onMic={toggleMic}
+						/>
 				</div>
 			{/snippet}
 		</main>
@@ -757,6 +755,7 @@
 		bind:half={drumsHalf}
 		onPick={pickRhythm}
 		onDelete={removeMyDrum}
+		onCreate={practiceDrum}
 		onClose={() => (panel = null)}
 	/>
 {/if}
@@ -774,10 +773,8 @@
 	<CreateExerciseDialog
 		range={{ low, high }}
 		getDetector={() => ensureMic()}
-		{meter}
 		initialPrompt={suggestedPrompt}
 		onPractice={practiceCreated}
-		onDrum={practiceDrum}
 		onClose={() => {
 			creating = false;
 			suggestedPrompt = '';

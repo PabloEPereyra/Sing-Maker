@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Iconos de la interfaz. Piano y batería son copias de los de vocalizator (src/lib/icons/); running es
 	// «user-fast-running» de Flaticon Uicons (solid rounded);
-	// back es «left» (solid rounded) y note es «music-note» (solid straight) de Flaticon Uicons; gauge, ruler, sliders, wand, target, download, share y los de contorno (mic-line, clock, help, volume, volume-off, globe, trash, key) son trazos de Lucide.
+	// back es «left» (solid rounded) y note es «music-note» (solid straight) de Flaticon Uicons; gauge, ruler, sliders, wand, notebook-pen, download, share y los de contorno (mic-line, clock, help, volume, volume-off, globe, trash, key) son trazos de Lucide.
 	import piano from '$lib/icons/piano.svg?raw';
 	import drum from '$lib/icons/drum.svg?raw';
 	import running from '$lib/icons/running.svg?raw';
@@ -22,7 +22,7 @@
 		| 'ruler'
 		| 'sliders'
 		| 'wand'
-		| 'target'
+		| 'notebook-pen'
 		| 'download'
 		| 'share'
 		| 'mic-line'
@@ -41,7 +41,7 @@
 		'ruler',
 		'sliders',
 		'wand',
-		'target',
+		'notebook-pen',
 		'download',
 		'share',
 		'mic-line',
@@ -116,10 +116,15 @@
 			<path d="M7 8H3" />
 			<path d="M21 16h-4" />
 			<path d="M11 3H9" />
-		{:else if name === 'target'}
-			<circle cx="12" cy="12" r="10" />
-			<circle cx="12" cy="12" r="6" />
-			<circle cx="12" cy="12" r="2" />
+		{:else if name === 'notebook-pen'}
+			<path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" />
+			<path d="M2 6h4" />
+			<path d="M2 10h4" />
+			<path d="M2 14h4" />
+			<path d="M2 18h4" />
+			<path
+				d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"
+			/>
 		{:else if name === 'download'}
 			<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
 			<path d="m7 10 5 5 5-5" />

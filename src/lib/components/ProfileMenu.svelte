@@ -35,15 +35,16 @@
 
 <div class="relative">
 	<button
-		class="grid h-11 w-11 place-items-center overflow-hidden rounded-full border-2 border-white bg-gradient-to-b from-sky to-accent shadow-md ring-2 ring-accent transition hover:scale-105"
+		class="grid h-12 w-12 place-items-center overflow-hidden rounded-full border-2 border-white bg-gradient-to-b from-sky to-accent shadow-md ring-2 ring-accent transition hover:scale-105 short:h-10 short:w-10"
 		aria-label={t('profile.title')}
+		title={t('profile.title')}
 		aria-expanded={open}
 		onclick={() => {
 			open = !open;
 			highlight = false;
 		}}
 	>
-		<img src="/avatar.png" alt="" class="mt-1.5 h-11 w-11 object-cover" />
+		<img src="/avatar.png" alt="" class="mt-1.5 h-12 w-12 object-cover short:h-10 short:w-10" />
 	</button>
 
 	{#if highlight && !open}

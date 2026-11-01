@@ -9,6 +9,7 @@
 		dayKey,
 		doneToday,
 		GOALS,
+		KINDS,
 		lastPercent,
 		previousPercent
 	} from '$lib/practice/routine';
@@ -40,7 +41,8 @@
 			saved &&
 			saved.day === day &&
 			saved.goal === history.goal &&
-			saved.items.every((i) => byId.has(i.id) && techniqueById(i.tech));
+			// los pasos tienen que seguir el orden actual (calentar, resonar, abrir, objetivo)
+			saved.items.every((i, n) => byId.has(i.id) && techniqueById(i.tech)?.kind === KINDS[n]);
 		if (valid) return;
 		const items = buildRoutine({ pool, attempts: history.attempts, goal: history.goal, now });
 		setRoutine({
@@ -93,7 +95,7 @@
 	>
 		<div class="ribbon flex items-center justify-between px-4 py-2.5">
 			<h3 id="routine-title" class="flex items-center gap-2 text-xl leading-tight">
-				<Icon name="target" class="h-5 w-5" />
+				<Icon name="notebook-pen" class="h-5 w-5" />
 				{t('routine.title')}
 			</h3>
 			<button

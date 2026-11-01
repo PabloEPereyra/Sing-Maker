@@ -80,9 +80,7 @@
 				<div class="mt-5 grid grid-cols-3 gap-2">
 					<button
 						type="button"
-						class="rounded-lg border px-2 py-2 text-xs font-semibold {open === 'manual'
-							? 'border-accent bg-accent text-white'
-							: 'border-border bg-surface'}"
+						class="rounded-lg border border-border bg-surface px-2 py-2 text-xs font-semibold"
 						aria-pressed={open === 'manual'}
 						onclick={() => (open = 'manual')}>{t('range.manual')}</button
 					>
@@ -93,9 +91,7 @@
 					>
 					<button
 						type="button"
-						class="rounded-lg border px-2 py-2 text-xs font-semibold {open === 'presets'
-							? 'border-accent bg-accent text-white'
-							: 'border-border bg-surface'}"
+						class="rounded-lg border border-border bg-surface px-2 py-2 text-xs font-semibold"
 						aria-pressed={open === 'presets'}
 						onclick={() => (open = 'presets')}>{t('range.presets')}</button
 					>

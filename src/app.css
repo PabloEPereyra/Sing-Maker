@@ -18,10 +18,10 @@
 	--color-frame: #c9d8f7;
 	--color-frame-dark: #9fb4e6;
 
-	/* Chewy (display) para títulos, botones principales y números; Baloo 2 (sans) para el texto corrido y
-	   las etiquetas chicas, donde el trazo grueso de Chewy se lee mal. */
-	--font-sans: 'Baloo 2', ui-rounded, system-ui, sans-serif;
-	--font-display: 'Chewy', ui-rounded, system-ui, sans-serif;
+	/* Boogaloo (display) para títulos, botones principales, números y el logo; Bricolage Grotesque (sans)
+	   para el texto corrido y las etiquetas chicas, donde un trazo grueso se lee mal. */
+	--font-sans: 'Bricolage Grotesque', ui-rounded, system-ui, sans-serif;
+	--font-display: 'Boogaloo', ui-rounded, system-ui, sans-serif;
 
 	/* Todo con esquinas de 8px. */
 	--radius-sm: 8px;
@@ -36,7 +36,7 @@ body {
 	background: var(--color-base);
 	color: var(--color-fg);
 	font-family: var(--font-sans);
-	/* Chewy solo existe en un peso: sin negrita falsa cuando un título pide 600 o 700. */
+	/* Boogaloo solo existe en un peso: sin negrita falsa cuando un título pide 600 o 700. */
 	font-synthesis-weight: none;
 	height: 100%;
 }
@@ -217,6 +217,7 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 
 /* Logo con relieve, botones redondos y selector de idioma en píldora. */
 .logo-text {
+	font-family: var(--font-display);
 	color: #fff;
 	-webkit-text-stroke: 5px var(--color-accent-dark);
 	paint-order: stroke fill;
@@ -415,6 +416,7 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	}
 	[role='dialog'],
 	.tip-bubble,
+	.game-tooltip,
 	.panel {
 		animation: none !important;
 	}
@@ -432,6 +434,34 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	background: var(--color-surface);
 	border-left: 3px solid var(--color-accent);
 	border-top: 3px solid var(--color-accent);
+}
+
+/* Tooltip (Tooltip.svelte): píldora azul con borde blanco y labio, como los botones principales. */
+.game-tooltip {
+	max-width: min(18rem, calc(100vw - 1rem));
+	width: max-content;
+	padding: 0.35rem 0.75rem;
+	border: 3px solid #fff;
+	border-radius: 10px;
+	background-color: var(--color-accent);
+	background-image: linear-gradient(180deg, rgb(255 255 255 / 0.24), rgb(255 255 255 / 0) 55%);
+	color: #fff;
+	font-family: var(--font-display);
+	font-size: 0.9rem;
+	font-weight: 600;
+	line-height: 1.25;
+	letter-spacing: 0.01em;
+	text-align: center;
+	text-shadow: 0 1px 0 rgb(0 0 0 / 0.25);
+	box-shadow:
+		0 3px 0 var(--color-accent-dark),
+		0 8px 16px rgb(20 30 80 / 0.3);
+	animation: pop-in 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.game-tooltip-arrow {
+	background: var(--color-accent);
+	border-right: 3px solid #fff;
+	border-bottom: 3px solid #fff;
 }
 
 /* Menú del perfil: todas las filas con el mismo alto, icono y tipografía. */
@@ -587,6 +617,33 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	-webkit-text-stroke: 4px #1b2a6b;
 	paint-order: stroke fill;
 	letter-spacing: 0.03em;
+}
+/* Celular acostado: la barra de arriba (progreso, notas del rango, puntaje) ocupa menos alto. */
+@media (max-height: 480px) {
+	.hud-bar {
+		height: 1.5rem;
+		border-width: 2px;
+		box-shadow:
+			0 3px 0 var(--color-accent-dark),
+			inset 0 2px 3px rgb(0 0 0 / 0.3);
+	}
+	.hud-cap {
+		height: 2rem;
+		min-width: 2.7rem;
+		padding-inline: 0.35rem;
+		font-size: 0.9rem;
+		box-shadow:
+			0 3px 0 var(--color-accent-dark),
+			0 5px 8px rgb(40 60 150 / 0.25);
+	}
+	.hud-text {
+		font-size: 0.8rem;
+		-webkit-text-stroke-width: 3px;
+	}
+	.hud-score {
+		-webkit-text-stroke-width: 3px;
+		text-shadow: 0 2px 0 rgb(20 30 80 / 0.55);
+	}
 }
 
 /* Anuncio de la nota guía en el escenario: viene desde el fondo hacia adelante, se agranda y se esfuma. */

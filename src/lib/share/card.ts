@@ -94,16 +94,16 @@ export async function composeCard(
 	info: CardInfo
 ): Promise<HTMLCanvasElement> {
 	await Promise.all([
-		document.fonts.load('100px Chewy'),
-		document.fonts.load('40px "Baloo 2"')
+		document.fonts.load('100px Boogaloo'),
+		document.fonts.load('40px "Bricolage Grotesque"')
 	]).catch(() => undefined);
 
 	const canvas = document.createElement('canvas');
 	canvas.width = CARD_WIDTH;
 	canvas.height = CARD_HEIGHT;
 	const g = canvas.getContext('2d')!;
-	const display = 'Chewy, "Baloo 2", system-ui, sans-serif';
-	const body = '"Baloo 2", system-ui, sans-serif';
+	const display = 'Boogaloo, "Bricolage Grotesque", system-ui, sans-serif';
+	const body = '"Bricolage Grotesque", system-ui, sans-serif';
 
 	// Escena
 	const sky = g.createLinearGradient(0, 0, 0, SCENE_HEIGHT);

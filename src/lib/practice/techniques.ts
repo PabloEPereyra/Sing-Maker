@@ -140,21 +140,11 @@ export const TECHNIQUES: Technique[] = [
 	{
 		id: 'la-le',
 		kind: 'open',
-		shape: 'agile',
-		name: { es: 'LA-LE', en: 'LA-LE' },
-		how: {
-			es: 'Haz «LA» o «LE» con bastante aire, mirando hacia arriba (unos 45°) y con la boca en sonrisa, bien abierta en horizontal, de modo que se vean los dientes de arriba. Intenta no mover la mandíbula (si hace falta, apoya un dedo debajo para controlarla).',
-			en: 'Sing “LAH” or “LEH” with plenty of air, looking up (about 45°) with your mouth in a smile, wide open horizontally, so the upper teeth show. Try not to move the jaw (if needed, rest a finger under it to monitor it).'
-		}
-	},
-	{
-		id: 'la-a',
-		kind: 'open',
 		shape: 'smooth',
-		name: { es: 'LA-A ligados', en: 'LA-A legato' },
+		name: { es: 'LA, LA / LE, LE', en: 'LA, LA / LE, LE' },
 		how: {
-			es: 'Haz «LA» y luego «A», con las notas ligadas, mirando hacia arriba (unos 45°) y con la boca en sonrisa, bien abierta en horizontal, de modo que se vean los dientes de arriba.',
-			en: 'Sing “LAH” and then “AH”, with the notes tied together, looking up (about 45°) with your mouth in a smile, wide open horizontally, so the upper teeth show.'
+			es: 'Haz «LA, LA, LA…» o «LE, LE, LE…», marcando cada nota con la «L» y con bastante aire, mirando hacia arriba (unos 45°) y con la boca en sonrisa, bien abierta en horizontal, de modo que se vean los dientes de arriba. Intenta no mover la mandíbula (si hace falta, apoya un dedo debajo para controlarla).',
+			en: 'Sing “LAH, LAH, LAH…” or “LEH, LEH, LEH…”, marking each note with the “L” and with plenty of air, looking up (about 45°) with your mouth in a smile, wide open horizontally, so the upper teeth show. Try not to move the jaw (if needed, rest a finger under it to monitor it).'
 		}
 	},
 	// --- objetivo ---
@@ -189,6 +179,17 @@ export const TECHNIQUES: Technique[] = [
 		how: {
 			es: 'Haz las escalas con agilidad vocal, con la sílaba «IA» en cada nota.',
 			en: 'Sing the scales with vocal agility, on the syllable “EE-AH” for each note.'
+		}
+	},
+	{
+		id: 'la-a',
+		kind: 'focus',
+		shape: 'agile',
+		goals: ['mix'],
+		name: { es: 'LA-A ligados', en: 'LA-A legato' },
+		how: {
+			es: 'Haz «LA» en la primera nota y sigue con «A», con las notas ligadas, mirando hacia arriba (unos 45°) y con la boca en sonrisa, bien abierta en horizontal, de modo que se vean los dientes de arriba.',
+			en: 'Sing “LAH” on the first note and continue on “AH”, with the notes tied together, looking up (about 45°) with your mouth in a smile, wide open horizontally, so the upper teeth show.'
 		}
 	},
 	{

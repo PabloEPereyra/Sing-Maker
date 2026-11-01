@@ -1,31 +1,62 @@
 <script lang="ts">
 	// Selector de ritmos de la batería: popup con la velocidad (normal o mitad) y los patrones agrupados por
 	// compás. Los del compás del ejercicio se pueden elegir; los de otro compás se ven en gris. Los creados con
-	// IA (✨) se pueden borrar.
+	// IA (✨) se pueden borrar, y abajo hay un botón para crear uno nuevo con IA.
+	import type { DrumResult } from '$lib/ai/drums';
 	import type { DrumPattern } from '$lib/audio/drums';
 	import { t } from '$lib/i18n';
+	import type { MeterId } from '$lib/music/meter';
+	import CreateDrumDialog from './CreateDrumDialog.svelte';
 	import Icon from './Icon.svelte';
 
 	interface Props {
 		/** Ritmos agrupados por compás (de la app y creados). */
 		groups: { meter: string; patterns: DrumPattern[] }[];
 		/** Compás del ejercicio actual. */
-		meter: string;
+		meter: MeterId;
 		/** Ritmo elegido para ese compás. */
 		activeId: string;
 		/** Batería a la mitad de velocidad. */
 		half: boolean;
 		onPick: (id: string) => void;
 		onDelete: (id: string) => void;
+		/** Se creó un ritmo con IA y se quiere usar. */
+		onCreate: (result: DrumResult, meter: MeterId) => void;
 		onClose: () => void;
 	}
 
-	let { groups, meter, activeId, half = $bindable(), onPick, onDelete, onClose }: Props = $props();
+	let {
+		groups,
+		meter,
+		activeId,
+		half = $bindable(),
+		onPick,
+		onDelete,
+		onCreate,
+		onClose
+	}: Props = $props();
 
-	const rhythmName = (p: DrumPattern) => p.name.replace(/\s*(4\/4|6\/8)\s*/, ' ').trim();
+	let creating = $state(false);
+
+	/** Nombre de los ritmos de fábrica en el idioma de la app. */
+	const BUILTIN = {
+		'basic-44': 'rhythm.basic',
+		'basic-68': 'rhythm.basic',
+		'rock-44': 'rhythm.rock',
+		'rock-fill-44': 'rhythm.rockFill',
+		'ballad-68': 'rhythm.ballad'
+	} as const;
+
+	const rhythmName = (p: DrumPattern) =>
+		p.id in BUILTIN
+			? t(BUILTIN[p.id as keyof typeof BUILTIN])
+			: p.name.replace(/\s*(4\/4|6\/8)\s*/, ' ').trim();
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onClose()} />
+<!-- Escape cierra primero el creador (si está abierto) y después el popup -->
+<svelte:window
+	onkeydown={(e) => e.key === 'Escape' && (creating ? (creating = false) : onClose())}
+/>
 
 <div
 	class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
@@ -72,7 +103,7 @@
 					{@const own = p.id.startsWith('my-drum-')}
 					<div class="mt-1 flex items-stretch gap-1">
 						<button
-							class="ex-card !mt-0 min-w-0 flex-1 !text-[1.05rem] {active && p.id === activeId
+							class="ex-card !mt-0 min-w-0 flex-1 !text-[0.95rem] {active && p.id === activeId
 								? 'ex-card-on'
 								: ''}"
 							aria-pressed={active && p.id === activeId}
@@ -94,6 +125,26 @@
 					</div>
 				{/each}
 			{/each}
+
+			<button
+				class="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-[1.05rem] text-white"
+				aria-haspopup="dialog"
+				onclick={() => (creating = true)}
+			>
+				<Icon name="wand" class="h-5 w-5" />
+				{t('rhythms.create')}
+			</button>
 		</div>
 	</div>
 </div>
+
+{#if creating}
+	<CreateDrumDialog
+		{meter}
+		onUse={(result, m) => {
+			creating = false;
+			onCreate(result, m);
+		}}
+		onClose={() => (creating = false)}
+	/>
+{/if}

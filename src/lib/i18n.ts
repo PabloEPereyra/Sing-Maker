@@ -114,8 +114,12 @@ const es = {
 	'create.attempts': 'Validado en {n} intento(s) · {model}',
 	'create.error': 'No se pudo crear el ejercicio.',
 	'create.mine': 'Mis ejercicios',
-	'create.tabExercise': 'Ejercicio',
-	'create.tabDrums': 'Batería',
+	'drums.title': 'Crear un ritmo',
+	'rhythms.create': 'Crear con IA',
+	'rhythm.basic': 'Básico',
+	'rhythm.rock': 'Rock',
+	'rhythm.rockFill': 'Rock + fill',
+	'rhythm.ballad': 'Balada',
 	'drums.intro':
 		'Describí el ritmo y la IA arma un patrón con los sonidos de la batería. Queda en la lista de patrones del compás elegido.',
 	'drums.placeholder': 'Ej.: un patrón estilo balada, suave',
@@ -193,7 +197,8 @@ const es = {
 	'catalog.level': 'Nivel',
 	'controls.tempo': 'Tempo',
 	'controls.tolerance': 'Tolerancia',
-	'controls.options': 'Piano, batería, tempo y zoom',
+	'controls.options': 'Micrófono, piano, batería, tempo y zoom',
+	'controls.mic': 'Micrófono',
 	'controls.guide': 'Piano guía',
 	'controls.drums': 'Batería',
 	'controls.drumPattern': 'Patrón de batería',
@@ -263,7 +268,8 @@ const es = {
 		'Aquí están el piano guía, la batería, el tempo y el zoom. Si va muy rápido o muy lento, cambia el tempo.',
 	'tip.exercises':
 		'Aquí están todos los ejercicios, ordenados por niveles, junto con los que creas tú.',
-	'tip.rhythms': 'Elige el ritmo de la batería y su velocidad: normal o a la mitad.',
+	'tip.rhythms':
+		'Elige el ritmo de la batería y su velocidad: normal o a la mitad. También puedes crear uno con IA.',
 	'tip.range':
 		'Estas son la nota más grave y la más aguda de tu rango. Toca aquí para medirlo con sirenas o elegirlo a mano: los ejercicios se ajustan a él.',
 	'tip.voice':
@@ -590,8 +596,12 @@ const en: Record<Key, string> = {
 	'create.attempts': 'Validated in {n} attempt(s) · {model}',
 	'create.error': 'Could not create the exercise.',
 	'create.mine': 'My exercises',
-	'create.tabExercise': 'Exercise',
-	'create.tabDrums': 'Drums',
+	'drums.title': 'Create a rhythm',
+	'rhythms.create': 'Create with AI',
+	'rhythm.basic': 'Basic',
+	'rhythm.rock': 'Rock',
+	'rhythm.rockFill': 'Rock + fill',
+	'rhythm.ballad': 'Ballad',
 	'drums.intro':
 		'Describe the rhythm and the AI builds a pattern with the drum sounds. It joins the list of patterns for the chosen time signature.',
 	'drums.placeholder': 'E.g.: a soft ballad-style pattern',
@@ -669,7 +679,8 @@ const en: Record<Key, string> = {
 	'catalog.level': 'Level',
 	'controls.tempo': 'Tempo',
 	'controls.tolerance': 'Tolerance',
-	'controls.options': 'Piano, drums, tempo and zoom',
+	'controls.options': 'Microphone, piano, drums, tempo and zoom',
+	'controls.mic': 'Microphone',
 	'controls.guide': 'Piano guide',
 	'controls.drums': 'Drums',
 	'controls.drumPattern': 'Drum pattern',
@@ -738,7 +749,8 @@ const en: Record<Key, string> = {
 	'tip.options':
 		'The guide piano, drums, tempo and zoom are here. Too fast or too slow? Change the tempo.',
 	'tip.exercises': 'All the exercises are here, sorted by level, along with the ones you create.',
-	'tip.rhythms': 'Pick the drum rhythm and its speed: normal or half.',
+	'tip.rhythms':
+		'Pick the drum rhythm and its speed: normal or half. You can also create one with AI.',
 	'tip.range':
 		'These are the lowest and highest notes of your range. Tap here to measure it with sirens or set it by hand: the exercises adapt to it.',
 	'tip.voice':

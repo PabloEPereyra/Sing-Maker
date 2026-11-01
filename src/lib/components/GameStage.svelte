@@ -258,7 +258,7 @@
 	);
 </script>
 
-<div class="panel relative h-full w-full overflow-hidden bg-sky">
+<div class="relative h-full w-full overflow-hidden bg-sky">
 	<canvas
 		bind:this={canvas}
 		class="block h-full w-full touch-none"
@@ -269,7 +269,7 @@
 	></canvas>
 
 	{#if demo}
-		<div class="pointer-events-none absolute inset-x-0 bottom-[5.5rem] flex justify-center px-28">
+		<div class="pointer-events-none absolute inset-x-0 bottom-[5.5rem] short:bottom-[4.5rem] flex justify-center px-28">
 			<div
 				class="rounded-lg bg-black/40 px-3 py-1.5 text-center text-sm font-semibold text-white backdrop-blur-sm"
 			>
@@ -281,7 +281,7 @@
 	{#if status}
 		<!-- HUD: progreso de repeticiones al centro, estrellas a la derecha (el menú va a la izquierda) -->
 		<div
-			class="pointer-events-none absolute inset-x-0 top-0 grid grid-cols-[1fr_auto_1fr] items-start gap-3 p-3"
+			class="pointer-events-none absolute inset-x-0 top-0 grid grid-cols-[1fr_auto_1fr] items-start gap-3 p-3 short:gap-2 short:p-1.5"
 		>
 			<div></div>
 			<!-- Barra de repeticiones con las notas del rango a los lados: un solo objeto que abre el selector de rango -->
@@ -293,9 +293,9 @@
 					disabled={playing}
 					onclick={onRange}>{noteLabel(low)}</button
 				>
-				<div class="-mx-4 flex w-[clamp(7rem,calc(100vw-38rem),20rem)] flex-col items-center gap-1">
+				<div class="-mx-4 flex w-[clamp(7rem,calc(100vw-38rem),20rem)] flex-col items-center gap-1 short:gap-0.5">
 					<div
-						class="max-w-full truncate px-4 font-display text-xs font-bold tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)]"
+						class="max-w-full truncate px-4 font-display text-xs font-bold short:text-[0.65rem] short:leading-none tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)]"
 					>
 						{title} · {noteLabel(sequence.reps[status.rep]?.rootMidi ?? 60)}
 					</div>
@@ -319,26 +319,27 @@
 					onclick={onRange}>{noteLabel(high)}</button
 				>
 			</div>
-			<div class="flex items-center justify-end gap-3 pt-0.5">
+			<!-- Fuera del juego el perfil ocupa la esquina (3 rem): el puntaje se corre a su izquierda -->
+			<div class="flex items-center justify-end gap-3 pt-0.5 {side && !playing ? 'pr-[3.75rem] short:pr-12' : ''}">
 				<span
 					class="hud-3d pointer-events-auto inline-flex"
 					role="img"
 					title={diffLabel}
 					aria-label={diffLabel}
 				>
-					<DifficultyBadge level={diff} class="h-9 w-9" />
+					<DifficultyBadge level={diff} class="h-9 w-9 short:h-6 short:w-6" />
 				</span>
 				<div class="hud-score flex items-center gap-1.5">
-					<span class="hud-3d text-3xl leading-none text-star">{icon}</span>
-					<span class="text-3xl tabular-nums">{status.collected}</span>
-					<span class="text-base opacity-80">/ {status.total}</span>
+					<span class="hud-3d text-3xl leading-none text-star short:text-xl">{icon}</span>
+					<span class="text-3xl tabular-nums short:text-xl">{status.collected}</span>
+					<span class="text-base opacity-80 short:text-xs">/ {status.total}</span>
 				</div>
 			</div>
 		</div>
 
 		{#if playing}
 			<div
-				class="pointer-events-none absolute top-[5.25rem] left-1/2 -translate-x-1/2 rounded-lg bg-black/30 px-3 py-1 text-sm text-white backdrop-blur-sm"
+				class="pointer-events-none absolute top-[5.25rem] left-1/2 short:top-[3.4rem] -translate-x-1/2 rounded-lg bg-black/30 px-3 py-1 text-sm text-white backdrop-blur-sm"
 			>
 				{status.sungMidi === null ? '—' : noteLabel(status.sungMidi)}
 			</div>
@@ -510,7 +511,7 @@
 	{/if}
 
 	{#if side && !playing}
-		<div class="absolute top-[4.75rem] right-3 z-20 short:top-14">
+		<div class="absolute top-3 right-3 z-20">
 			{@render side()}
 		</div>
 	{/if}
@@ -519,7 +520,7 @@
 		<!-- Marca: solo en reposo, abajo a la izquierda -->
 		<div class="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-2">
 			<img src="/logo.png" alt="" class="h-12 w-12 drop-shadow-md short:h-9 short:w-9" />
-			<span class="logo-text hidden text-2xl leading-tight font-bold sm:inline">Sing Maker</span>
+			<span class="logo-text hidden text-2xl leading-tight sm:inline">Sing Maker</span>
 		</div>
 	{/if}
 
