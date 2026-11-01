@@ -35,13 +35,22 @@
 			: '';
 	}
 
+	/** Cuenta los pedidos de ocultar/mostrar, para que un ocultar pendiente no pise a un mostrar posterior. */
+	let seq = 0;
+
 	function hide() {
 		clearTimeout(timer);
 		current = null;
-		box = null;
+		// Al cerrarse una ventana, el navegador dispara `focusout` en plena destrucción de la vista y Svelte
+		// no deja cambiar estado ahí: se oculta en el siguiente microtask.
+		const mine = ++seq;
+		queueMicrotask(() => {
+			if (mine === seq) box = null;
+		});
 	}
 
 	function show(el: Element) {
+		seq++;
 		const r = el.getBoundingClientRect();
 		viewport = { w: window.innerWidth, h: window.innerHeight };
 		box = { x: r.x, y: r.y, w: r.width, h: r.height };
