@@ -11,6 +11,7 @@
 	import { settings } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
 	import PianoRoll from './PianoRoll.svelte';
+	import Icon from './Icon.svelte';
 
 	let {
 		range,
@@ -241,7 +242,7 @@
 					? 'border-accent text-accent'
 					: ''}"
 				onclick={listen}
-				>{listening ? '■' : '▶'} {listening ? t('create.stopListen') : t('create.listen')}</button
+				> {#if listening}<Icon name="stop" class="h-4 w-4" />{:else}<Icon name="play" class="h-4 w-4" />{/if} {listening ? t('create.stopListen') : t('create.listen')}</button
 			>
 			<button
 				class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"

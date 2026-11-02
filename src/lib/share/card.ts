@@ -155,11 +155,21 @@ export async function composeCard(
 
 	// Cinco estrellas: se llenan según el porcentaje
 	const lit = Math.round(info.pct / 20);
-	g.font = `96px ${display}`;
 	const gap = 118;
 	for (let i = 0; i < 5; i++) {
 		g.fillStyle = i < lit ? STAR : 'rgba(255,255,255,0.3)';
-		g.fillText('★', CARD_WIDTH / 2 + (i - 2) * gap, PANEL_TOP + 510);
+		// dibujada con trazos: el carácter ★ cambia según la fuente del móvil
+		g.beginPath();
+		for (let k = 0; k < 10; k++) {
+			const r = k % 2 === 0 ? 46 : 19;
+			const a = -Math.PI / 2 + (k * Math.PI) / 5;
+			const px = CARD_WIDTH / 2 + (i - 2) * gap + Math.cos(a) * r;
+			const py = PANEL_TOP + 478 + Math.sin(a) * r;
+			if (k === 0) g.moveTo(px, py);
+			else g.lineTo(px, py);
+		}
+		g.closePath();
+		g.fill();
 	}
 
 	g.fillStyle = '#fff';

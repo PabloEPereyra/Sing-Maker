@@ -161,7 +161,7 @@
 								style:background={r.color}
 								style:color={r.color === '#000000' || r.color === '#78350f' ? '#fff' : undefined}
 							>
-								{#if r.done}✓{:else}▶{/if}
+								{#if r.done}✓{:else}<Icon name="play" class="h-3.5 w-3.5" />{/if}
 							</span>
 							<span class="min-w-0 flex-1">
 								<span class="block truncate text-[1.05rem] leading-tight">{title(r.exercise)}</span>

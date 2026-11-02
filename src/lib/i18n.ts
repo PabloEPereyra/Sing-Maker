@@ -287,7 +287,7 @@ const es = {
 	'access.quota.other': 'Llegaste al límite de uso de la IA de tu cupo.',
 	'tip.ok': 'Entendido',
 	'tip.skipAll': 'No más pistas',
-	'tip.play': 'Pulsa ▶ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
+	'tip.play': 'Pulsa ▶︎ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
 	'tip.options':
 		'Aquí están el micrófono (para cantar o volver al modo demostración), el piano guía, la batería, el tempo y el zoom, que también se cambia con la rueda del mouse o pellizcando. Si va muy rápido o muy lento, cambia el tempo.',
 	'tip.difficulty':
@@ -320,7 +320,7 @@ const es = {
 	'place.result': 'Ver mi nivel',
 	'how.title': 'Cómo se juega',
 	'how.intro': 'Antes del test de nivel, lo básico para jugar:',
-	'how.play': 'Pulsa play (▶) para empezar el ejercicio.',
+	'how.play': 'Pulsa play (▶︎) para empezar el ejercicio.',
 	'how.listen': 'Primero suenan las notas que tendrás que cantar: escúchalas sin cantar.',
 	'how.guide':
 		'Antes de cada repetición suena una nota guía y aparece su nombre en grande. No se canta: es tu punto de partida.',
@@ -831,7 +831,7 @@ const en: Record<Key, string> = {
 	'access.quota.other': 'You reached the limit of AI use in your allowance.',
 	'tip.ok': 'Got it',
 	'tip.skipAll': 'No more tips',
-	'tip.play': 'Press ▶ to start: a guide note plays, then you sing following the character.',
+	'tip.play': 'Press ▶︎ to start: a guide note plays, then you sing following the character.',
 	'tip.options':
 		'The microphone (to sing or go back to demo mode), guide piano, drums, tempo and zoom are here; zoom also works with the mouse wheel or a pinch. Too fast or too slow? Change the tempo.',
 	'tip.difficulty':
@@ -863,7 +863,7 @@ const en: Record<Key, string> = {
 	'place.result': 'See my level',
 	'how.title': 'How to play',
 	'how.intro': 'Before the level test, the basics:',
-	'how.play': 'Press play (▶) to start the exercise.',
+	'how.play': 'Press play (▶︎) to start the exercise.',
 	'how.listen': 'First you hear the notes you will have to sing: just listen.',
 	'how.guide':
 		'Before each repetition a guide note plays and its name appears in big letters. You do not sing it: it is your starting point.',

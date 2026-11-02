@@ -258,11 +258,12 @@
 	const HARDER_MIN_PERCENT = 60;
 	/** Y solo a quien ya lo hizo bien en el nivel actual. */
 	const SUGGEST_HARDER_PERCENT = 85;
-	const ICONS = { stars: '★', notes: '♪', carrots: '🥕' } as const;
+	const ICONS = { stars: '★', carrots: '🥕' } as const;
+	const notesIcon = $derived(settings.collectible === 'notes');
 	const icon = $derived(
 		settings.collectible.startsWith('custom:')
 			? '✦'
-			: ICONS[settings.collectible as keyof typeof ICONS]
+			: ICONS[settings.collectible as keyof typeof ICONS] ?? '★'
 	);
 </script>
 
@@ -375,7 +376,9 @@
 					<DifficultyBadge level={diff} class="h-9 w-9 short:h-6 short:w-6" />
 				</span>
 				<div class="hud-score flex items-center gap-1.5">
-					<span class="hud-3d text-3xl leading-none text-star short:text-xl">{icon}</span>
+					<span class="hud-3d text-3xl leading-none text-star short:text-xl"
+						>{#if notesIcon}<Icon name="note" class="h-7 w-7 short:h-5 short:w-5" />{:else}{icon}{/if}</span
+					>
 					<span class="text-3xl tabular-nums short:text-xl">{status.collected}</span>
 					<span class="text-base opacity-80 short:text-xs">/ {status.total}</span>
 				</div>
@@ -420,7 +423,7 @@
 				<div
 					class="flex items-center gap-2 rounded-full bg-black/35 px-5 py-2 text-2xl font-bold text-white backdrop-blur-sm"
 				>
-					<span class="animate-pulse">♪</span>
+					<Icon name="note" class="h-6 w-6 animate-pulse" />
 					{t('stage.listen')}
 				</div>
 			</div>
@@ -467,7 +470,9 @@
 					>
 						<div class="text-sm text-muted uppercase">{t('stage.done')}</div>
 						<div class="my-2 font-display text-5xl font-bold">
-							<span class="text-star">{icon}</span>
+							<span class="text-star"
+							>{#if notesIcon}<Icon name="note" class="inline h-9 w-9 align-middle" />{:else}{icon}{/if}</span
+						>
 							{status.collected}<span class="text-2xl text-muted">/{status.total}</span>
 						</div>
 						<div

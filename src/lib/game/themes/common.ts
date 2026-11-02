@@ -46,9 +46,22 @@ export function drawHintPerch(
 	g.lineTo(x + width - 3, y);
 	g.stroke();
 	g.fillStyle = '#ffffff';
-	g.font = 'bold 18px system-ui, sans-serif';
-	g.fillText('♪', x + 4, y - 8);
+	drawNote(g, x + 4, y - 24);
 	g.restore();
+}
+
+/** Corchea dibujada con trazos (no con el carácter ♪, que en algunos móviles sale como emoji y negro). */
+function drawNote(g: CanvasRenderingContext2D, x: number, y: number): void {
+	g.beginPath();
+	g.ellipse(x + 4, y + 15, 4.5, 3.4, -0.4, 0, Math.PI * 2);
+	g.fill();
+	g.fillRect(x + 7.4, y + 1, 1.8, 14);
+	g.beginPath();
+	g.moveTo(x + 9.2, y + 1);
+	g.bezierCurveTo(x + 9.5, y + 6, x + 15, y + 6, x + 13.5, y + 12);
+	g.bezierCurveTo(x + 13, y + 8.5, x + 11, y + 8.5, x + 9.2, y + 7.5);
+	g.closePath();
+	g.fill();
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement> {

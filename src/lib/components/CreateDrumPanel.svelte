@@ -10,6 +10,7 @@
 	import { t } from '$lib/i18n';
 	import type { MeterId } from '$lib/music/meter';
 	import { settings } from '$lib/settings.svelte';
+	import Icon from './Icon.svelte';
 
 	let {
 		meter: initialMeter,
@@ -169,7 +170,7 @@
 					? 'border-accent text-accent'
 					: ''}"
 				onclick={listen}
-				>{listening ? '■' : '▶'}
+				> {#if listening}<Icon name="stop" class="h-4 w-4" />{:else}<Icon name="play" class="h-4 w-4" />{/if}
 				{listening ? t('create.stopListen') : t('create.listen')}</button
 			>
 			<button

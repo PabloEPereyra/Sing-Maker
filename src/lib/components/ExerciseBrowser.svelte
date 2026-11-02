@@ -309,7 +309,7 @@
 								? 'border-accent text-accent'
 								: ''}"
 							onclick={listen}
-							>{listening ? '■' : '▶'}
+							> {#if listening}<Icon name="stop" class="h-4 w-4" />{:else}<Icon name="play" class="h-4 w-4" />{/if}
 							{listening ? t('create.stopListen') : t('create.listen')}</button
 						>
 						<button
