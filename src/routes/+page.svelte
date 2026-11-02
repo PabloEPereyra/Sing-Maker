@@ -717,7 +717,7 @@
 			{#snippet controls()}
 				<div class="flex items-center justify-center gap-2 text-sm sm:gap-3">
 					<button
-						class="grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 short:h-10 short:w-10"
+						class="grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
 						aria-label={t('controls.stop')}
 						title={t('controls.stop')}
 						onclick={stop}
@@ -726,7 +726,7 @@
 					</button>
 					<button
 						data-tip="play"
-						class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 short:h-12 short:w-12"
+						class="grid h-14 w-14 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110"
 						aria-label={running
 							? t('controls.pause')
 							: phase === 'paused'

@@ -121,7 +121,7 @@ const es = {
 	'rotate.title': 'Gira tu celular',
 	'rotate.text':
 		'Sing Maker se juega con el celular acostado, en horizontal. Si no gira solo, activa el giro automático.',
-	'rotate.fullscreen': 'Jugar en horizontal',
+	'rotate.fullscreen': 'Jugar',
 	'stage.repsLabel': 'Repeticiones',
 	'rhythms.speed': 'Velocidad de la batería',
 	'rhythms.speedNormal': 'Normal',
@@ -667,7 +667,7 @@ const en: Record<Key, string> = {
 	'rotate.title': 'Rotate your phone',
 	'rotate.text':
 		'Sing Maker is played with the phone on its side, in landscape. If it does not turn by itself, enable auto-rotate.',
-	'rotate.fullscreen': 'Play in landscape',
+	'rotate.fullscreen': 'Play',
 	'stage.repsLabel': 'Repetitions',
 	'rhythms.speed': 'Drum speed',
 	'rhythms.speedNormal': 'Normal',
