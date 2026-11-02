@@ -6,9 +6,14 @@
 	import Icon from './Icon.svelte';
 </script>
 
-<ul class="mt-3 space-y-3 text-sm">
-	<li class="flex items-center gap-3">
-		<span class="relative grid h-11 w-11 shrink-0 place-items-center" aria-hidden="true">
+<ul
+	class="mt-3 space-y-3 text-sm short:mt-1.5 short:block short:columns-2 short:space-y-0 short:gap-x-4 short:text-[0.8rem] short:leading-snug"
+>
+	<li class="flex items-center gap-3 short:mb-1 short:break-inside-avoid short:gap-2">
+		<span
+			class="relative grid h-11 w-11 shrink-0 place-items-center short:h-8 short:w-8"
+			aria-hidden="true"
+		>
 			<span class="absolute inset-0 animate-pulse rounded-full ring-4 ring-accent"></span>
 			<span class="grid h-9 w-9 place-items-center rounded-full bg-accent text-white">
 				<Icon name="play" class="ml-0.5 h-5 w-5" />
@@ -16,29 +21,32 @@
 		</span>
 		<span>{t('how.play')}</span>
 	</li>
-	<li class="flex items-center gap-3">
-		<span class="grid h-11 w-11 shrink-0 place-items-center text-accent" aria-hidden="true">
+	<li class="flex items-center gap-3 short:mb-1 short:break-inside-avoid short:gap-2">
+		<span
+			class="grid h-11 w-11 shrink-0 place-items-center text-accent short:h-8 short:w-8"
+			aria-hidden="true"
+		>
 			<Icon name="note" class="h-7 w-7" />
 		</span>
 		<span>{t('how.listen')}</span>
 	</li>
-	<li class="flex items-center gap-3">
+	<li class="flex items-center gap-3 short:mb-1 short:break-inside-avoid short:gap-2">
 		<span
-			class="grid h-11 w-11 shrink-0 place-items-center bg-linear-to-b from-[#ffe066] via-[#ffa41b] to-[#ff6a00] bg-clip-text font-display text-2xl text-transparent [-webkit-text-stroke:1px_#7c2d12]"
+			class="grid h-11 w-11 shrink-0 place-items-center bg-linear-to-b from-[#ffe066] via-[#ffa41b] to-[#ff6a00] bg-clip-text font-display text-2xl text-transparent [-webkit-text-stroke:1px_#7c2d12] short:h-8 short:w-8"
 			aria-hidden="true">Do</span
 		>
 		<span>{t('how.guide')}</span>
 	</li>
-	<li class="flex items-center gap-3">
+	<li class="flex items-center gap-3 short:mb-1 short:break-inside-avoid short:gap-2">
 		<span
-			class="hud-3d grid h-11 w-11 shrink-0 place-items-center text-3xl leading-none text-star"
+			class="hud-3d grid h-11 w-11 shrink-0 place-items-center text-3xl leading-none text-star short:h-8 short:w-8"
 			aria-hidden="true">★</span
 		>
 		<span>{t('how.collect')}</span>
 	</li>
-	<li class="flex items-center gap-3">
+	<li class="flex items-center gap-3 short:mb-1 short:break-inside-avoid short:gap-2">
 		<span
-			class="grid h-11 w-11 shrink-0 place-items-center text-3xl leading-none text-star grayscale"
+			class="grid h-11 w-11 shrink-0 place-items-center text-3xl leading-none text-star grayscale short:h-8 short:w-8"
 			aria-hidden="true">★</span
 		>
 		<span>{t('how.gray', { pass: PASS_PERCENT })}</span>

@@ -80,14 +80,14 @@
 	onkeydown={(e) => e.key === 'Escape' && !measuring && !syncing && !calibrating && onClose()}
 />
 
-<div class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm">
+<div class="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm short:p-2">
 	<div
-		class="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden bg-surface text-fg"
+		class="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden bg-surface text-fg short:max-h-full short:max-w-2xl"
 		role="dialog"
 		aria-modal="true"
 		aria-labelledby="onb-title"
 	>
-		<div class="ribbon flex items-center justify-between gap-3 px-4 py-2.5">
+		<div class="ribbon flex items-center justify-between gap-3 px-4 py-2.5 short:py-1.5">
 			<span class="text-lg leading-tight">
 				{t('onb.step', { n: index + 1, total: STEPS.length })}
 			</span>
@@ -95,19 +95,23 @@
 				{t('onb.skip')}
 			</button>
 		</div>
-		<div class="min-h-0 flex-1 overflow-y-auto p-5">
-			<div class="flex gap-1" aria-hidden="true">
+		<div class="min-h-0 flex-1 overflow-y-auto p-5 short:px-4 short:py-2.5">
+			<div class="flex gap-1 short:hidden" aria-hidden="true">
 				{#each STEPS as s, i (s)}
 					<span class="h-2 flex-1 rounded-full {i <= index ? 'bg-accent' : 'bg-surface-2'}"></span>
 				{/each}
 			</div>
 
-			<div class="mt-5">
+			<div class="mt-5 short:mt-0">
 				{#if step === 'welcome'}
 					<h2 id="onb-title" class="text-xl font-bold">{t('onb.welcome.title')}</h2>
 					<p class="mt-2 text-sm text-muted">{t('onb.welcome.body')}</p>
-					<div class="mt-4 text-sm text-muted">{t('header.language')}</div>
-					<div class="pill-group mt-1 !h-9 w-full" role="group" aria-label={t('header.language')}>
+					<div class="mt-4 text-center text-sm text-muted">{t('header.language')}</div>
+					<div
+						class="pill-group mx-auto mt-1 !h-9 w-full max-w-48"
+						role="group"
+						aria-label={t('header.language')}
+					>
 						{#each ['es', 'en'] as const as lang (lang)}
 							<button
 								class="flex-1 px-1 text-xs font-semibold uppercase transition {settings.lang ===
@@ -175,7 +179,11 @@
 				{:else if step === 'difficulty'}
 					<h2 id="onb-title" class="text-xl font-bold">{t('onb.diff.title')}</h2>
 					<p class="mt-2 text-sm text-muted">{t('onb.diff.body')}</p>
-					<div class="pill-group mt-4 !h-14 w-full" role="group" aria-label={t('diff.title')}>
+					<div
+						class="pill-group mt-4 !h-14 w-full short:mt-2 short:!h-11"
+						role="group"
+						aria-label={t('diff.title')}
+					>
 						{#each DIFFICULTIES as d (d.id)}
 							<button
 								class="flex flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs font-semibold transition {settings.difficulty ===
@@ -197,7 +205,7 @@
 					</p>
 				{:else if step === 'howto'}
 					<h2 id="onb-title" class="text-xl font-bold">{t('how.title')}</h2>
-					<p class="mt-2 text-sm text-muted">{t('how.intro')}</p>
+					<p class="mt-2 text-sm text-muted short:hidden">{t('how.intro')}</p>
 					<HowToPlay />
 				{:else if step === 'level'}
 					<h2 id="onb-title" class="text-xl font-bold">{t('onb.level.title')}</h2>
@@ -225,31 +233,32 @@
 					<p class="mt-2 text-sm text-muted">{t('onb.done.menu')}</p>
 				{/if}
 			</div>
-
-			<div class="mt-6 flex items-center justify-between gap-2">
+		</div>
+		<div
+			class="flex items-center justify-center gap-3 border-t border-border px-5 py-3 short:px-4 short:py-1.5"
+		>
+			<button
+				class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 disabled:hidden short:py-1"
+				disabled={index === 0}
+				onclick={() => go(-1)}
+			>
+				{t('onb.back')}
+			</button>
+			{#if step === 'done'}
 				<button
-					class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 disabled:invisible"
-					disabled={index === 0}
-					onclick={() => go(-1)}
+					class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white short:py-1"
+					onclick={() => onFinish(pick.id)}
 				>
-					{t('onb.back')}
+					{t('onb.done.go')}
 				</button>
-				{#if step === 'done'}
-					<button
-						class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white"
-						onclick={() => onFinish(pick.id)}
-					>
-						{t('onb.done.go')}
-					</button>
-				{:else}
-					<button
-						class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white"
-						onclick={() => go(1)}
-					>
-						{step === 'welcome' ? t('onb.welcome.go') : t('onb.next')}
-					</button>
-				{/if}
-			</div>
+			{:else}
+				<button
+					class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white short:py-1"
+					onclick={() => go(1)}
+				>
+					{step === 'welcome' ? t('onb.welcome.go') : t('onb.next')}
+				</button>
+			{/if}
 		</div>
 	</div>
 </div>

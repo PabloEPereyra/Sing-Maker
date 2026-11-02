@@ -5,25 +5,37 @@
 	import { onMount } from 'svelte';
 	import { t } from '$lib/i18n';
 
+	type Lockable = ScreenOrientation & { lock?: (o: string) => Promise<void> };
+	const orientation = (): Lockable | undefined =>
+		typeof screen === 'undefined' ? undefined : (screen.orientation as Lockable | undefined);
+
+	/** El botón solo sale donde se puede (Chrome en Android); en iPhone no hay forma de bloquear. */
+	let canLock = $state(false);
+
+	/** Bloquea en horizontal; los navegadores lo permiten solo en pantalla completa y tras un toque. */
+	async function lockLandscape(fullscreen: boolean) {
+		try {
+			if (fullscreen && !document.fullscreenElement)
+				await document.documentElement.requestFullscreen?.({ navigationUI: 'hide' });
+		} catch {
+			// sin pantalla completa: se intenta el bloqueo igual
+		}
+		try {
+			await orientation()?.lock?.('landscape');
+		} catch {
+			// sin soporte: queda el aviso
+		}
+	}
+
 	onMount(() => {
-		const lock = () => {
-			try {
-				// `lock` no está en los tipos de DOM de todos los navegadores
-				void (
-					screen.orientation as ScreenOrientation & {
-						lock?: (o: string) => Promise<void>;
-					}
-				)
-					.lock?.('landscape')
-					?.catch(() => {});
-			} catch {
-				// sin soporte: queda el aviso
-			}
-		};
-		lock();
+		canLock =
+			typeof orientation()?.lock === 'function' &&
+			typeof document.documentElement.requestFullscreen === 'function';
+		void lockLandscape(false);
 		// Algunos navegadores solo dejan bloquear después de un toque
-		window.addEventListener('pointerdown', lock, { once: true });
-		return () => window.removeEventListener('pointerdown', lock);
+		const onTouch = () => void lockLandscape(false);
+		window.addEventListener('pointerdown', onTouch, { once: true });
+		return () => window.removeEventListener('pointerdown', onTouch);
 	});
 </script>
 
@@ -43,4 +55,12 @@
 	</svg>
 	<h2 class="mt-3 text-3xl">{t('rotate.title')}</h2>
 	<p class="mt-1 max-w-xs text-lg opacity-90">{t('rotate.text')}</p>
+	{#if canLock}
+		<button
+			class="mt-5 rounded-lg bg-white px-5 py-2.5 text-lg font-semibold text-accent-dark shadow-lg"
+			onclick={() => lockLandscape(true)}
+		>
+			{t('rotate.fullscreen')}
+		</button>
+	{/if}
 </div>
