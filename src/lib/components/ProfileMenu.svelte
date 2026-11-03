@@ -6,6 +6,7 @@
 	import { DIFFICULTIES } from '$lib/game/difficulty';
 	import { t } from '$lib/i18n';
 	import { markSeen } from '$lib/tips.svelte';
+	import { install, isIos, promptInstall } from '$lib/install.svelte';
 	import AccessCode from './AccessCode.svelte';
 	import DifficultyBadge from './DifficultyBadge.svelte';
 	import Icon from './Icon.svelte';
@@ -29,6 +30,8 @@
 	let open = $state(false);
 	let calibrating = $state(false);
 	let syncing = $state(false);
+	/** Pasos manuales cuando el navegador no ofrece el aviso de instalación. */
+	let installHelp = $state(false);
 
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape' && open) open = false;
@@ -186,6 +189,22 @@
 						<Icon name="gauge" class="h-5 w-5 shrink-0 text-accent" />
 						{t('place.menu')}
 					</button>
+					{#if !install.installed}
+						<button
+							class="menu-row"
+							onclick={async () => {
+								if (!(await promptInstall())) installHelp = !installHelp;
+							}}
+						>
+							<Icon name="download" class="h-5 w-5 shrink-0 text-accent" />
+							{t('install.item')}
+						</button>
+						{#if installHelp}
+							<p class="px-3 pb-2 text-xs text-muted">
+								{t(isIos() ? 'install.helpIos' : 'install.helpOther')}
+							</p>
+						{/if}
+					{/if}
 				</div>
 			</div>
 		</div>

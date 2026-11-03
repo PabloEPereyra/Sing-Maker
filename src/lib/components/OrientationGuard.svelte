@@ -4,6 +4,7 @@
 	// y en pantalla completa o como app instalada).
 	import { onMount } from 'svelte';
 	import { t } from '$lib/i18n';
+	import { install } from '$lib/install.svelte';
 
 	type Lockable = ScreenOrientation & { lock?: (o: string) => Promise<void> };
 	const orientation = (): Lockable | undefined =>
@@ -28,7 +29,9 @@
 	}
 
 	onMount(() => {
+		// Instalada como app, el manifiesto ya fija la orientación y no hace falta pasar a pantalla completa
 		canLock =
+			!install.installed &&
 			typeof orientation()?.lock === 'function' &&
 			typeof document.documentElement.requestFullscreen === 'function';
 		void lockLandscape(false);
