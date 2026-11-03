@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	// "Crear personaje con IA". Reparto de modelos (de barato a caro): Spark 1.3 interpreta el pedido y
 	// reconoce qué hay en una foto; SAM 3.1 recorta (un objeto de la foto y cada pose de las tiras);
 	// Muse Image dibuja las poses. Después se anima en vivo para aprobarlo y queda guardado en el dispositivo.
@@ -505,7 +506,7 @@
 	>
 		<div class="flex items-center justify-between">
 			<h3 id="char-title" class="text-lg font-bold">
-				{editing ? `✎ ${t('char.editTitle')}` : `✨ ${t('char.title')}`}
+				{#if editing}<Icon name="pencil" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('char.editTitle')}{:else}<Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('char.title')}{/if}
 			</h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2 disabled:opacity-40"
@@ -564,8 +565,7 @@
 			<div class="mt-4 rounded-lg border border-dashed border-border p-3">
 				{#if !photo}
 					<label class="flex cursor-pointer items-center gap-3 text-sm">
-						<span class="grid h-10 w-10 place-items-center rounded-lg bg-surface-2 text-lg">📷</span
-						>
+						<span class="grid h-10 w-10 place-items-center rounded-lg bg-surface-2"><Icon name="camera" class="h-5 w-5" /></span>
 						<span>
 							<span class="block font-semibold">{t('char.photo')}</span>
 							<span class="block text-xs text-muted">{t('char.photoHelp')}</span>
@@ -739,7 +739,7 @@
 					<span class="text-sm font-semibold">{t('char.tweak')}</span>
 					{#if previous}
 						<button class="text-xs text-accent hover:underline" onclick={undoRetouch}
-							>↶ {t('char.undo')}</button
+							>{t('char.undo')}</button
 						>
 					{/if}
 				</div>
@@ -806,7 +806,7 @@
 					class="mr-auto rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:bg-surface-2 disabled:opacity-50"
 					disabled={saving}
 					title={t('char.exportHelp')}
-					onclick={exportZip}>⬇ {t('char.export')}</button
+					onclick={exportZip}><Icon name="download" class="mr-1 inline h-4 w-4 align-text-bottom" />{t('char.export')}</button
 				>
 				{#if editing}
 					<button

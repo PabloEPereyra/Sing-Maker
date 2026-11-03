@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	// Devolución del entrenador vocal (IA) al terminar un ejercicio: unas frases simples y un paso
 	// siguiente (practicar un ejercicio de la lista o crear uno según lo que le costó). Si no hay
 	// conexión o la IA falla, no se muestra nada: el resultado del nivel se ve igual.
@@ -100,7 +101,7 @@
 		<h4
 			class="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-widest text-accent uppercase"
 		>
-			<span aria-hidden="true">✨</span>
+			<Icon name="sparkles" class="h-4 w-4" />
 			{t('coach.title')}
 			{#if result.levelUp}
 				<span class="ml-auto rounded-full bg-accent px-2 py-0.5 text-[10px] text-white normal-case">
@@ -121,7 +122,7 @@
 				class="mt-2 w-full rounded-lg bg-accent px-3 py-2 font-semibold text-white hover:brightness-105"
 				onclick={() => onCreate(result!.prompt)}
 			>
-				✨ {t('coach.create')}
+				<Icon name="sparkles" class="mr-1 inline h-4 w-4 align-text-bottom" />{t('coach.create')}
 			</button>
 		{/if}
 	</section>

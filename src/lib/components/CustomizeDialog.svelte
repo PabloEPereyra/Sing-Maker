@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	// "Personalizar": personaje y objeto que se recolecta. Más adelante: escenarios y elementos
 	// creados por el usuario.
 	import { settings, type CharacterId, type CollectibleId } from '$lib/settings.svelte';
@@ -290,12 +291,12 @@
 					<div
 						class="absolute top-1.5 left-1.5 flex gap-1 opacity-0 transition group-focus-within/item:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
 					>
-						{#each [{ key: 'char.export', help: 'char.exportHelp', icon: '⬇', run: () => downloadCharacter(c) }, { key: 'char.edit', help: 'char.edit', icon: '✎', run: () => (editing = c) }, { key: 'char.duplicate', help: 'char.duplicate', icon: '⧉', run: () => duplicate(c) }] as a (a.key)}
+						{#each [{ key: 'char.export', help: 'char.exportHelp', icon: 'download' as const, run: () => downloadCharacter(c) }, { key: 'char.edit', help: 'char.edit', icon: 'pencil' as const, run: () => (editing = c) }, { key: 'char.duplicate', help: 'char.duplicate', icon: 'copy' as const, run: () => duplicate(c) }] as a (a.key)}
 							<button
 								class="grid h-7 w-7 place-items-center rounded-lg bg-surface/80 text-muted hover:text-accent"
 								aria-label={tDynamic(a.key)}
 								title={tDynamic(a.help)}
-								onclick={a.run}>{a.icon}</button
+								onclick={a.run}><Icon name={a.icon} class="h-4 w-4" /></button
 							>
 						{/each}
 					</div>
@@ -311,13 +312,13 @@
 				class="flex min-h-36 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 p-3 text-sm font-semibold text-accent transition hover:bg-accent/10"
 				onclick={() => (creating = true)}
 			>
-				<span class="text-2xl">✨</span>
+				<Icon name="sparkles" class="h-7 w-7" />
 				{t('char.createCard')}
 			</button>
 			<label
 				class="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-border p-3 text-sm font-semibold text-muted transition hover:border-accent/50 hover:text-fg"
 			>
-				<span class="text-xl">⬆</span>
+				<Icon name="upload" class="h-6 w-6" />
 				{importing ? t('char.importing') : t('char.import')}
 				<span class="text-[11px] font-normal">{t('char.importHelp')}</span>
 				<input
@@ -388,12 +389,12 @@
 					<div
 						class="absolute top-1 left-1 flex gap-1 opacity-0 transition group-focus-within/item:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
 					>
-						{#each [{ key: 'char.export', help: 'item.exportHelp', icon: '⬇', run: () => exportItem(it) }, { key: 'item.edit', help: 'item.edit', icon: '✎', run: () => (editingAsset = { kind: 'item', record: it }) }, { key: 'item.duplicate', help: 'item.duplicate', icon: '⧉', run: () => duplicateAsset('item', it) }] as a (a.key)}
+						{#each [{ key: 'char.export', help: 'item.exportHelp', icon: 'download' as const, run: () => exportItem(it) }, { key: 'item.edit', help: 'item.edit', icon: 'pencil' as const, run: () => (editingAsset = { kind: 'item', record: it }) }, { key: 'item.duplicate', help: 'item.duplicate', icon: 'copy' as const, run: () => duplicateAsset('item', it) }] as a (a.key)}
 							<button
 								class="grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted hover:text-accent"
 								aria-label={tDynamic(a.key)}
 								title={tDynamic(a.help)}
-								onclick={a.run}>{a.icon}</button
+								onclick={a.run}><Icon name={a.icon} class="h-4 w-4" /></button
 							>
 						{/each}
 					</div>
@@ -409,13 +410,13 @@
 				class="flex min-h-28 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 p-2 text-center text-xs font-semibold text-accent transition hover:bg-accent/10"
 				onclick={() => (creatingItem = true)}
 			>
-				<span class="text-xl">✨</span>
+				<Icon name="sparkles" class="h-6 w-6" />
 				{t('item.createCard')}
 			</button>
 			<label
 				class="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-border p-2 text-center text-xs font-semibold text-muted transition hover:border-accent/50 hover:text-fg"
 			>
-				<span class="text-lg">⬆</span>
+				<Icon name="upload" class="h-5 w-5" />
 				{importingAsset ? t('char.importing') : t('item.import')}
 				<span class="text-[11px] font-normal">{t('char.importHelp')}</span>
 				<input
@@ -449,7 +450,7 @@
 						? 'bg-sky/60'
 						: 'bg-green-100'}"
 				>
-					<span class="text-2xl">{flyer ? '☁️' : '🌲'}</span>
+					<Icon name={flyer ? 'cloud' : 'tree'} class="h-8 w-8 {flyer ? 'text-white' : 'text-green-700'}" />
 				</div>
 				<span class="text-sm font-semibold">{t('scene.original')}</span>
 			</button>
@@ -473,12 +474,12 @@
 					<div
 						class="absolute top-1 left-1 flex gap-1 opacity-0 transition group-focus-within/item:opacity-100 group-hover/item:opacity-100 [@media(hover:none)]:opacity-100"
 					>
-						{#each [{ key: 'char.export', help: 'scene.exportHelp', icon: '⬇', run: () => exportScene(sc) }, { key: 'scene.edit', help: 'scene.edit', icon: '✎', run: () => (editingAsset = { kind: 'scene', record: sc }) }, { key: 'scene.duplicate', help: 'scene.duplicate', icon: '⧉', run: () => duplicateAsset('scene', sc) }] as a (a.key)}
+						{#each [{ key: 'char.export', help: 'scene.exportHelp', icon: 'download' as const, run: () => exportScene(sc) }, { key: 'scene.edit', help: 'scene.edit', icon: 'pencil' as const, run: () => (editingAsset = { kind: 'scene', record: sc }) }, { key: 'scene.duplicate', help: 'scene.duplicate', icon: 'copy' as const, run: () => duplicateAsset('scene', sc) }] as a (a.key)}
 							<button
 								class="grid h-6 w-6 place-items-center rounded-lg bg-surface/80 text-xs text-muted hover:text-accent"
 								aria-label={tDynamic(a.key)}
 								title={tDynamic(a.help)}
-								onclick={a.run}>{a.icon}</button
+								onclick={a.run}><Icon name={a.icon} class="h-4 w-4" /></button
 							>
 						{/each}
 					</div>
@@ -494,13 +495,13 @@
 				class="flex min-h-28 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-accent/50 bg-accent/5 p-2 text-center text-xs font-semibold text-accent transition hover:bg-accent/10"
 				onclick={() => (creatingScene = true)}
 			>
-				<span class="text-xl">✨</span>
+				<Icon name="sparkles" class="h-6 w-6" />
 				{t('scene.createCard')}
 			</button>
 			<label
 				class="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-border p-2 text-center text-xs font-semibold text-muted transition hover:border-accent/50 hover:text-fg"
 			>
-				<span class="text-lg">⬆</span>
+				<Icon name="upload" class="h-5 w-5" />
 				{importingAsset ? t('char.importing') : t('scene.import')}
 				<span class="text-[11px] font-normal">{t('char.importHelp')}</span>
 				<input

@@ -192,7 +192,7 @@
 					</button>
 				{:else}
 					<button class="rounded-lg bg-accent px-5 py-2 font-semibold text-white" onclick={record}
-						>● {t('voice.record')}</button
+						><Icon name="mic" class="mr-1 inline h-4 w-4 align-text-bottom" />{t('voice.record')}</button
 					>
 				{/if}
 			</div>
@@ -250,12 +250,12 @@
 					stopPreview();
 					step = 'idle';
 					frames = [];
-				}}>● {t('voice.again')}</button
+				}}><Icon name="retry" class="mr-1 inline h-4 w-4 align-text-bottom" />{t('voice.again')}</button
 			>
 			<button
 				class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2 disabled:opacity-50"
 				disabled={arranging}
-				onclick={arrange}>✨ {arranging ? t('create.working') : t('voice.arrange')}</button
+				onclick={arrange}><Icon name="sparkles" class="mr-1 inline h-4 w-4 align-text-bottom" />{arranging ? t('create.working') : t('voice.arrange')}</button
 			>
 			<button
 				class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
@@ -290,7 +290,7 @@
 			aria-labelledby="voice-title"
 		>
 			<div class="flex items-center justify-between">
-				<h3 id="voice-title" class="text-lg font-bold">🎤 {t('voice.title')}</h3>
+				<h3 id="voice-title" class="text-lg font-bold"><Icon name="mic" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('voice.title')}</h3>
 				<button
 					class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2"
 					aria-label={t('range.close')}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	// "Crear objeto para recoger con IA": lo que se junta al cantar (una moneda, una fruta, una gema…).
 	// Spark interpreta el pedido y reconoce qué hay en una foto; SAM recorta el objeto elegido; Muse Image lo dibuja en
 	// tres poses (normal, inclinado y brillante para cuando se recoge). Queda guardado en el dispositivo.
@@ -271,7 +272,7 @@
 		aria-labelledby="item-title"
 	>
 		<div class="flex items-center justify-between">
-			<h3 id="item-title" class="text-lg font-bold">✨ {t('item.title')}</h3>
+			<h3 id="item-title" class="text-lg font-bold"><Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('item.title')}</h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2 disabled:opacity-40"
 				aria-label={t('range.close')}
@@ -310,8 +311,7 @@
 			<div class="mt-4 rounded-lg border border-dashed border-border p-3">
 				{#if !photo}
 					<label class="flex cursor-pointer items-center gap-3 text-sm">
-						<span class="grid h-10 w-10 place-items-center rounded-lg bg-surface-2 text-lg">📷</span
-						>
+						<span class="grid h-10 w-10 place-items-center rounded-lg bg-surface-2"><Icon name="camera" class="h-5 w-5" /></span>
 						<span>
 							<span class="block font-semibold">{t('char.photo')}</span>
 							<span class="block text-xs text-muted">{t('char.photoHelp')}</span>

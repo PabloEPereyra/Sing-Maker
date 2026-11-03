@@ -33,7 +33,15 @@
 		| 'volume-off'
 		| 'globe'
 		| 'trash'
-		| 'key';
+		| 'key'
+		| 'sparkles'
+		| 'camera'
+		| 'pencil'
+		| 'upload'
+		| 'copy'
+		| 'eye'
+		| 'cloud'
+		| 'tree';
 	let { name, class: cls = 'h-5 w-5' }: { name: Name; class?: string } = $props();
 
 	const RAW: Partial<Record<Name, string>> = { piano, drum, running };
@@ -53,7 +61,15 @@
 		'volume-off',
 		'globe',
 		'trash',
-		'key'
+		'key',
+		'sparkles',
+		'camera',
+		'pencil',
+		'upload',
+		'copy',
+		'eye',
+		'cloud',
+		'tree'
 	];
 </script>
 
@@ -159,6 +175,43 @@
 			<path d="M22 8V4" />
 			<path d="M6 15v-3" />
 			<rect x="2" y="12" width="20" height="8" rx="2" />
+		{:else if name === 'sparkles'}
+			<path
+				d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+			/>
+			<path d="M20 3v4" />
+			<path d="M22 5h-4" />
+			<path d="M4 17v2" />
+			<path d="M5 18H3" />
+		{:else if name === 'camera'}
+			<path
+				d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z"
+			/>
+			<circle cx="12" cy="13" r="3" />
+		{:else if name === 'pencil'}
+			<path
+				d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"
+			/>
+			<path d="m15 5 4 4" />
+		{:else if name === 'upload'}
+			<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+			<path d="m17 8-5-5-5 5" />
+			<path d="M12 3v12" />
+		{:else if name === 'copy'}
+			<rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+			<path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+		{:else if name === 'eye'}
+			<path
+				d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+			/>
+			<circle cx="12" cy="12" r="3" />
+		{:else if name === 'cloud'}
+			<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+		{:else if name === 'tree'}
+			<path
+				d="m17 14 3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14h-.3a1 1 0 0 1-.7-1.7L9 9h-.2A1 1 0 0 1 8 7.3L12 3l4 4.3a1 1 0 0 1-.8 1.7H15l3 3.3a1 1 0 0 1-.7 1.7H17Z"
+			/>
+			<path d="M12 22v-3" />
 		{/if}
 	</svg>
 {:else if RAW[name]}

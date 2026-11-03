@@ -220,7 +220,7 @@
 						aria-label={g.label}
 						onclick={() => openGroup(i)}
 					>
-						<span class="text-5xl leading-none short:text-4xl">{g.isMine ? '✨' : g.key}</span>
+						{#if g.isMine}<Icon name="sparkles" class="h-12 w-12 short:h-9 short:w-9" />{:else}<span class="text-5xl leading-none short:text-4xl">{g.key}</span>{/if}
 						{#if g.isMine}
 							<span class="max-w-full truncate px-1 text-[1.05rem]">{g.label}</span>
 						{/if}
@@ -237,7 +237,7 @@
 						disabled
 						aria-label={t('create.mine')}
 					>
-						<span class="text-5xl leading-none short:text-4xl">✨</span>
+						<Icon name="sparkles" class="h-12 w-12 short:h-9 short:w-9" />
 						<span class="max-w-full truncate px-1 text-[1.05rem]">{t('create.mine')}</span>
 						<span class="rounded-full bg-black/15 px-2.5 text-sm">0</span>
 					</button>
@@ -258,7 +258,7 @@
 					<Icon name="back" class="h-5 w-5" />
 				</button>
 				<h3 id="browser-title" class="min-w-0 flex-1 truncate text-xl leading-tight">
-					{group.isMine ? `✨ ${group.label}` : group.label}
+					{#if group.isMine}<Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{/if}{group.label}
 				</h3>
 				<button
 					class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-lg hover:bg-white/20"

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	// "Crear fondo con IA": Spark interpreta el lugar, Muse Image pinta un fondo ancho que se repite al avanzar y,
 	// para los que caminan, Spark mira la imagen y dice dónde empieza el suelo (se puede ajustar con el deslizador).
 	import { onDestroy } from 'svelte';
@@ -199,7 +200,7 @@
 		aria-labelledby="scene-title"
 	>
 		<div class="flex items-center justify-between">
-			<h3 id="scene-title" class="text-lg font-bold">✨ {t('scene.title')}</h3>
+			<h3 id="scene-title" class="text-lg font-bold"><Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('scene.title')}</h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2 disabled:opacity-40"
 				aria-label={t('range.close')}

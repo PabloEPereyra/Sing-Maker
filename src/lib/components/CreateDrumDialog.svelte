@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from './Icon.svelte';
 	// Crear un ritmo de batería con IA, encima del popup de ritmos (ver CreateDrumPanel).
 	import type { DrumResult } from '$lib/ai/drums';
 	import { t } from '$lib/i18n';
@@ -29,7 +30,7 @@
 		aria-labelledby="create-drums-title"
 	>
 		<div class="ribbon flex items-center justify-between px-4 py-2.5">
-			<h3 id="create-drums-title" class="text-xl leading-tight">✨ {t('drums.title')}</h3>
+			<h3 id="create-drums-title" class="text-xl leading-tight"><Icon name="sparkles" class="mr-1 inline h-6 w-6 align-text-bottom" />{t('drums.title')}</h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-lg hover:bg-white/20"
 				aria-label={t('range.close')}

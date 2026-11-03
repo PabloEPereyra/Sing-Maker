@@ -496,11 +496,11 @@ const es = {
 		'No se pudo reconstruir cómo se creó: solo puedes cambiarle el nombre o guardarlo como copia.',
 	'char.import': 'Importar personaje',
 	'char.importing': 'Importando…',
-	'char.importHelp': 'Un .zip exportado con ⬇',
+	'char.importHelp': 'Un .zip exportado con ⬇︎',
 	'char.imp.notZip': 'Ese archivo no es un .zip válido de personaje.',
 	'char.imp.tooBig': 'El archivo es demasiado grande.',
 	'char.imp.noManifest':
-		'Este .zip no corresponde a lo que intentas importar (usa uno exportado desde aquí con ⬇).',
+		'Este .zip no corresponde a lo que intentas importar (usa uno exportado desde aquí con ⬇︎).',
 	'char.imp.badManifest': 'El archivo character.json no es válido.',
 	'char.imp.missingFile': 'Falta alguna de las hojas de imagen dentro del .zip.',
 	'char.imp.badImage': 'Alguna hoja no es un PNG válido o no coincide con sus medidas.',

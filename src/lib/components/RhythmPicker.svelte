@@ -110,7 +110,7 @@
 							disabled={!active}
 							onclick={() => onPick(p.id)}
 						>
-							<span class="min-w-0 flex-1 truncate">{own ? '✨ ' : ''}{rhythmName(p)}</span>
+							<span class="min-w-0 flex-1 truncate">{#if own}<Icon name="sparkles" class="mr-1 inline h-4 w-4 align-text-bottom" />{/if}{rhythmName(p)}</span>
 						</button>
 						{#if own}
 							<button

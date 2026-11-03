@@ -226,7 +226,7 @@
 		aria-labelledby="create-title"
 	>
 		<div class="flex items-center justify-between">
-			<h3 id="create-title" class="text-lg font-bold">✨ {t('create.title')}</h3>
+			<h3 id="create-title" class="text-lg font-bold"><Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('create.title')}</h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2"
 				aria-label={t('range.close')}
@@ -251,7 +251,7 @@
 					class="h-16 max-w-40 rounded border border-border bg-white object-contain"
 				/>
 				<div class="min-w-0 flex-1 text-sm">
-					<div class="font-semibold">🎼 {t('score.attached')}</div>
+					<div class="font-semibold"><Icon name="note" class="mr-1 inline h-4 w-4 align-text-bottom" />{t('score.attached')}</div>
 					<div class="text-xs text-muted">{t('score.attachedHint')}</div>
 					{#if fromDrawing}
 						<button
@@ -260,7 +260,7 @@
 								score = null;
 								asking = '';
 								drawing = true;
-							}}>✏ {t('draw.edit')}</button
+							}}><Icon name="pencil" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t('draw.edit')}</button
 						>
 					{/if}
 				</div>
@@ -303,7 +303,7 @@
 						void attach(e.dataTransfer?.files[0]);
 					}}
 				>
-					<span class="text-lg">📷</span>
+					<Icon name="camera" class="h-6 w-6 shrink-0" />
 					<span>{t('score.upload')}</span>
 				</button>
 				<button
@@ -311,7 +311,7 @@
 					title={t('draw.hint')}
 					onclick={() => (drawing = true)}
 				>
-					<span class="text-lg">✏️</span>
+					<Icon name="pencil" class="h-6 w-6" />
 					<span>{t('draw.open')}</span>
 				</button>
 			</div>
@@ -479,7 +479,7 @@
 									class="rounded-lg border border-border bg-surface px-3 py-1 text-xs font-semibold text-fg hover:border-accent/50 disabled:opacity-50"
 									title={t('score.rereadHint')}
 									disabled={loading}
-									onclick={() => create('wonder')}>👁 {t('score.reread')}</button
+									onclick={() => create('wonder')}><Icon name="eye" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t('score.reread')}</button
 								>
 							{/if}
 						</div>
@@ -502,7 +502,7 @@
 								? 'border-accent text-accent'
 								: ''}"
 							aria-pressed={editing}
-							onclick={() => (editing = !editing)}>✎ {t('create.edit')}</button
+							onclick={() => (editing = !editing)}><Icon name="pencil" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t('create.edit')}</button
 						>
 						<button
 							class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"
