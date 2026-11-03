@@ -4,11 +4,11 @@ name = "singmaker"
 pages_build_output_dir = "build"
 compatibility_date = "2026-10-01"
 
-# Cupos por persona (ver .docs/arch.md, «Acceso y cupos»). Crear la base con
+# Cupos por persona (ver .docs/arch.md, «Acceso y cupos»). Base creada con
 #   npx wrangler d1 create singmaker-usage
-# y descomentar esto con el id que devuelve. Las variables ACCESS_CODES y LIMIT_* se cargan como
+# La tabla `usage` se crea sola en el primer uso. Las variables ACCESS_CODES y LIMIT_* se cargan como
 # secretos/variables del proyecto en Cloudflare Pages (no van en este archivo).
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "singmaker-usage"
-# database_id = "PEGAR-EL-ID"
+[[d1_databases]]
+binding = "DB"
+database_name = "singmaker-usage"
+database_id = "89856d98-ea26-4fc7-8582-e70a918360a0"
