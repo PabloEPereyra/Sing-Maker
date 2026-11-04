@@ -110,15 +110,21 @@ export const CharacterRequestSchema = z.discriminatedUnion('action', [
 		/** La hoja de poses que dibujó Muse Image. */
 		image: dataUrl,
 		/** El personaje de referencia, para comprobar que es el mismo en todas las poses. */
-		reference: dataUrl.optional()
+		reference: dataUrl.optional(),
+		/** Cómo debe volar (solo hojas de movimiento de voladores): Wonder comprueba que el dibujo lo cumpla. */
+		flight: z.string().max(300).optional()
 	}),
 	z.object({ action: z.literal('segment'), image: dataUrl, noun: z.string().min(1).max(80) }),
 	z.object({ action: z.literal('facing'), image: dataUrl }),
 	z.object({
 		action: z.literal('scene'),
-		visual: z.string().min(3).max(600),
+		/** Qué pintar (al crear; al retocar no hace falta: se parte del fondo actual). */
+		visual: z.string().max(600).default(''),
 		style: z.enum(STYLES).default('cute3d'),
-		movement: z.enum(['walk', 'fly'])
+		movement: z.enum(['walk', 'fly']),
+		/** Retoque: el fondo actual, que se edita aplicando `change` en vez de pintar uno nuevo. */
+		reference: dataUrl.optional(),
+		change: z.string().min(2).max(300).optional()
 	}),
 	z.object({ action: z.literal('ground'), image: dataUrl })
 ]);
@@ -183,7 +189,7 @@ Answer with JSON only:
 - name: a short friendly name in ${language} (max 3 words), empty if not ok.
 - noun: the subject as a short ENGLISH noun phrase for an object-segmentation model: the kind of creature or object plus at most one color, WITHOUT the clothes or accessories it wears (e.g. "white rabbit", "cat", "orange fox"; NOT "cat with blue cap"). Name the WHOLE visible object: when the character pilots or rides a vehicle, use the vehicle (e.g. "helicopter", "rocket", "bicycle"), not the creature inside. Empty if not ok.
 - visual: ENGLISH visual description of the single character for an image generator: species/kind, body shape, colors, distinctive accessories, expression. Describe only the character (no background, no action, no style words) and only what the request says: do NOT add wings, capes, jetpacks or other gear that the request does not mention. Max 60 words. Empty if not ok.
-- flight: ENGLISH, one sentence on HOW this character flies, taken from the request: its own gear, vehicle or power (cape, jetpack, helicopter rotor, balloon, rocket boots, magic carpet, superhero pose...). Use wings ONLY if the request mentions wings or the creature naturally flies (bird, bee, bat, butterfly, dragon, fairy). For anything else (a sheep, a cat, a robot...) invent a fun fitting way WITHOUT wings, e.g. "flying like a superhero, body stretched forward, cape rippling in the wind". Empty if not ok.
+- flight: ENGLISH, one sentence on HOW this character flies, taken from the request: its own gear, vehicle or power (cape, jetpack, helicopter rotor, balloon, rocket boots, magic carpet, superhero pose...). Use wings ONLY if the request mentions wings or the creature naturally flies (bird, bee, bat, butterfly, dragon, fairy). For anything else (a sheep, a cat, a robot...) invent a fun fitting way WITHOUT wings, e.g. "flying like a superhero, body stretched forward, cape rippling in the wind". The character always travels to the RIGHT: when it rides or holds something with a front and a back (a broom, rocket, surfboard, carpet, vehicle), say physically which end points forward (right) and which trails behind (left), e.g. for a broom "sitting on a horizontal broom, the wooden handle pointing forward to the right and the straw bristles trailing behind on the left". Empty if not ok.
 When a photo is attached, describe THAT subject (if it has several, pick the most prominent). Keep the identity faithful to the request.`;
 }
 
@@ -357,7 +363,7 @@ const POSES = (flight?: string): Record<Movement, Record<StripKind, string>> => 
 	},
 	fly: {
 		move: flight?.trim()
-			? `a looping FLIGHT cycle, flying to the right: ${flight.trim()}. Every pose shows a slightly different phase of that motion (for example a cape rippling, rotor blades at different angles, flames flickering, limbs moving) so the loop animates smoothly and the last pose flows back into the first. Do NOT add wings unless the character already has wings in the reference image`
+			? `a looping FLIGHT cycle, flying to the right: ${flight.trim()}. Every pose shows a slightly different phase of that motion (for example a cape rippling, rotor blades at different angles, flames flickering, limbs moving) so the loop animates smoothly and the last pose flows back into the first. The direction of travel is to the RIGHT, so the front or leading part of anything it rides or holds (the handle of a broom, the nose of a vehicle) points RIGHT and the trailing part (straw bristles, tail, exhaust) trails behind on the LEFT, in every pose. Do NOT add wings unless the character already has wings in the reference image`
 			: 'a looping FLAPPING FLIGHT cycle (wings up, mid, down, mid; the last frame flows back into the first), flying to the right',
 		jump: '',
 		stand:
@@ -406,7 +412,7 @@ export function stripPrompt(
 		rows === 1
 			? `ONE row of ${cols} equal cells`
 			: `a grid of ${cols} columns by ${rows} rows (${ask} equal cells)`;
-	return `Sprite sheet of the SAME character as the reference image (${visual}), laid out as ${layout}, exactly one pose per cell, in reading order (left to right, then top to bottom) as the animation order. Each pose sits fully inside its own cell, centered, with generous empty space on all sides: nothing (limbs, tools, rotor blades, capes, tails, effects) may touch or cross the edges of its cell or touch another pose. Same size and same art style in every pose. Side view with the character facing RIGHT: the front of the character or of its vehicle (face, nose, cockpit) points toward the right edge of the image. ${POSES(flight)[movement][kind]}. ${STYLE_PROMPT[style]}. Each pose shows the whole body fully visible and not cropped. ${BACKDROP} background everywhere, no grid lines, no borders, no shadows, no ground line, no text, no numbers.${retry}`;
+	return `Sprite sheet of the SAME character as the reference image (${visual}), laid out as ${layout}, exactly one pose per cell, in reading order (left to right, then top to bottom) as the animation order. Each pose sits fully inside its own cell, centered, and is drawn SMALL: at most 60% of the width and height of the cell, with a wide empty margin on all sides, especially above the head and below the feet. Nothing (limbs, tools, rotor blades, capes, tails, effects, brooms) may touch or cross the edges of its cell or of the image, or touch another pose. Same size and same art style in every pose. Side view with the character facing RIGHT: the front of the character or of its vehicle (face, nose, cockpit) points toward the right edge of the image. ${POSES(flight)[movement][kind]}. ${STYLE_PROMPT[style]}. Each pose shows the whole body fully visible and not cropped. ${BACKDROP} background everywhere, no grid lines, no borders, no shadows, no ground line, no text, no numbers.${retry}`;
 }
 
 interface ImageResponse {
@@ -566,7 +572,7 @@ export type StripReview = z.infer<typeof ReviewSchema>;
  * `problems` son instrucciones cortas para el próximo intento.
  */
 export async function reviewStrip(
-	req: { kind: StripKind; image: string; reference?: string },
+	req: { kind: StripKind; image: string; reference?: string; flight?: string },
 	config: LlmConfig,
 	fetchImpl: typeof fetch = fetch
 ): Promise<StripReview> {
@@ -584,7 +590,12 @@ Look only for CLEAR defects:
 - a pose cropped by the edge of its cell or of the image, or touching/overlapping another pose;
 - ${req.reference ? 'a different character (other colors, accessories or proportions) than the reference' : 'poses that are not the same character'};
 - a visible grid, borders, text, numbers, a shadow or a ground line, or a background that is not flat green;
-- all poses identical copies (they should be different phases of the motion).
+- all poses identical copies (they should be different phases of the motion).${
+		req.flight?.trim() && req.kind === 'move'
+			? `
+- poses that contradict this description of the flight (the character always travels to the right, so what leads must point right and what trails must be on the left): "${req.flight.trim()}". Check especially which end of any ridden or held object (a broom's handle versus its straw bristles) points forward.`
+			: ''
+	}
 Answer with JSON: "ok" is true when the sheet is usable even if not perfect, false only for a serious defect; "problems" has at most 3 short sentences in English, written as instructions for redrawing it (e.g. "Draw exactly ${ask} poses, one per cell, none touching the edges"). Empty list when ok.`;
 	const content: Message['content'] = [
 		{ type: 'text', text },
@@ -645,7 +656,7 @@ Answer with JSON only:
 - message: for "clarify" ask ONE short question in ${language}; for "refuse" a short polite reason in ${language}; otherwise an empty string.
 - visual: the FULL updated ENGLISH visual description (max 60 words) with ONLY the requested change applied and everything else kept. If the change is only about how it moves, keep it as is.
 - noun: the ENGLISH segmentation noun (kind of creature or object plus at most one color; name the whole visible object, e.g. the vehicle if it pilots one); keep the current one unless the change alters what the character is.
-- flight: the ENGLISH one-sentence description of how it moves/flies; update it if the request is about the movement or animation (e.g. "the rotor does not spin" -> make the spinning motion explicit); otherwise keep the current one. Never add wings unless asked.`
+- flight: the ENGLISH one-sentence description of how it moves/flies; update it if the request is about the movement or animation (e.g. "the rotor does not spin" -> make the spinning motion explicit); otherwise keep the current one. Never add wings unless asked. The character always travels to the RIGHT: when the request is about the orientation of something it rides or holds while moving (e.g. "the broom is backwards", "bristles behind", "la escoba está al revés"), rewrite this sentence to state it physically and explicitly, saying which end points forward (right) and which trails behind (left), e.g. "the wooden handle points forward to the right and the straw bristles trail behind on the left"; do not rely on words like "inverted" or "reversed", and keep "visual" unchanged for such a request.`
 		},
 		{ role: 'user', content: req.instruction }
 	];
@@ -661,6 +672,18 @@ export function scenePrompt(visual: string, style: StyleId, movement: Movement):
 			? 'A flat path or ground runs horizontally along the lower part of the picture and everything below its top edge is path or ground; the area above it is the scenery.'
 			: 'Open sky scenery with no ground visible at the bottom.';
 	return `Wide 16:9 side-scrolling video game background, no characters, no creatures in the foreground, no text, no UI. Scene: ${visual}. ${STYLE_PROMPT[style]}. ${where} The center band stays calm and uncluttered, soft and low contrast, so notes and stars drawn over it stay readable. The left and right edges match so the image repeats seamlessly.`;
+}
+
+/**
+ * Retoque de un fondo ya hecho: cambia solo lo pedido y todo lo demás queda igual (el pedido puede venir en
+ * español: el modelo de imágenes lo entiende, y Spark no hace falta para un cambio de este tamaño).
+ */
+export function sceneEditPrompt(change: string, movement: Movement): string {
+	const where =
+		movement === 'walk'
+			? 'The flat path or ground stays at exactly the same height along the lower part of the picture.'
+			: 'It stays open sky scenery with no ground visible at the bottom.';
+	return `Edit the reference image, a wide 16:9 side-scrolling video game background: keep EXACTLY the same scene, art style, colors, composition and camera, and change ONLY this (the request may be written in Spanish): ${change.trim()}. ${where} Keep the left and right edges as they are so the image still repeats seamlessly. No characters, no creatures in the foreground, no text, no UI. The center band stays calm and uncluttered, soft and low contrast, so notes and stars drawn over it stay readable.`;
 }
 
 export const GROUND_JSON_SCHEMA = {

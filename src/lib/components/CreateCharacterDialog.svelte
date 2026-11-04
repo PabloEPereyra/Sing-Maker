@@ -64,7 +64,7 @@
 	let reference = $state<string | undefined>();
 
 	// ---------- proceso ----------
-	type Phase = 'form' | 'loading' | 'working' | 'review';
+	type Phase = 'form' | 'type' | 'loading' | 'working' | 'review';
 	let phase = $state<Phase>('form');
 	let steps = $state<Record<string, { state: StepState; message?: string }>>({});
 	let error = $state('');
@@ -75,16 +75,26 @@
 	let result = $state.raw<CreatedStrips | null>(null);
 	let saving = $state(false);
 	let disposed = false;
+	/** Corta los pedidos en curso: "Cancelar creación" y cerrar la ventana mientras trabaja. */
+	let abort: AbortController | null = null;
 
-	onDestroy(() => (disposed = true));
+	onDestroy(() => {
+		disposed = true;
+		abort?.abort();
+	});
+
+	function cancel() {
+		abort?.abort();
+	}
+
+	function closeWhileWorking() {
+		cancel();
+		onClose();
+	}
 
 	const full = $derived(characters.list.length >= MAX_CHARACTERS);
 	const canCreate = $derived(
-		!full &&
-			(prompt.trim().length > 0 || photo !== null) &&
-			phase === 'form' &&
-			!looking &&
-			!cutting
+		!full && (prompt.trim().length > 0 || photo !== null) && !looking && !cutting
 	);
 	/** Pasos que se muestran mientras trabaja: todos al crear; solo la hoja elegida al retocar una animación. */
 	let workingScope = $state<RefineScope>('all');
@@ -184,6 +194,19 @@
 		reference = undefined;
 	}
 
+	/** "Crear personaje": antes de gastar nada, se pregunta el tipo (el error más común era elegir mal). */
+	function askType() {
+		if (!canCreate) return;
+		error = '';
+		details = [];
+		phase = 'type';
+	}
+
+	function pickType(m: Movement) {
+		movement = m;
+		void create();
+	}
+
 	async function create() {
 		if (!canCreate) return;
 		error = '';
@@ -193,6 +216,7 @@
 		workingScope = 'all';
 		previousReset();
 		phase = 'working';
+		const { signal } = (abort = new AbortController());
 		try {
 			const subject = chosen ? `Subject: ${chosen.noun}. ${prompt.trim()}`.trim() : prompt.trim();
 			const brief: Brief = await characterApi.brief(
@@ -200,7 +224,8 @@
 				settings.lang,
 				photoUrl && !chosen ? photoUrl : undefined,
 				'character',
-				thread
+				thread,
+				signal
 			);
 			if (disposed) return;
 			if (brief.status !== 'ok') {
@@ -210,7 +235,7 @@
 			}
 			thread = [];
 			let ref = reference;
-			if (photo && !ref) ref = (await cutSubject(photo, brief.noun)).reference;
+			if (photo && !ref) ref = (await cutSubject(photo, brief.noun, false, true, signal)).reference;
 			name = brief.name;
 			const input: CreateInput = {
 				movement,
@@ -220,14 +245,19 @@
 				flight: movement === 'fly' ? brief.flight : undefined,
 				reference: ref
 			};
-			const created = await createCharacter(input, progress);
+			const created = await createCharacter(input, progress, signal);
 			if (disposed) return;
+			if (signal.aborted) {
+				phase = 'form';
+				return;
+			}
 			lastInput = input;
 			result = created;
 			phase = 'review';
 		} catch (e) {
 			if (disposed) return;
-			fail(e);
+			// Cancelado a propósito: se vuelve al formulario sin mostrar error.
+			if (!signal.aborted) fail(e);
 			phase = 'form';
 		}
 	}
@@ -264,6 +294,7 @@
 		workingScope = tweakScope;
 		steps = { [tweakScope === 'all' ? 'hero' : tweakScope]: { state: 'working' } };
 		phase = 'working';
+		const { signal } = (abort = new AbortController());
 		try {
 			const next = await refineCharacter(
 				before,
@@ -271,16 +302,20 @@
 				tweakScope,
 				settings.lang,
 				progress,
-				tweakScope === 'all' ? tweakStyle : undefined
+				tweakScope === 'all' ? tweakStyle : undefined,
+				signal
 			);
 			if (disposed) return;
-			previous = before;
-			lastInput = next.input;
-			result = next.created;
-			tweak = '';
+			// Cancelado: se queda la versión que ya había.
+			if (!signal.aborted) {
+				previous = before;
+				lastInput = next.input;
+				result = next.created;
+				tweak = '';
+			}
 		} catch (e) {
 			if (disposed) return;
-			fail(e);
+			if (!signal.aborted) fail(e);
 		}
 		phase = 'review';
 	}
@@ -466,7 +501,11 @@
 	}
 
 	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape' && phase !== 'working') onClose();
+		if (e.key !== 'Escape') return;
+		// Mientras trabaja, Escape vuelve atrás sin cerrar la ventana: cerrarla de un golpe perdería el avance.
+		if (phase === 'working') cancel();
+		else if (phase === 'type') phase = 'form';
+		else onClose();
 	}
 
 	const STYLE_KEYS = {
@@ -511,30 +550,12 @@
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2 disabled:opacity-40"
 				aria-label={t('range.close')}
-				disabled={phase === 'working'}
-				onclick={onClose}>✕</button
+				onclick={phase === 'working' ? closeWhileWorking : onClose}>✕</button
 			>
 		</div>
 
 		{#if phase === 'form'}
 			<p class="mt-1 text-sm text-muted">{t('char.intro')}</p>
-
-			<div class="mt-4 flex gap-2" role="radiogroup" aria-label={t('char.type')}>
-				{#each [['walk', 'character.walker'], ['fly', 'character.flyerPick']] as const as [m, label] (m)}
-					<button
-						class="flex-1 rounded-lg border-2 px-3 py-2 text-sm font-semibold transition {movement ===
-						m
-							? 'border-accent bg-accent/10'
-							: 'border-border hover:border-accent/50'}"
-						role="radio"
-						aria-checked={movement === m}
-						onclick={() => (movement = m)}>{t(label)}</button
-					>
-				{/each}
-			</div>
-			<p class="mt-1 text-xs text-muted">
-				{movement === 'walk' ? t('char.walkHelp') : t('char.flyHelp')}
-			</p>
 
 			<textarea
 				bind:value={prompt}
@@ -657,7 +678,27 @@
 				<button
 					class="rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
 					disabled={!canCreate}
-					onclick={create}>{t('char.create')}</button
+					onclick={askType}>{t('char.create')}</button
+				>
+			</div>
+		{:else if phase === 'type'}
+			<p class="mt-3 text-lg font-semibold">{t('char.pickType')}</p>
+			<p class="mt-1 text-sm text-muted">{t('char.pickTypeHelp')}</p>
+			<div class="mt-4 grid gap-3 sm:grid-cols-2">
+				{#each [{ m: 'walk', label: 'character.walker', desc: 'char.walkerDesc' }, { m: 'fly', label: 'character.flyerPick', desc: 'char.flyerDesc' }] as const as o (o.m)}
+					<button
+						class="flex flex-col gap-1 rounded-lg border-2 border-border p-4 text-left transition hover:border-accent hover:bg-accent/5"
+						onclick={() => pickType(o.m)}
+					>
+						<span class="text-lg font-bold">{t(o.label)}</span>
+						<span class="text-xs text-muted">{t(o.desc)}</span>
+					</button>
+				{/each}
+			</div>
+			<div class="mt-4 flex justify-start">
+				<button
+					class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"
+					onclick={() => (phase = 'form')}>{t('char.back')}</button
 				>
 			</div>
 		{:else if phase === 'loading'}
@@ -709,6 +750,12 @@
 				{/each}
 			</ul>
 			<p class="mt-3 text-xs text-muted">{t('char.keepOpen')}</p>
+			<div class="mt-4 flex justify-end">
+				<button
+					class="rounded-lg border border-border bg-surface px-4 py-2 text-sm hover:bg-surface-2"
+					onclick={cancel}>{t('char.cancel')}</button
+				>
+			</div>
 		{:else}
 			<p class="mt-1 text-sm text-muted">{t('char.review')}</p>
 			<div

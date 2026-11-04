@@ -17,8 +17,18 @@ const PARALLAX = { walk: 0.45, fly: 0.3 } as const;
 
 const cache = new Map<string, Theme>();
 
+/** Un número por imagen distinta: un fondo retocado (otra imagen con el mismo id) no reusa el tema viejo. */
+const imageIds = new WeakMap<Blob, number>();
+let lastImageId = 0;
+function imageId(image: Blob): number {
+	let id = imageIds.get(image);
+	if (id === undefined) imageIds.set(image, (id = ++lastImageId));
+	return id;
+}
+
 export function withScene(theme: Theme, scene: SceneRecord): Theme {
-	const key = `${theme.id}|${scene.id}|${scene.platform ?? ''}`;
+	// También cuenta la altura del suelo: editarla cambia por dónde camina y los colores de las plataformas.
+	const key = `${theme.id}|${scene.id}|${scene.platform ?? ''}|${scene.ground}|${imageId(scene.image)}`;
 	const cached = cache.get(key);
 	if (cached) return cached;
 	let image: HTMLImageElement | null = null;

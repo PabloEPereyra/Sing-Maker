@@ -11,6 +11,7 @@ import {
 	listObjects,
 	makeBrief,
 	scenePrompt,
+	sceneEditPrompt,
 	refineBrief,
 	reviewStrip,
 	mediaConfigFromEnv,
@@ -88,14 +89,22 @@ export async function onRequestPost({
 						{ size: sizeFor(input.kind), reference: input.reference }
 					)
 				});
-			case 'scene':
+			case 'scene': {
+				const editing = !!input.reference && !!input.change;
+				if (!editing && input.visual.trim().length < 3) {
+					await refund(env, gate.user, bucket);
+					return json({ error: 'Invalid request.' }, 400);
+				}
 				return json({
 					image: await generateImage(
-						scenePrompt(input.visual, input.style, input.movement),
+						editing
+							? sceneEditPrompt(input.change!, input.movement)
+							: scenePrompt(input.visual, input.style, input.movement),
 						media,
-						{ size: SIZE.scene }
+						{ size: SIZE.scene, reference: editing ? input.reference : undefined }
 					)
 				});
+			}
 			case 'review':
 				return json(await reviewStrip(input, config));
 			case 'ground':

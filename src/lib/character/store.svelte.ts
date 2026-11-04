@@ -4,7 +4,7 @@ import { idbRun } from './idb';
 import type { Movement, StyleId } from './spec';
 
 /** Tope de personajes propios (cada uno pesa ~1–2 MB). */
-export const MAX_CHARACTERS = 12;
+export const MAX_CHARACTERS = 20;
 
 export interface SheetRecord {
 	blob: Blob;

@@ -4,7 +4,7 @@ export type Movement = 'walk' | 'fly';
 /** Fallas esperables del procesado de imágenes: la interfaz las muestra traducidas. */
 export class CharacterError extends Error {
 	constructor(
-		readonly code: 'notFound' | 'fewPoses' | 'emptyPose' | 'refused',
+		readonly code: 'notFound' | 'fewPoses' | 'emptyPose' | 'clipped' | 'refused',
 		message: string
 	) {
 		super(message);

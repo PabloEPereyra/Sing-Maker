@@ -7,6 +7,7 @@ import {
 	compositeOnColor,
 	chromaObjects,
 	cutCell,
+	clippedAmount,
 	flipHorizontal,
 	gridCells,
 	cutObject,
@@ -93,11 +94,12 @@ export function nounVariants(noun: string): string[] {
 export async function segment(
 	r: Raster,
 	noun: string,
-	solidBackground = false
+	solidBackground = false,
+	signal?: AbortSignal
 ): Promise<SamObject[]> {
 	const url = rasterToJpegUrl(r);
 	for (const variant of nounVariants(noun)) {
-		const objects = parseSamText(await characterApi.segment(url, variant));
+		const objects = parseSamText(await characterApi.segment(url, variant, signal));
 		if (objects.length) return objects;
 	}
 	if (solidBackground) return chromaObjects(r, estimateBackground(r));
@@ -114,22 +116,30 @@ export async function cutSubject(
 	/** La imagen tiene fondo liso (la generó Muse Image sobre verde): se rescatan los accesorios que SAM deja afuera. */
 	solidBackground = false,
 	/** Personajes: se espeja si miran a la izquierda. Los objetos no tienen frente. */
-	alignFacing = true
+	alignFacing = true,
+	signal?: AbortSignal
 ): Promise<{ cutout: Raster; reference: string }> {
-	const objects = await segment(photo, noun, solidBackground);
+	const objects = await segment(photo, noun, solidBackground, signal);
 	if (!objects.length)
 		throw new CharacterError('notFound', `Could not find "${noun}" in the image.`);
 	const area = (o: SamObject) => o.mask.data.reduce((a, b) => a + b, 0);
 	const best = objects.reduce((a, b) => (area(b) > area(a) ? b : a));
 	const cutout = trimToContent(
-		cutObject(photo, best, solidBackground ? estimateBackground(photo) : undefined),
+		// Con fondo liso hay un solo personaje: crece por todo lo conectado (SAM suele marcar solo el vehículo).
+		cutObject(
+			photo,
+			best,
+			solidBackground ? estimateBackground(photo) : undefined,
+			undefined,
+			Infinity
+		),
 		6
 	);
 	const square = greenSquareBase(cutout);
 	let reference = compositeOnColor(square, GREEN);
 	let result = cutout;
 	// Todas las poses salen del modelo siguiendo esta referencia: si mira a la izquierda, se espeja.
-	if (alignFacing && (await facingOf(reference)) === 'left') {
+	if (alignFacing && (await facingOf(reference, signal)) === 'left') {
 		reference = flipHorizontal(reference);
 		result = flipHorizontal(cutout);
 	}
@@ -194,12 +204,28 @@ export interface CreatedStrips {
 	jump?: Strip;
 }
 
-const MAX_TRIES = 2;
+const MAX_TRIES = 3;
+
+/**
+ * Desde cuánto dibujo cortado (relativo al tamaño de una figura, ver clippedAmount) una hoja se rechaza.
+ * Una aspa o una cola que cruza la línea queda bien por debajo; una cabeza o un cuerpo cortados, muy por encima.
+ */
+const CLIPPED_LIMIT = 0.15;
+const CLIPPED_FIX =
+	'Draw every pose SMALLER, at most 60% of the width and height of its cell, centered, with a wide empty green margin on all four sides (above the head, below the feet, left and right). No part of any pose may touch or cross the edge of its cell or of the image: never crop the head, feet or sides.';
+
+/** Cortar el flujo en cuanto se pulsa "Cancelar" (si no, el fallo por cancelar se reintentaría). */
+function throwIfAborted(signal?: AbortSignal) {
+	if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
+}
 
 /** Hacia dónde mira el personaje de la imagen (Spark); si falla la consulta, "unclear" y no se espeja. */
-async function facingOf(r: Raster): Promise<'left' | 'right' | 'front' | 'unclear'> {
+async function facingOf(
+	r: Raster,
+	signal?: AbortSignal
+): Promise<'left' | 'right' | 'front' | 'unclear'> {
 	try {
-		return await characterApi.facing(rasterToJpegUrl(r));
+		return await characterApi.facing(rasterToJpegUrl(r), signal);
 	} catch {
 		return 'unclear';
 	}
@@ -218,10 +244,12 @@ function opaqueArea(r: Raster): number {
 async function reviewOf(
 	kind: StripKind,
 	raster: Raster,
-	reference: string
+	reference: string,
+	signal?: AbortSignal,
+	flight?: string
 ): Promise<{ ok: boolean; problems: string[] }> {
 	try {
-		return await characterApi.review(kind, rasterToJpegUrl(raster, 0.8), reference);
+		return await characterApi.review(kind, rasterToJpegUrl(raster, 0.8), reference, signal, flight);
 	} catch {
 		return { ok: true, problems: [] };
 	}
@@ -231,7 +259,12 @@ async function reviewOf(
  * Una tira: imagen -> revisión de Wonder -> SAM -> poses -> tira. Si sale mal (pocas poses, error o un
  * defecto que ve Wonder) se vuelve a pedir; en el segundo intento se le dice qué corregir.
  */
-async function makeStrip(kind: StripKind, input: CreateInput, reference: string): Promise<Strip> {
+async function makeStrip(
+	kind: StripKind,
+	input: CreateInput,
+	reference: string,
+	signal?: AbortSignal
+): Promise<Strip> {
 	let lastError: unknown;
 	let visual = input.visual;
 	let fix: string | undefined;
@@ -244,12 +277,14 @@ async function makeStrip(kind: StripKind, input: CreateInput, reference: string)
 				input.movement,
 				reference,
 				input.flight,
-				fix
+				fix,
+				signal
 			);
+			throwIfAborted(signal);
 			const raster = await dataUrlToRaster(image);
 			// Solo se revisa si queda un intento para corregir; el último se usa como salga.
 			if (attempt < MAX_TRIES - 1) {
-				const review = await reviewOf(kind, raster, reference);
+				const review = await reviewOf(kind, raster, reference, signal, input.flight);
 				if (!review.ok) {
 					fix = review.problems.join(' ');
 					lastError = new CharacterError('fewPoses', fix || 'The sheet did not pass the review.');
@@ -258,13 +293,22 @@ async function makeStrip(kind: StripKind, input: CreateInput, reference: string)
 			}
 			const background = estimateBackground(raster);
 			const { cols, rows, min } = STRIPS[kind];
+			const cells = gridCells(raster, background, cols, rows);
+			// Una pose que se sale de su celda o de la imagen quedaría cortada: se vuelve a pedir, más chica.
+			if (clippedAmount(raster, background, cells) > CLIPPED_LIMIT) {
+				fix = CLIPPED_FIX;
+				throw new CharacterError('clipped', 'A pose was cropped by the edge of its cell.');
+			}
 			// SAM marca las poses (semillas) y, en paralelo, Spark mira hacia dónde apuntan.
 			const [seeds, facing] = await Promise.all([
-				segment(raster, input.noun, false),
-				kind === 'stand' || kind === 'item' ? Promise.resolve('unclear' as const) : facingOf(raster)
+				segment(raster, input.noun, false, signal),
+				kind === 'stand' || kind === 'item'
+					? Promise.resolve('unclear' as const)
+					: facingOf(raster, signal)
 			]);
+			throwIfAborted(signal);
 			// Cada pose se recorta dentro de su celda: lo que cruce el borde de la celda no cuenta.
-			let frames = gridCells(raster, background, cols, rows)
+			let frames = cells
 				.map((cell) => cutCell(raster, cell, seeds, background))
 				.filter((f): f is Raster => f !== null);
 			// Una "pose" muy chica es una mota suelta, no un cuadro.
@@ -280,6 +324,7 @@ async function makeStrip(kind: StripKind, input: CreateInput, reference: string)
 			if (facing === 'left') frames = frames.map(flipHorizontal);
 			return buildStrip(frames, input.movement === 'walk' ? 'feet' : 'center');
 		} catch (e) {
+			if (signal?.aborted) throw e;
 			lastError = e;
 			// Si el filtro sigue bloqueando, se pide con una descripción corta: la referencia ya fija el aspecto.
 			if (e instanceof ContentBlockedError) visual = input.noun;
@@ -290,7 +335,8 @@ async function makeStrip(kind: StripKind, input: CreateInput, reference: string)
 
 export async function createCharacter(
 	input: CreateInput,
-	onProgress: Progress
+	onProgress: Progress,
+	signal?: AbortSignal
 ): Promise<CreatedStrips> {
 	let reference = input.reference;
 	if (!reference) {
@@ -298,13 +344,13 @@ export async function createCharacter(
 		try {
 			let image: string;
 			try {
-				image = await characterApi.hero(input.visual, input.style, input.movement);
+				image = await characterApi.hero(input.visual, input.style, input.movement, {}, signal);
 			} catch (e) {
 				if (!(e instanceof ContentBlockedError)) throw e;
-				image = await characterApi.hero(input.noun, input.style, input.movement);
+				image = await characterApi.hero(input.noun, input.style, input.movement, {}, signal);
 			}
 			const hero = await dataUrlToRaster(image, 1024);
-			reference = (await cutSubject(hero, input.noun, true)).reference;
+			reference = (await cutSubject(hero, input.noun, true, true, signal)).reference;
 			onProgress('hero', 'done');
 		} catch (e) {
 			onProgress('hero', 'failed', (e as Error).message);
@@ -318,7 +364,7 @@ export async function createCharacter(
 	const results = await Promise.all(
 		kinds.map(async (kind) => {
 			try {
-				const strip = await makeStrip(kind, input, reference!);
+				const strip = await makeStrip(kind, input, reference!, signal);
 				onProgress(kind, 'done');
 				return strip;
 			} catch (e) {
@@ -354,13 +400,21 @@ export async function refineCharacter(
 	lang: 'es' | 'en',
 	onProgress: Progress,
 	/** Estilo nuevo (solo con alcance 'all'); si cambia, se redibuja el mismo personaje en ese estilo. */
-	newStyle?: StyleId
+	newStyle?: StyleId,
+	signal?: AbortSignal
 ): Promise<Creation> {
 	const { input, created } = prev;
 	const restyle = scope === 'all' && !!newStyle && newStyle !== input.style;
 	// Solo se cambió el estilo (sin texto): la descripción queda igual y no hace falta consultar a Spark.
 	const refined = instruction.trim()
-		? await characterApi.refine(input.visual, input.noun, input.flight ?? '', instruction, lang)
+		? await characterApi.refine(
+				input.visual,
+				input.noun,
+				input.flight ?? '',
+				instruction,
+				lang,
+				signal
+			)
 		: {
 				status: 'ok' as const,
 				message: '',
@@ -382,25 +436,30 @@ export async function refineCharacter(
 		let reference: string;
 		try {
 			const hero = await dataUrlToRaster(
-				await characterApi.hero(next.visual, next.style, next.movement, {
-					reference: created.reference,
-					change: instruction.trim(),
-					restyle
-				}),
+				await characterApi.hero(
+					next.visual,
+					next.style,
+					next.movement,
+					{ reference: created.reference, change: instruction.trim(), restyle },
+					signal
+				),
 				1024
 			);
-			reference = (await cutSubject(hero, next.noun, true)).reference;
+			reference = (await cutSubject(hero, next.noun, true, true, signal)).reference;
 			onProgress('hero', 'done');
 		} catch (e) {
 			onProgress('hero', 'failed', (e as Error).message);
 			throw e;
 		}
-		return { input: next, created: await createCharacter({ ...next, reference }, onProgress) };
+		return {
+			input: next,
+			created: await createCharacter({ ...next, reference }, onProgress, signal)
+		};
 	}
 
 	onProgress(scope, 'working');
 	try {
-		const strip = await makeStrip(scope, next, created.reference);
+		const strip = await makeStrip(scope, next, created.reference, signal);
 		onProgress(scope, 'done');
 		return { input: next, created: { ...created, [scope]: strip } };
 	} catch (e) {

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildStrip,
 	chromaObjects,
+	clippedAmount,
 	cutCell,
 	cutObject,
 	dropSpecks,
@@ -235,6 +236,72 @@ describe('grilla de poses', () => {
 			// Un cuerpo (70 px) más un tramo de aspas: nunca un cuerpo vecino entero (~170 px).
 			expect(f.width).toBeLessThan(110);
 		}
+	});
+
+	it('si SAM marca solo el vehículo, el jinete que sobresale mucho no se corta', () => {
+		const bg: [number, number, number] = [90, 140, 70];
+		const img = newRaster(300, 200);
+		for (let i = 0; i < img.width * img.height; i++) img.data.set([...bg, 255], i * 4);
+		// Escoba larga y baja (lo único que marca SAM) con una persona alta sentada encima.
+		const broom = blob(img, 100, 140, 100, 10, [150, 100, 50]);
+		for (let y = 60; y < 140; y++)
+			for (let x = 130; x < 170; x++) img.data.set([60, 120, 200, 255], (y * img.width + x) * 4);
+		const cell = { x1: 0, y1: 0, x2: 300, y2: 200 };
+		const cut = cutCell(img, cell, [broom], bg)!;
+		// 90 px de alto (persona + escoba): el 30 % de la escoba (30 px) la habría dejado en ~40.
+		expect(cut.height).toBeGreaterThanOrEqual(90);
+	});
+
+	describe('poses cortadas', () => {
+		const bg: [number, number, number] = [90, 140, 70];
+		const sheet = (w: number, h: number) => {
+			const img = newRaster(w, h);
+			for (let i = 0; i < img.width * img.height; i++) img.data.set([...bg, 255], i * 4);
+			const paint = (x: number, y: number, pw: number, ph: number) => {
+				for (let j = 0; j < ph; j++)
+					for (let i = 0; i < pw; i++)
+						img.data.set([240, 60, 60, 255], ((y + j) * img.width + x + i) * 4);
+			};
+			return { img, paint };
+		};
+
+		it('poses enteras y con margen no están cortadas', () => {
+			const { img, paint } = sheet(300, 100);
+			paint(20, 20, 60, 60);
+			paint(120, 20, 60, 60);
+			paint(220, 20, 60, 60);
+			const cells = gridCells(img, bg, 3, 1);
+			expect(clippedAmount(img, bg, cells)).toBeLessThan(0.05);
+		});
+
+		it('un aspa fina que cruza la línea de corte no cuenta', () => {
+			const { img, paint } = sheet(300, 100);
+			paint(15, 40, 70, 50);
+			paint(115, 40, 70, 50);
+			paint(215, 40, 70, 50);
+			paint(80, 20, 40, 4);
+			paint(180, 20, 40, 4);
+			expect(clippedAmount(img, bg, gridCells(img, bg, 3, 1))).toBeLessThan(0.15);
+		});
+
+		it('una pose que toca el borde de la imagen (cabeza cortada) se detecta', () => {
+			const { img, paint } = sheet(200, 100);
+			paint(30, 0, 40, 80); // la cabeza sale por arriba
+			paint(130, 10, 40, 80);
+			expect(clippedAmount(img, bg, gridCells(img, bg, 2, 1))).toBeGreaterThan(0.15);
+		});
+
+		it('una pose ancha cortada por la línea entre celdas se detecta', () => {
+			const { img, paint } = sheet(200, 100);
+			paint(30, 10, 110, 80); // ocupa todo el margen donde el corte del medio (x = 100) podría correrse
+			paint(150, 30, 20, 40);
+			expect(clippedAmount(img, bg, gridCells(img, bg, 2, 1))).toBeGreaterThan(0.15);
+		});
+
+		it('una hoja vacía no está cortada', () => {
+			const { img } = sheet(100, 100);
+			expect(clippedAmount(img, bg, gridCells(img, bg, 2, 1))).toBe(0);
+		});
 	});
 
 	it('una celda vacía da null', () => {

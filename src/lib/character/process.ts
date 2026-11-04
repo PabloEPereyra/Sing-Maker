@@ -85,8 +85,19 @@ const GROW_FRACTION = 0.3;
  * traen un pelo del fondo), se suaviza (promedio 3×3) y en la franja del borde se le saca al verde
  * lo que sobra, que es el reflejo del fondo. El tamaño del resultado es el de la caja agrandada.
  */
-export function cutObject(src: Raster, obj: SamObject, background?: Rgb, clip?: Rect): Raster {
-	const grow = background ? Math.round(Math.max(obj.mask.w, obj.mask.h) * GROW_FRACTION) : 0;
+export function cutObject(
+	src: Raster,
+	obj: SamObject,
+	background?: Rgb,
+	clip?: Rect,
+	/**
+	 * Cuánto puede crecer la máscara, en fracción de su lado mayor. Si SAM marcó solo el vehículo (una escoba, un
+	 * helicóptero) y el personaje sobresale más que eso, se le cortaba la cabeza: donde el sujeto está aislado
+	 * (una celda de la grilla, o la imagen entera de fondo liso) se pasa Infinity y crece por todo lo conectado.
+	 */
+	growFraction = GROW_FRACTION
+): Raster {
+	const grow = background ? Math.round(Math.max(obj.mask.w, obj.mask.h) * growFraction) : 0;
 	// `clip` (la celda de la grilla) limita todo: la máscara y el crecimiento nunca salen de ahí.
 	const x0 = Math.max(clip?.x1 ?? 0, obj.box.x1 - grow);
 	const y0 = Math.max(clip?.y1 ?? 0, obj.box.y1 - grow);
@@ -298,6 +309,41 @@ export function gridCells(src: Raster, background: Rgb, cols: number, rows: numb
 	return cells;
 }
 
+/**
+ * Cuánto dibujo queda cortado en la hoja: en cada línea de corte de la grilla (dibujo a ambos lados) y en cada
+ * borde de la imagen cuenta los píxeles de dibujo, y devuelve el mayor, relativo al tamaño de una figura (raíz
+ * del dibujo por pose). Una aspa o una cola fina da casi 0; una cabeza, un cuerpo o una cara cortados dan 0,3
+ * o más. Como los cortes ya se corrieron hacia el mejor hueco, si aun así cruzan dibujo la pose quedó mutilada.
+ */
+export function clippedAmount(src: Raster, background: Rgb, cells: Rect[]): number {
+	const { width: w, height: h } = src;
+	const fg = foregroundMask(src, background);
+	let total = 0;
+	for (let i = 0; i < fg.length; i++) total += fg[i];
+	if (!total || !cells.length) return 0;
+	const body = Math.sqrt(total / cells.length);
+	const xs = new Set(cells.map((c) => c.x1).filter((x) => x > 0));
+	const ys = new Set(cells.map((c) => c.y1).filter((y) => y > 0));
+	let worst = 0;
+	const column = (x: number, both: boolean) => {
+		let n = 0;
+		for (let y = 0; y < h; y++) if (fg[y * w + x] && (!both || fg[y * w + x - 1])) n++;
+		worst = Math.max(worst, n);
+	};
+	const row = (y: number, both: boolean) => {
+		let n = 0;
+		for (let x = 0; x < w; x++) if (fg[y * w + x] && (!both || fg[(y - 1) * w + x])) n++;
+		worst = Math.max(worst, n);
+	};
+	column(0, false);
+	column(w - 1, false);
+	row(0, false);
+	row(h - 1, false);
+	for (const x of xs) column(x, true);
+	for (const y of ys) row(y, true);
+	return worst / body;
+}
+
 /** Con menos píxeles de máscara que esto, SAM no marcó nada útil en la celda y se usa el color. */
 const MIN_SEED_PIXELS = 150;
 
@@ -367,7 +413,8 @@ export function cutCell(
 		box: { x1: cell.x1 + x1, y1: cell.y1 + y1, x2: cell.x1 + x2, y2: cell.y1 + y2 },
 		mask: { w: mw, h: mh, data }
 	};
-	return dropSpecks(cutObject(src, object, background, cell));
+	// La celda ya aísla la pose (el recorte no sale de ella): crece por todo lo conectado a la semilla.
+	return dropSpecks(cutObject(src, object, background, cell, Infinity));
 }
 
 /**

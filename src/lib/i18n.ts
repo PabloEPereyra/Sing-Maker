@@ -118,6 +118,13 @@ const es = {
 	'asset.name': 'Nombre',
 	'asset.save': 'Guardar cambios',
 	'asset.cancel': 'Cancelar',
+	'asset.tweak': 'Retocar con IA',
+	'asset.tweakPlaceholder': 'Ej.: que sea de noche · agrega montañas con nieve · quita las nubes',
+	'asset.tweakHelp': 'Tarda cerca de un minuto. No se guarda hasta que pulses «Guardar cambios».',
+	'asset.tweakGo': 'Retocar',
+	'asset.tweakWorking': 'Retocando el fondo…',
+	'asset.tweakCancel': 'Cancelar retoque',
+	'asset.tweakUndo': 'Deshacer retoque',
 	'rotate.title': 'Gira tu celular',
 	'rotate.text':
 		'Sing Maker se juega con el celular acostado, en horizontal. Si no gira solo, activa el giro automático.',
@@ -382,9 +389,6 @@ const es = {
 	'char.title': 'Crear personaje con IA',
 	'char.intro':
 		'Describe tu personaje o sube una foto. La IA dibuja sus poses, recorta cada una y lo deja listo para correr, saltar o volar en el juego.',
-	'char.type': 'Tipo de personaje',
-	'char.walkHelp': 'Corre y salta de nota en nota sobre plataformas.',
-	'char.flyHelp': 'Vuela o nada a la altura de la nota que cantas.',
 	'char.placeholder': 'Ej.: un zorrito naranja con bufanda azul',
 	'char.placeholderPhoto': 'Opcional: agrega detalles (accesorios, colores…)',
 	'char.style': 'Estilo',
@@ -413,6 +417,12 @@ const es = {
 	'char.create': 'Crear personaje',
 	'char.working': 'Creando tu personaje…',
 	'char.keepOpen': 'Deja esta ventana abierta hasta que termine.',
+	'char.cancel': 'Cancelar creación',
+	'char.pickType': '¿Qué tipo de personaje quieres crear?',
+	'char.pickTypeHelp': 'Elige bien: cambia cómo se dibuja y cómo se mueve en el juego.',
+	'char.walkerDesc': 'Corre y salta de nota en nota sobre plataformas. Ej.: un zorro, un niño, un robot.',
+	'char.flyerDesc': 'Vuela o nada a la altura de la nota que cantas. Ej.: un pájaro, un pez, un brujito en escoba.',
+	'char.back': 'Volver',
 	'char.step.hero': 'Diseño del personaje',
 	'char.step.move': 'Poses de movimiento',
 	'char.step.jump': 'Poses de salto',
@@ -523,6 +533,8 @@ const es = {
 	'char.err.fewPoses':
 		'La IA no dibujó suficientes poses separadas. Prueba de nuevo o con una descripción más simple.',
 	'char.err.emptyPose': 'Una de las poses salió vacía. Prueba de nuevo.',
+	'char.err.clipped':
+		'La IA dibujó al personaje cortado (se salía del cuadro). Prueba de nuevo: suele salir bien al reintentar.',
 	'char.export': 'Exportar',
 	'char.exportHelp':
 		'Descargar un .zip con las hojas de cuadros (PNG con transparencia) y sus datos',
@@ -667,6 +679,13 @@ const en: Record<Key, string> = {
 	'asset.name': 'Name',
 	'asset.save': 'Save changes',
 	'asset.cancel': 'Cancel',
+	'asset.tweak': 'Retouch with AI',
+	'asset.tweakPlaceholder': 'E.g.: make it night · add snowy mountains · remove the clouds',
+	'asset.tweakHelp': 'Takes about a minute. Nothing is saved until you press “Save changes”.',
+	'asset.tweakGo': 'Retouch',
+	'asset.tweakWorking': 'Retouching the background…',
+	'asset.tweakCancel': 'Cancel retouch',
+	'asset.tweakUndo': 'Undo retouch',
 	'rotate.title': 'Rotate your phone',
 	'rotate.text':
 		'Sing Maker is played with the phone on its side, in landscape. If it does not turn by itself, enable auto-rotate.',
@@ -930,9 +949,6 @@ const en: Record<Key, string> = {
 	'char.title': 'Create a character with AI',
 	'char.intro':
 		'Describe your character or upload a photo. The AI draws its poses, cuts each one out and gets it ready to run, jump or fly in the game.',
-	'char.type': 'Character type',
-	'char.walkHelp': 'Runs and jumps from note to note over platforms.',
-	'char.flyHelp': 'Flies or swims at the height of the note you sing.',
 	'char.placeholder': 'E.g.: an orange fox cub with a blue scarf',
 	'char.placeholderPhoto': 'Optional: add details (accessories, colors…)',
 	'char.style': 'Style',
@@ -961,6 +977,13 @@ const en: Record<Key, string> = {
 	'char.create': 'Create character',
 	'char.working': 'Creating your character…',
 	'char.keepOpen': 'Keep this window open until it finishes.',
+	'char.cancel': 'Cancel creation',
+	'char.pickType': 'What kind of character do you want to create?',
+	'char.pickTypeHelp': 'Choose carefully: it changes how it is drawn and how it moves in the game.',
+	'char.walkerDesc': 'Runs and jumps from note to note over platforms. E.g.: a fox, a kid, a robot.',
+	'char.flyerDesc':
+		'Flies or swims at the height of the note you sing. E.g.: a bird, a fish, a little witch on a broom.',
+	'char.back': 'Back',
 	'char.step.hero': 'Character design',
 	'char.step.move': 'Movement poses',
 	'char.step.jump': 'Jump poses',
@@ -1070,6 +1093,8 @@ const en: Record<Key, string> = {
 	'char.err.fewPoses':
 		'The AI did not draw enough separate poses. Try again or use a simpler description.',
 	'char.err.emptyPose': 'One of the poses came out empty. Try again.',
+	'char.err.clipped':
+		'The AI drew the character cropped (it ran off the frame). Try again: it usually works on a retry.',
 	'char.export': 'Export',
 	'char.exportHelp': 'Download a .zip with the sprite sheets (transparent PNG) and their data',
 	'customize.collectible': 'Item to collect',
