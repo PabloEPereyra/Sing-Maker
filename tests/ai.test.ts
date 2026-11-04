@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	applyNoteNames,
 	extractJson,
+	IMAGE_EXERCISE_JSON_SCHEMA,
 	noteNameToMidi,
 	toCode,
 	validateGenerated,
@@ -14,8 +15,10 @@ import {
 	makeBrief,
 	MAX_THREAD,
 	reviewStrip,
+	sceneEditPrompt,
 	stripPrompt
 } from '../src/lib/ai/character';
+import { scoreInstruction } from '../src/lib/ai/prompt';
 import { parse } from '../src/lib/music/parser';
 
 const VALID: GeneratedExercise = {
@@ -88,6 +91,34 @@ function fakeModel(answers: string[]) {
 	}) as unknown as typeof fetch;
 	return { calls, fetchImpl };
 }
+
+describe('partituras: lectura compás a compás', () => {
+	it('el esquema pide "reading" antes que las notas', () => {
+		const keys = Object.keys(IMAGE_EXERCISE_JSON_SCHEMA.properties);
+		expect(keys[0]).toBe('reading');
+		expect(keys.indexOf('reading')).toBeLessThan(keys.indexOf('notes'));
+		expect(IMAGE_EXERCISE_JSON_SCHEMA.required).toContain('reading');
+	});
+
+	it('el prompt cubre el compás incompleto, los símbolos que no son notas y la corchea con puntillo', () => {
+		const prompt = scoreInstruction('');
+		expect(prompt).toMatch(/pickup/);
+		expect(prompt).toMatch(/watermarks/);
+		expect(prompt).toMatch(/dotted eighth followed by a sixteenth/);
+	});
+
+	it('acepta una lectura con "reading" y la deja pasar', async () => {
+		const { fetchImpl } = fakeModel([
+			JSON.stringify({ ...VALID, reading: 'm1: quarter C4 = 1 of 4', kind: 'score', clef: 'treble' })
+		]);
+		const r = await generateExercise(
+			{ prompt: '', image: 'data:image/png;base64,AAAA', lang: 'es' },
+			{ ...configFromEnv({ LLM_API_KEY: 'k' }) },
+			fetchImpl
+		);
+		expect(r.exercise.reading).toMatch(/^m1/);
+	});
+});
 
 describe('partituras: semitonos desde los nombres de nota', () => {
 	it('entiende nombres con alteraciones', () => {
@@ -325,11 +356,68 @@ describe('revisión de hojas de poses con Wonder', () => {
 		expect(body.messages[0].content.filter((p) => p.type === 'image_url')).toHaveLength(2);
 	});
 
+	it('la revisión de un vuelo compara con la descripción del vuelo (escoba con las cerdas atrás)', async () => {
+		const flight = 'handle pointing forward to the right, straw bristles trailing on the left';
+		const { calls, fetchImpl } = fakeModel([JSON.stringify({ ok: true, problems: [] })]);
+		await reviewStrip({ kind: 'move', image: IMG, flight }, meta, fetchImpl);
+		const text = (calls[0] as unknown as { messages: { content: { text?: string }[] }[] })
+			.messages[0].content[0].text;
+		expect(text).toContain(flight);
+		// Las demás hojas no se juzgan por el vuelo.
+		const other = fakeModel([JSON.stringify({ ok: true, problems: [] })]);
+		await reviewStrip({ kind: 'stand', image: IMG, flight }, meta, other.fetchImpl);
+		expect(
+			(other.calls[0] as unknown as { messages: { content: { text?: string }[] }[] }).messages[0]
+				.content[0].text
+		).not.toContain(flight);
+	});
+
+	it('el vuelo pide que lo que guía apunte a la derecha y lo que arrastra quede atrás', () => {
+		const p = stripPrompt('move', 'a kid', 'cute3d', 'fly', 'riding a broom');
+		expect(p).toContain('riding a broom');
+		expect(p).toContain('straw bristles');
+		expect(p).toContain('trails behind on the LEFT');
+	});
+
 	it('el pedido de una hoja que falló lleva lo que hay que corregir', () => {
 		expect(stripPrompt('move', 'a fox', 'cute3d', 'walk')).not.toContain('IMPORTANT');
 		expect(
 			stripPrompt('move', 'a fox', 'cute3d', 'walk', undefined, 'Draw exactly 6 poses.')
 		).toContain('fix this problem from the previous attempt: Draw exactly 6 poses.');
+	});
+});
+
+describe('retocar un fondo', () => {
+	const IMG = 'data:image/jpeg;base64,AAAA';
+
+	it('el pedido de retoque cambia solo lo pedido y conserva suelo y bordes', () => {
+		const walk = sceneEditPrompt('que sea de noche', 'walk');
+		expect(walk).toContain('change ONLY this');
+		expect(walk).toContain('que sea de noche');
+		expect(walk).toContain('same height');
+		expect(walk).toContain('repeats seamlessly');
+		expect(sceneEditPrompt('x', 'fly')).toContain('no ground visible');
+	});
+
+	it('el pedido acepta un retoque sin descripción y uno de creación sin imagen', () => {
+		const edit = CharacterRequestSchema.safeParse({
+			action: 'scene',
+			movement: 'walk',
+			reference: IMG,
+			change: 'que sea de noche'
+		});
+		expect(edit.success).toBe(true);
+		const create = CharacterRequestSchema.safeParse({
+			action: 'scene',
+			movement: 'fly',
+			visual: 'a night sky'
+		});
+		expect(create.success).toBe(true);
+		// Un cambio de un solo carácter no es un pedido.
+		expect(
+			CharacterRequestSchema.safeParse({ action: 'scene', movement: 'fly', reference: IMG, change: 'a' })
+				.success
+		).toBe(false);
 	});
 });
 

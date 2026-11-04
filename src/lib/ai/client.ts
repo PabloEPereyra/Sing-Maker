@@ -23,17 +23,24 @@ export class GenerateRequestError extends Error {
 	}
 }
 
+/** Debajo de este lado largo (px) una imagen se agranda: los modelos leen mal las notas de una captura chica. */
+const SMALL_SIDE = 1400;
+const MAX_UPSCALE = 3;
+
 /**
- * Achica una foto (máximo 1800 px de lado) y la pasa a JPEG como data URL, para mandarla liviana.
- * Una partitura o un dibujo siguen legibles a ese tamaño.
+ * Lleva una foto a 1800 px de lado como máximo (achica las grandes, agranda las chicas hasta 3x) y la pasa
+ * a JPEG como data URL, para mandarla liviana. Agrandar una captura chica de una partitura mejora mucho
+ * cómo el modelo distingue las alturas de las notas.
  */
 export async function imageToDataUrl(file: Blob, maxSide = 1800): Promise<string> {
 	const bitmap = await createImageBitmap(file);
-	const k = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+	const side = Math.max(bitmap.width, bitmap.height);
+	const k = side < SMALL_SIDE ? Math.min(MAX_UPSCALE, maxSide / side) : Math.min(1, maxSide / side);
 	const canvas = document.createElement('canvas');
 	canvas.width = Math.round(bitmap.width * k);
 	canvas.height = Math.round(bitmap.height * k);
 	const g = canvas.getContext('2d')!;
+	g.imageSmoothingQuality = 'high';
 	// Fondo blanco: las imágenes con transparencia quedarían negras en JPEG.
 	g.fillStyle = '#ffffff';
 	g.fillRect(0, 0, canvas.width, canvas.height);

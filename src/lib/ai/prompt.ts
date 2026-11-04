@@ -135,18 +135,30 @@ export const NO_SCORE = 'NO_SCORE';
 
 /** Pedido para leer la imagen: una partitura impresa o escrita a mano, o un dibujo de la melodía (va junto con la imagen). */
 export function scoreInstruction(extra: string): string {
-	return `Turn the melody in this image into ONE exercise, with the same JSON as always plus three fields: "kind" ("score" for music notation, "drawing" for a hand drawing of blocks), "clef" and "ask".
+	return `Turn the melody in this image into ONE exercise, with the same JSON as always plus four fields: "reading" (written first), "kind" ("score" for music notation, "drawing" for a hand drawing of blocks), "clef" and "ask".
 First decide what the image is.
 
 A) SCORE (printed or handwritten notation) - "kind": "score".
 - Set "clef": "treble", "bass" or "other" (the clef of the staff you transcribe); "ask": null.
 - Read the clef, key signature, time signature and accidentals first. Treble clef: bottom line E4, lines
-  E4 G4 B4 D5 F5, spaces F4 A4 C5 E5, C4 on the first ledger line below. Bass clef: lines G2 B2 D3 F3 A3,
+  E4 G4 B4 D5 F5, spaces F4 A4 C5 E5, D4 just below the bottom line, C4 on the first ledger line below. Bass clef: lines G2 B2 D3 F3 A3,
   spaces A2 C3 E3 G3, C4 on the first ledger line above. Accidentals last until the bar line.
-- Go left to right: ONE entry per printed note or rest, never repeat, skip or invent notes.
+- FIRST fill "reading" (it comes before "notes" in the JSON): one line per measure, left to right, like
+  "m1: dotted eighth C4 (ledger line below the staff, 0.75) + sixteenth C4 (0.25) = 1 of 3 beats (pickup)".
+  For each note say its figure, its pitch with the octave and where it sits on the staff (line or space,
+  counting from the bottom line = line 1, or ledger line), its beats, and the measure total. Then copy
+  "reading" exactly into "notes": do not change a pitch or a duration after writing it there.
+- Go left to right: ONE entry per printed note or rest, never repeat, skip or invent notes. Read every
+  measure to the end of the image; do not stop after the first phrase.
 - Durations in quarter-note beats: whole 4, half 2, quarter 1, eighth 0.5, sixteenth 0.25; a dot adds half.
+  A dotted eighth followed by a sixteenth (joined by a beam) is 0.75 + 0.25 = 1 beat.
   Tied notes become one longer note (split it if it is longer than 4). Rests use "rest": true.
-- Check every complete measure: its beats must add up to the time signature. Re-read it if not.
+- Add up the beats of every measure. A complete measure must equal the time signature: re-read it if not.
+  The FIRST measure (and the last) may be incomplete: that is a pickup (anacrusis). Do not fill it with
+  rests or invent notes; write only what is printed. A measure with blank space and no printed rest is
+  also written as just its printed notes.
+- Ignore anything that is not a note, rest, clef, key or time signature: logos, watermarks, decorations,
+  page numbers, lyrics, chord symbols.
 - "beatsPerMeasure" from the time signature in quarter beats: 4/4 -> 4, 3/4 -> 3, 2/4 -> 2, 6/8 -> 3.
 - "bpm" from the tempo marking if there is one, otherwise 80.
 - Take only the main melody (the vocal line or the top voice); ignore lyrics, chord symbols and other staves.
