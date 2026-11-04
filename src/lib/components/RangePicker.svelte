@@ -98,7 +98,10 @@
 				</div>
 
 				{#if open === 'manual'}
-					<div class="mt-4 grid grid-cols-8 gap-x-1 gap-y-1.5">
+					<div
+						class="range-grid mt-4 grid grid-cols-8 gap-x-1 gap-y-1.5"
+						class:range-grid-solfege={settings.notation !== 'american'}
+					>
 						<div></div>
 						<div
 							class="col-span-7 text-center text-[10px] font-bold tracking-widest text-muted uppercase"
@@ -126,7 +129,12 @@
 											? 'range-cell-in'
 											: ''}"
 								>
-									{endpoint ? oct : ''}
+									{#if endpoint}
+										<!-- Nota con octava (F#4); si la celda es angosta, solo la nota (F#), nunca el número solo -->
+										<span class="range-full">{noteLabel(midi)}</span><span class="range-short"
+											>{name}</span
+										>
+									{/if}
 								</button>
 							{/each}
 						{/each}

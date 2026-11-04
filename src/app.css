@@ -564,6 +564,34 @@ button.bg-surface-2.font-semibold:active:not(:disabled) {
 	box-shadow: none;
 }
 
+/* Botón de escuchar (play/stop) con la misma forma que el de borrar. */
+.play-btn {
+	display: grid;
+	width: 2.25rem;
+	flex-shrink: 0;
+	place-items: center;
+	border-radius: 8px;
+	border: 2px solid var(--color-frame);
+	background: var(--color-surface);
+	color: var(--color-accent);
+	box-shadow: 0 2px 0 var(--color-frame-dark);
+	transition:
+		transform 80ms,
+		box-shadow 80ms,
+		background-color 150ms;
+}
+.play-btn:hover,
+.play-btn[aria-pressed='true'] {
+	background: var(--color-accent);
+	border-color: var(--color-accent-dark);
+	color: #fff;
+	box-shadow: 0 2px 0 var(--color-accent-dark);
+}
+.play-btn:active {
+	transform: translateY(2px);
+	box-shadow: none;
+}
+
 /* Barra de progreso de repeticiones (arriba al centro del escenario). El borde es el mismo degradado azul
    que las tapas de las notas, para que las tres piezas se vean como un solo objeto. */
 /* Ancho de las barras de repeticiones y de nivel: un cuarto de la pantalla. */
@@ -862,6 +890,9 @@ button.skew-btn.bg-accent.text-white:not(.text-left):active:not(:disabled) {
 	color: #fff;
 	font-size: 9px;
 	font-weight: 800;
+	padding: 0;
+	overflow: hidden;
+	white-space: nowrap;
 	box-shadow: 0 2px 0 var(--color-frame-dark);
 	transition:
 		transform 80ms,
@@ -881,6 +912,22 @@ button.skew-btn.bg-accent.text-white:not(.text-left):active:not(:disabled) {
 	box-shadow: none;
 	opacity: 0.45;
 	cursor: not-allowed;
+}
+/* En la grilla del rango, el extremo muestra la nota con su octava (Sol#4). Si la celda es tan angosta que
+   no cabe (celulares chicos con solfeo), muestra solo la nota (Sol#): el número solo confunde. */
+.range-grid {
+	container-type: inline-size;
+}
+.range-short {
+	display: none;
+}
+@container (max-width: 290px) {
+	.range-grid-solfege .range-full {
+		display: none;
+	}
+	.range-grid-solfege .range-short {
+		display: inline;
+	}
 }
 .range-cell-in {
 	background: #dfe7ff;

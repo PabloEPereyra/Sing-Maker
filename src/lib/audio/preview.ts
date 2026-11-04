@@ -32,7 +32,9 @@ export function firstRoot(
  */
 export async function playPattern(notes: ParsedNote[], bpm: number, root: number): Promise<void> {
 	stopPreview();
+	const run = runs;
 	await Promise.race([loadPiano(), new Promise((r) => setTimeout(r, 1500))]);
+	if (run !== runs) return; // lo cortaron mientras cargaban las muestras
 	const ctx = getContext();
 	const beat = 60 / bpm;
 	const t0 = ctx.currentTime + 0.1;
@@ -57,7 +59,9 @@ export async function playPattern(notes: ParsedNote[], bpm: number, root: number
 /** Toca un patrón de batería `loops` veces a `bpm` (el pulso es el del compás del patrón). */
 export async function playDrumPattern(p: DrumPattern, bpm: number, loops = 2): Promise<void> {
 	stopPreview();
+	const run = runs;
 	await Promise.race([loadDrums(), new Promise((r) => setTimeout(r, 1500))]);
+	if (run !== runs) return; // lo cortaron mientras cargaban las muestras
 	const ctx = getContext();
 	const stepSec = ((p.meter === '6/8' ? 0.5 : 1) * 60) / bpm / p.stepsPerTick;
 	const t0 = ctx.currentTime + 0.1;
@@ -72,8 +76,11 @@ export async function playDrumPattern(p: DrumPattern, bpm: number, loops = 2): P
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let finish: (() => void) | null = null;
+/** Cuenta los cortes: un preview que todavía carga muestras se entera de que ya lo cortaron. */
+let runs = 0;
 
 export function stopPreview(): void {
+	runs++;
 	if (timer) clearTimeout(timer);
 	timer = null;
 	if (finish) {

@@ -2,8 +2,10 @@
 	// Selector de ritmos de la batería: popup con la velocidad (normal o mitad) y los patrones agrupados por
 	// compás. Los del compás del ejercicio se pueden elegir; los de otro compás se ven en gris. Los creados con
 	// IA (✨) se pueden borrar, y abajo hay un botón para crear uno nuevo con IA.
+	import { onDestroy } from 'svelte';
 	import type { DrumResult } from '$lib/ai/drums';
 	import type { DrumPattern } from '$lib/audio/drums';
+	import { playDrumPattern, stopPreview } from '$lib/audio/preview';
 	import { t } from '$lib/i18n';
 	import type { MeterId } from '$lib/music/meter';
 	import CreateDrumDialog from './CreateDrumDialog.svelte';
@@ -37,6 +39,24 @@
 	}: Props = $props();
 
 	let creating = $state(false);
+
+	/** Pulsos por minuto de la preview (un tempo cómodo para escuchar el patrón). */
+	const PREVIEW_BPM = 80;
+	/** Ritmo que está sonando en la preview. */
+	let playingId = $state<string | null>(null);
+
+	async function preview(p: DrumPattern) {
+		if (playingId === p.id) {
+			stopPreview();
+			return;
+		}
+		playingId = p.id;
+		// Al cortarlo para tocar otro, el que empieza ya cambió `playingId`: solo apaga quien sigue siendo el actual.
+		await playDrumPattern(p, half ? PREVIEW_BPM / 2 : PREVIEW_BPM, 2);
+		if (playingId === p.id) playingId = null;
+	}
+
+	onDestroy(stopPreview);
 
 	/** Nombre de los ritmos de fábrica en el idioma de la app. */
 	const BUILTIN = {
@@ -102,6 +122,15 @@
 				{#each g.patterns as p (p.id)}
 					{@const own = p.id.startsWith('my-drum-')}
 					<div class="mt-1 flex items-stretch gap-1">
+						<button
+							class="play-btn"
+							aria-label={playingId === p.id ? t('create.stopListen') : t('create.listen')}
+							title={playingId === p.id ? t('create.stopListen') : t('create.listen')}
+							aria-pressed={playingId === p.id}
+							onclick={() => preview(p)}
+						>
+							<Icon name={playingId === p.id ? 'stop' : 'play'} class="h-4 w-4" />
+						</button>
 						<button
 							class="ex-card !mt-0 min-w-0 flex-1 !text-[0.95rem] {active && p.id === activeId
 								? 'ex-card-on'
