@@ -205,6 +205,70 @@
 		skin.load().then(() => g?.setCollectible(skin));
 	});
 
+	// SOLO DESARROLLO: grabar la demostración en un video (el código no entra en producción).
+	let recording = $state<{ finish: (save?: boolean) => void } | null>(null);
+	let recordingSeenActive = false;
+	async function toggleRecording() {
+		if (recording) {
+			recording.finish(false);
+			recording = null;
+			return;
+		}
+		if (!import.meta.env.DEV) return;
+		const { startRecording } = await import('$lib/dev/recorder');
+		recordingSeenActive = false;
+		recording = startRecording(canvas, title);
+		onStart();
+	}
+	$effect(() => {
+		const p = status?.phase;
+		if (!recording || !p) return;
+		if (p === 'done') {
+			// Un poco de cola para que no se corte el último sonido
+			const rec = recording;
+			recording = null;
+			setTimeout(() => rec.finish(true), 1500);
+		} else if (p === 'idle') {
+			if (recordingSeenActive) {
+				recording.finish(false);
+				recording = null;
+			}
+		} else recordingSeenActive = true;
+	});
+
+	// SOLO DESARROLLO: renderizar la demostración a video sin reproducirla (más rápido que el tiempo real).
+	/** Avance 0–1 mientras se renderiza; null si no hay render en curso. */
+	let rendering = $state<number | null>(null);
+	let renderAbort: AbortController | null = null;
+	async function renderVideo() {
+		if (!import.meta.env.DEV) return;
+		if (rendering !== null) {
+			// Con el render en curso, tocar el botón lo cancela.
+			renderAbort?.abort();
+			return;
+		}
+		rendering = 0;
+		renderAbort = new AbortController();
+		try {
+			const { renderDemoVideo } = await import('$lib/dev/offlineVideo');
+			await renderDemoVideo({
+				theme,
+				sequence,
+				options: { ...options },
+				title,
+				onProgress: (p) => (rendering = p),
+				signal: renderAbort.signal
+			});
+		} catch (e) {
+			if (e instanceof DOMException && e.name === 'AbortError') return;
+			console.error('No se pudo renderizar el video', e);
+			alert(`No se pudo renderizar el video: ${e instanceof Error ? e.message : e}`);
+		} finally {
+			rendering = null;
+			renderAbort = null;
+		}
+	}
+
 	export function play(source: PitchSource, latency: number): void {
 		game?.start(source, latency);
 	}
@@ -263,7 +327,7 @@
 	const icon = $derived(
 		settings.collectible.startsWith('custom:')
 			? '✦'
-			: ICONS[settings.collectible as keyof typeof ICONS] ?? '★'
+			: (ICONS[settings.collectible as keyof typeof ICONS] ?? '★')
 	);
 </script>
 
@@ -306,9 +370,7 @@
 						disabled={playing}
 						onclick={onRange}>{noteLabel(low)}</button
 					>
-					<div
-						class="-mx-4 flex w-(--hud-bar-w) flex-col items-center gap-1 short:gap-0.5"
-					>
+					<div class="-mx-4 flex w-(--hud-bar-w) flex-col items-center gap-1 short:gap-0.5">
 						<div
 							class="max-w-full truncate px-4 font-display text-xs font-bold tracking-wide text-white uppercase drop-shadow-[0_1px_2px_rgba(20,30,80,0.7)] short:text-[0.65rem] short:leading-none"
 						>
@@ -377,7 +439,10 @@
 				</span>
 				<div class="hud-score flex items-center gap-1.5">
 					<span class="hud-3d text-3xl leading-none text-star short:text-xl"
-						>{#if notesIcon}<Icon name="note" class="h-7 w-7 short:h-5 short:w-5" />{:else}{icon}{/if}</span
+						>{#if notesIcon}<Icon
+								name="note"
+								class="h-7 w-7 short:h-5 short:w-5"
+							/>{:else}{icon}{/if}</span
 					>
 					<span class="text-3xl tabular-nums short:text-xl">{status.collected}</span>
 					<span class="text-base opacity-80 short:text-xs">/ {status.total}</span>
@@ -471,8 +536,11 @@
 						<div class="text-sm text-muted uppercase">{t('stage.done')}</div>
 						<div class="my-2 font-display text-5xl font-bold">
 							<span class="text-star"
-							>{#if notesIcon}<Icon name="note" class="inline h-9 w-9 align-middle" />{:else}{icon}{/if}</span
-						>
+								>{#if notesIcon}<Icon
+										name="note"
+										class="inline h-9 w-9 align-middle"
+									/>{:else}{icon}{/if}</span
+							>
 							{status.collected}<span class="text-2xl text-muted">/{status.total}</span>
 						</div>
 						<div
@@ -586,6 +654,39 @@
 			<img src="/logo.png" alt="" class="h-12 w-12 drop-shadow-md short:h-9 short:w-9" />
 			<span class="logo-text hidden text-2xl leading-tight sm:inline">Sing Maker</span>
 		</div>
+	{/if}
+
+	{#if import.meta.env.DEV && demo && sequence.notes.length && (!playing || recording)}
+		<!-- Solo en localhost: video de la demostración, renderizado sin reproducirla (.webm) -->
+		<button
+			class="absolute right-3 bottom-3 z-20 grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 disabled:opacity-80"
+			aria-label="Descargar video de la demostración"
+			title={rendering !== null
+				? 'Renderizando… (tocar para cancelar)'
+				: 'Descargar video de la demostración (renderizado sin reproducir, solo localhost)'}
+			disabled={!!recording}
+			onclick={renderVideo}
+		>
+			{#if rendering !== null}
+				<span class="text-xs font-bold tabular-nums">{Math.round(rendering * 100)}%</span>
+			{:else}
+				<Icon name="download" class="h-5 w-5" />
+			{/if}
+		</button>
+		<!-- Alternativa: grabar en vivo mientras se reproduce -->
+		<button
+			class="absolute right-[4.25rem] bottom-3 z-20 grid h-12 w-12 place-items-center rounded-full bg-accent text-white shadow hover:brightness-110 {recording
+				? 'animate-pulse'
+				: ''}"
+			aria-label="Grabar la demostración en vivo"
+			title={recording
+				? 'Grabando… (tocar para cancelar)'
+				: 'Grabar la demostración en vivo (solo localhost)'}
+			disabled={rendering !== null}
+			onclick={toggleRecording}
+		>
+			<Icon name="camera" class="h-5 w-5" />
+		</button>
 	{/if}
 
 	{#if controls}
