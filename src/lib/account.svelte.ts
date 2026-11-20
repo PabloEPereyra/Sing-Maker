@@ -63,12 +63,15 @@ export async function completeLoginFromUrl(): Promise<void> {
 	const token = url.searchParams.get('login');
 	const purchase = url.searchParams.get('purchase');
 	if (!token && !purchase) return;
-	url.searchParams.delete('login');
-	url.searchParams.delete('purchase');
+	// Dodo vuelve con el id del pago, su estado y el email: se sacan para que no queden en la barra ni en el historial.
+	const status = url.searchParams.get('status');
+	for (const key of ['login', 'purchase', 'payment_id', 'status', 'email', 'subscription_id'])
+		url.searchParams.delete(key);
 	history.replaceState(history.state, '', url.pathname + url.search + url.hash);
 	if (!token) {
-		accountNotice.text = t('account.thanks');
-		accountNotice.error = false;
+		const failed = !!status && status !== 'succeeded';
+		accountNotice.text = t(failed ? 'account.paymentFailed' : 'account.thanks');
+		accountNotice.error = failed;
 		return;
 	}
 	try {

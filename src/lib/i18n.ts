@@ -334,6 +334,8 @@ const es = {
 	'account.creditsRequired':
 		'No te alcanzan los créditos para esto. Puedes comprar más en el menú de tu perfil.',
 	'account.buy': 'Comprar créditos',
+	'account.paymentFailed':
+		'El pago no se completó y no se cobró nada. Puedes intentar de nuevo desde el menú de tu perfil.',
 	'account.pack': '{credits} créditos · US$ {price}',
 	'account.buyError': 'No se pudo abrir el pago. Prueba de nuevo en un rato.',
 	'account.thanks':
@@ -938,6 +940,8 @@ const en: Record<Key, string> = {
 	'account.creditsRequired':
 		"You don't have enough credits for this. You can buy more from your profile menu.",
 	'account.buy': 'Buy credits',
+	'account.paymentFailed':
+		'The payment was not completed and nothing was charged. You can try again from your profile menu.',
 	'account.pack': '{credits} credits · US$ {price}',
 	'account.buyError': 'The payment page could not be opened. Try again in a while.',
 	'account.thanks':
