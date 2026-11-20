@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Perfil al estilo juego de celular: avatar redondo (columna derecha del escenario) que abre un popup
 	// de configuración: idioma, dificultad, sonidos, código de acceso y calibraciones.
+	import { resolve } from '$app/paths';
 	import type { PitchDetector } from '$lib/audio/pitch';
 	import { settings } from '$lib/settings.svelte';
 	import { DIFFICULTIES } from '$lib/game/difficulty';
@@ -205,6 +206,12 @@
 							</p>
 						{/if}
 					{/if}
+
+					<div class="my-1.5 h-px bg-border"></div>
+					<p class="flex gap-3 px-3 pb-1 text-xs text-muted">
+						<a class="underline hover:text-fg" href={resolve('/terms')}>{t('legal.terms')}</a>
+						<a class="underline hover:text-fg" href={resolve('/privacy')}>{t('legal.privacy')}</a>
+					</p>
 				</div>
 			</div>
 		</div>

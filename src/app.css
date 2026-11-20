@@ -1004,7 +1004,8 @@ button.skew-btn.bg-accent.text-white:not(.text-left):active:not(:disabled) {
 }
 @media (orientation: portrait) and (pointer: coarse) and (max-width: 900px) {
 	/* El resto de la página se oculta: si desborda, el navegador ensancha la ventana y el aviso se descentra. */
-	body > div > :not(.rotate-guard) {
+	/* Salvo las páginas legales (.legal), que no tienen el aviso y se leen en vertical. */
+	body > div > :not(.rotate-guard, .legal) {
 		display: none !important;
 	}
 	.rotate-guard {

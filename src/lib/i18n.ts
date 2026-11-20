@@ -267,6 +267,22 @@ const es = {
 	'stage.outOfRange': 'Este ejercicio no entra en el rango elegido. Ampliá el rango de voz.',
 	'stage.done': '¡Llegaste!',
 	'stage.retry': 'Repetir',
+	'legal.terms': 'Términos',
+	'legal.privacy': 'Privacidad',
+	'legal.loginAccept': 'Al entrar aceptas los términos y la política de privacidad:',
+	'legal.buyAccept':
+		'Al comprar aceptas los términos (reembolso dentro de 14 días si no usaste los créditos):',
+	'legal.ageAccept': 'Al confirmar aceptas los términos y la política de privacidad:',
+	'age.title': 'Funciones con IA',
+	'age.body':
+		'Crear ejercicios, personajes y fondos, el dictado y las recomendaciones del entrenador usan modelos de IA de Meta, que solo pueden usar personas de 18 años o más.',
+	'age.rest': 'El resto del juego es para todos y no necesita esta confirmación.',
+	'age.confirm': 'Tengo 18 años o más',
+	'age.decline': 'Ahora no',
+	'age.declined': 'Las funciones con IA son solo para personas de 18 años o más.',
+	'age.required':
+		'Confirma que tienes 18 años o más para usar las funciones con IA y vuelve a intentarlo.',
+	'coach.ask': 'Ver la recomendación del entrenador (IA)',
 	'coach.title': 'Tu entrenador',
 	'coach.thinking': 'Tu entrenador está revisando cómo te fue…',
 	'coach.levelUp': 'Para subir de nivel',
@@ -315,7 +331,13 @@ const es = {
 	'account.linkInvalid': 'El enlace venció o ya se usó. Pide uno nuevo desde el menú de tu perfil.',
 	'account.loginRequired':
 		'Usaste todo tu cupo gratis. Entra con tu email desde el menú de tu perfil para seguir con créditos.',
-	'account.creditsRequired': 'No te alcanzan los créditos para esto.',
+	'account.creditsRequired':
+		'No te alcanzan los créditos para esto. Puedes comprar más en el menú de tu perfil.',
+	'account.buy': 'Comprar créditos',
+	'account.pack': '{credits} créditos · US$ {price}',
+	'account.buyError': 'No se pudo abrir el pago. Prueba de nuevo en un rato.',
+	'account.thanks':
+		'¡Gracias por tu compra! Tus créditos se suman en unos segundos: míralos en el menú de tu perfil.',
 	'tip.ok': 'Entendido',
 	'tip.skipAll': 'No más pistas',
 	'tip.play': 'Pulsa ▶︎ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
@@ -849,6 +871,21 @@ const en: Record<Key, string> = {
 	'stage.outOfRange': 'This exercise does not fit the selected range. Widen your voice range.',
 	'stage.done': 'You made it!',
 	'stage.retry': 'Retry',
+	'legal.terms': 'Terms',
+	'legal.privacy': 'Privacy',
+	'legal.loginAccept': 'By signing in you accept the terms and the privacy policy:',
+	'legal.buyAccept':
+		'By buying you accept the terms (refund within 14 days if you have not used the credits):',
+	'legal.ageAccept': 'By confirming you accept the terms and the privacy policy:',
+	'age.title': 'AI features',
+	'age.body':
+		'Creating exercises, characters and backgrounds, dictation and the coach’s recommendations use AI models from Meta, which may only be used by people aged 18 or over.',
+	'age.rest': 'The rest of the game is for everyone and does not need this confirmation.',
+	'age.confirm': 'I am 18 or older',
+	'age.decline': 'Not now',
+	'age.declined': 'AI features are only for people aged 18 or over.',
+	'age.required': 'Confirm that you are 18 or older to use the AI features, then try again.',
+	'coach.ask': 'See the coach’s recommendation (AI)',
 	'coach.title': 'Your coach',
 	'coach.thinking': 'Your coach is checking how it went…',
 	'coach.levelUp': 'Level up',
@@ -898,7 +935,13 @@ const en: Record<Key, string> = {
 		'The link expired or was already used. Ask for a new one from your profile menu.',
 	'account.loginRequired':
 		'You used all your free allowance. Sign in with your email from your profile menu to continue with credits.',
-	'account.creditsRequired': "You don't have enough credits for this.",
+	'account.creditsRequired':
+		"You don't have enough credits for this. You can buy more from your profile menu.",
+	'account.buy': 'Buy credits',
+	'account.pack': '{credits} credits · US$ {price}',
+	'account.buyError': 'The payment page could not be opened. Try again in a while.',
+	'account.thanks':
+		'Thanks for your purchase! Your credits will show up in a few seconds in your profile menu.',
 	'tip.ok': 'Got it',
 	'tip.skipAll': 'No more tips',
 	'tip.play': 'Press ▶︎ to start: a guide note plays, then you sing following the character.',

@@ -2,10 +2,12 @@
 	import Icon from './Icon.svelte';
 	// Devolución del entrenador vocal (IA) al terminar un ejercicio: unas frases simples y un paso
 	// siguiente (practicar un ejercicio de la lista o crear uno según lo que le costó). Si no hay
-	// conexión o la IA falla, no se muestra nada: el resultado del nivel se ve igual.
+	// conexión o la IA falla, no se muestra nada: el resultado del nivel se ve igual. Si la persona todavía
+	// no declaró tener 18 años o más (requisito de Meta para usar la IA), no se pide sola: se ofrece un botón.
 	import { onDestroy, onMount } from 'svelte';
 	import type { CoachResult } from '$lib/ai/coach';
 	import { requestCoach } from '$lib/ai/coachClient';
+	import { isAdult } from '$lib/age.svelte';
 	import type { PerformanceSummary } from '$lib/game/scoring';
 	import { noteLabel, settings } from '$lib/settings.svelte';
 	import { t } from '$lib/i18n';
@@ -39,13 +41,14 @@
 		onCreate: (prompt: string) => void;
 	} = $props();
 
-	let status = $state<'loading' | 'ready' | 'failed'>('loading');
+	let status = $state<'gated' | 'loading' | 'ready' | 'failed'>(isAdult() ? 'loading' : 'gated');
 	let result = $state<CoachResult | null>(null);
 	const abort = new AbortController();
 
 	const picked = $derived(result ? candidates.find((c) => c.id === result!.exerciseId) : undefined);
 
-	onMount(async () => {
+	async function ask() {
+		status = 'loading';
 		try {
 			const { weakNotes, ...rest } = summary;
 			result = await requestCoach(
@@ -65,11 +68,23 @@
 		} catch {
 			status = 'failed';
 		}
+	}
+
+	onMount(() => {
+		if (status === 'loading') void ask();
 	});
 	onDestroy(() => abort.abort());
 </script>
 
-{#if status === 'loading'}
+{#if status === 'gated'}
+	<button
+		class="mb-4 flex w-full items-center justify-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 p-3 text-sm font-semibold text-accent hover:bg-accent/15"
+		onclick={ask}
+	>
+		<Icon name="sparkles" class="h-4 w-4" />
+		{t('coach.ask')}
+	</button>
+{:else if status === 'loading'}
 	<div
 		class="mb-4 flex items-center gap-2 rounded-lg bg-accent/10 p-3 text-left text-sm text-muted"
 		role="status"

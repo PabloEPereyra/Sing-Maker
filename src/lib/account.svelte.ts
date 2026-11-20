@@ -39,14 +39,38 @@ export async function requestLink(
 	return { ok: false, message: t('account.error') };
 }
 
-/** Si la app se abrió desde el enlace del email, lo confirma y saca el token de la dirección. */
+/** Abre la página de pago de Dodo para ese paquete; devuelve un mensaje de error si no se pudo. */
+export async function buyPack(productId: string): Promise<string> {
+	try {
+		const { res, data } = await post('/api/checkout', { productId });
+		if (res.ok && typeof data.url === 'string') {
+			location.href = data.url;
+			return '';
+		}
+	} catch {
+		// cae al mensaje de error
+	}
+	return t('account.buyError');
+}
+
+/**
+ * Al abrir la app: si viene del enlace del email, confirma el login; si vuelve de pagar, avisa que los créditos
+ * están en camino (los suma el aviso de Dodo al servidor). En los dos casos limpia la dirección.
+ */
 export async function completeLoginFromUrl(): Promise<void> {
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- se usa una vez para limpiar la dirección, no es estado
 	const url = new URL(location.href);
 	const token = url.searchParams.get('login');
-	if (!token) return;
+	const purchase = url.searchParams.get('purchase');
+	if (!token && !purchase) return;
 	url.searchParams.delete('login');
+	url.searchParams.delete('purchase');
 	history.replaceState(history.state, '', url.pathname + url.search + url.hash);
+	if (!token) {
+		accountNotice.text = t('account.thanks');
+		accountNotice.error = false;
+		return;
+	}
 	try {
 		const { res, data } = await post('/api/auth-verify', { token });
 		const email = (data.account as { email?: string } | undefined)?.email;

@@ -1,6 +1,8 @@
 // Quién hace los pedidos a las funciones con IA. Siempre se manda un identificador anónimo del navegador
 // (X-Client-Id) con el que el servidor cuenta el cupo de cada persona; si el sitio reparte códigos de
 // acceso, también el código guardado (X-Access-Code).
+import { isAdult } from './age.svelte';
+
 const KEY = 'singmaker-access';
 const CLIENT_KEY = 'singmaker-client';
 
@@ -49,6 +51,8 @@ export function clientId(): string {
 export function identityHeaders(): Record<string, string> {
 	return {
 		'X-Client-Id': clientId(),
-		...(access.code ? { 'X-Access-Code': access.code } : {})
+		...(access.code ? { 'X-Access-Code': access.code } : {}),
+		// Declaró tener 18 años o más (lo piden los términos de Meta para usar la IA)
+		...(isAdult() ? { 'X-Adult': '1' } : {})
 	};
 }

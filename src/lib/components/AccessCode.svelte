@@ -2,9 +2,10 @@
 	// Lo que lleva gastado esta persona de su cupo con IA y, si el sitio reparte códigos de acceso, el campo
 	// para escribir el código. Si hay cuentas, también su sesión: entrar con el email (enlace mágico), los
 	// créditos que le quedan y cerrar sesión. Sin servidor de cupos (desarrollo) no se muestra nada.
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { access, identityHeaders, saveAccess } from '$lib/access.svelte';
-	import { requestLink, signOut } from '$lib/account.svelte';
+	import { buyPack, requestLink, signOut } from '$lib/account.svelte';
 	import type { Bucket } from '$lib/ai/http';
 	import { t } from '$lib/i18n';
 	import Icon from './Icon.svelte';
@@ -17,6 +18,7 @@
 		limits?: Record<Bucket, number>;
 		auth?: boolean;
 		account?: { email: string; credits: number } | null;
+		packs?: { productId: string; credits: number; price: number }[];
 	}
 
 	/** `none`: sin servidor de cupos; `locked`: hay códigos y falta uno válido; `ok`: persona reconocida. */
@@ -73,6 +75,16 @@
 		devLink = r.devLink ?? '';
 	}
 
+	let buying = $state('');
+	let buyMessage = $state('');
+
+	async function buy(productId: string) {
+		if (buying) return;
+		buying = productId;
+		buyMessage = await buyPack(productId);
+		if (buyMessage) buying = '';
+	}
+
 	async function logout() {
 		await signOut();
 		linkMessage = '';
@@ -125,6 +137,11 @@
 
 		{#if report?.auth && !report.account}
 			<p class="text-xs text-muted">{t('account.why')}</p>
+			<p class="text-xs text-muted">
+				{t('legal.loginAccept')}
+				<a class="underline hover:text-fg" href={resolve('/terms')}>{t('legal.terms')}</a> ·
+				<a class="underline hover:text-fg" href={resolve('/privacy')}>{t('legal.privacy')}</a>
+			</p>
 			<form
 				class="flex gap-1.5"
 				onsubmit={(e) => {
@@ -176,6 +193,24 @@
 					</div>
 				{/each}
 			</dl>
+		{/if}
+		{#if signedIn && report?.packs?.length}
+			<div class="mt-1 text-xs font-semibold">{t('account.buy')}</div>
+			<div class="flex flex-wrap gap-1.5">
+				{#each report.packs as pack (pack.productId)}
+					<button
+						class="rounded-lg border border-accent/40 bg-surface-2 px-2.5 py-1.5 text-xs font-bold text-accent hover:border-accent disabled:opacity-60"
+						disabled={!!buying}
+						onclick={() => buy(pack.productId)}
+						>{t('account.pack', { credits: pack.credits, price: pack.price })}</button
+					>
+				{/each}
+			</div>
+			<p class="text-xs text-muted">
+				{t('legal.buyAccept')}
+				<a class="underline hover:text-fg" href={resolve('/terms')}>{t('legal.terms')}</a>
+			</p>
+			{#if buyMessage}<p class="text-xs text-red-600" role="status">{buyMessage}</p>{/if}
 		{/if}
 		{#if signedIn}
 			<button

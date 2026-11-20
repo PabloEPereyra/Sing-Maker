@@ -27,7 +27,7 @@ const tokenOf = (link: string) => new URL(link).searchParams.get('login')!;
 const req = (cookie = '') =>
 	new Request(URL_, {
 		method: 'POST',
-		headers: { 'X-Client-Id': DEVICE, ...(cookie ? { Cookie: cookie } : {}) }
+		headers: { 'X-Client-Id': DEVICE, 'X-Adult': '1', ...(cookie ? { Cookie: cookie } : {}) }
 	});
 
 /** Inicia sesión con ese email y devuelve la cookie («vq_session=…»). */
@@ -224,5 +224,38 @@ describe('cupo gratis y créditos', () => {
 		await addCredits(db, id, 1, 'purchase', 'pay_3');
 		expect(await charge(req(cookie), env, 'other')).toMatchObject({ ok: true, paid: 0 });
 		expect(db.raw.prepare('SELECT credits FROM users').get()).toEqual({ credits: 1 });
+	});
+});
+
+describe('declaración de edad (18+, términos de Meta)', () => {
+	const bare = (device = DEVICE, adult = false) =>
+		new Request(URL_, {
+			method: 'POST',
+			headers: { 'X-Client-Id': device, ...(adult ? { 'X-Adult': '1' } : {}) }
+		});
+
+	it('sin declaración no deja usar la IA ni gasta el cupo', async () => {
+		const { db, env } = setup();
+		expect(await charge(bare(), env, 'exercises')).toEqual({
+			ok: false,
+			status: 403,
+			error: 'age_confirmation_required'
+		});
+		const used = await db.prepare('SELECT COUNT(*) AS n FROM usage').bind().first<{ n: number }>();
+		expect(used?.n).toBe(0);
+	});
+
+	it('registra la declaración con su fecha y después alcanza sin el encabezado', async () => {
+		const { db, env } = setup();
+		expect(await charge(bare(DEVICE, true), env, 'exercises')).toMatchObject({ ok: true });
+		const row = await db
+			.prepare('SELECT confirmed_at FROM age_confirmations WHERE name = ?1')
+			.bind(`device:${DEVICE}`)
+			.first<{ confirmed_at: number }>();
+		expect(row?.confirmed_at).toBeGreaterThan(0);
+		expect(await charge(bare(), env, 'exercises')).toMatchObject({ ok: true });
+		expect(await charge(bare('otro-dispositivo-0123456'), env, 'exercises')).toMatchObject({
+			status: 403
+		});
 	});
 });

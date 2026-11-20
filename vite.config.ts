@@ -20,6 +20,9 @@ function readDevVars(): Record<string, string> {
  * En desarrollo, sirve las Pages Functions de functions/api/*.ts con el mismo código que en
  * Cloudflare (el sitio es estático; en producción las corre Cloudflare).
  */
+/** Encabezados de la conexión, que no pasan al Request de la función. */
+const HOP = new Set(['host', 'connection', 'content-length', 'transfer-encoding', 'keep-alive']);
+
 function devFunctions(): Plugin {
 	// Con DEV_DB en .dev.vars (p. ej. .wrangler/dev.sqlite), una base local hace de D1: cupos, cuentas y créditos.
 	// Se carga recién al usarla, para que el build no dependa de node:sqlite.
@@ -51,12 +54,10 @@ function devFunctions(): Plugin {
 					const response: Response = await mod.onRequestPost({
 						request: new Request(new URL(url.pathname, `http://${req.headers.host}`), {
 							method: 'POST',
-							headers: {
-								'Content-Type': 'application/json',
-								'X-Access-Code': String(req.headers['x-access-code'] ?? ''),
-								'X-Client-Id': String(req.headers['x-client-id'] ?? ''),
-								Cookie: String(req.headers.cookie ?? '')
-							},
+							// Todos los encabezados (cookie, identificación, firma de webhooks) menos los de la conexión.
+							headers: Object.entries(req.headers).flatMap(([k, v]) =>
+								typeof v === 'string' && !HOP.has(k) ? [[k, v] as [string, string]] : []
+							),
 							body: Buffer.concat(chunks)
 						}),
 						env: { ...readDevVars(), DB: await devDb() }

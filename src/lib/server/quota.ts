@@ -11,6 +11,10 @@
 // cada llamada descuenta créditos de su saldo según CREDIT_COST_* (créditos que compró). Un costo 0 (lo
 // normal en «other»: entrenador, dictado, revisiones) sigue sin cobrar, pero solo a quien tiene saldo.
 // Con códigos de acceso no hay créditos: el cupo es el tope.
+//
+// Edad: los términos de Meta Model API (sección 10.1) piden que quien usa la IA tenga 18 años o más. El navegador
+// manda X-Adult: 1 cuando la persona lo declaró; la primera vez queda registrado (con la fecha) en
+// age_confirmations, y sin el encabezado se acepta solo si ya había una declaración guardada para esa persona.
 import { authEnabled, sessionAccount, type Account, type AuthEnv } from './auth';
 import { ensureSchema, inBatch, type D1Like } from './db';
 
@@ -111,6 +115,7 @@ export function parseCodes(raw: string | undefined): Map<string, string> {
 
 export const ACCESS_HEADER = 'X-Access-Code';
 export const CLIENT_HEADER = 'X-Client-Id';
+export const ADULT_HEADER = 'X-Adult';
 
 export type Gate =
 	| {
@@ -170,6 +175,25 @@ function unknownUser(who: { mode: string; sent: boolean }): Extract<Gate, { ok: 
 	};
 }
 
+/**
+ * ¿Declaró tener 18 años o más? Con el encabezado guarda la declaración (si no estaba); sin él, busca una
+ * guardada antes para esa persona.
+ */
+async function confirmedAdult(request: Request, db: D1Like, user: string): Promise<boolean> {
+	if (request.headers.get(ADULT_HEADER) === '1') {
+		await db
+			.prepare('INSERT OR IGNORE INTO age_confirmations (name, confirmed_at) VALUES (?1, ?2)')
+			.bind(user, Date.now())
+			.run();
+		return true;
+	}
+	const row = await db
+		.prepare('SELECT 1 AS x FROM age_confirmations WHERE name = ?1')
+		.bind(user)
+		.first<{ x: number }>();
+	return !!row;
+}
+
 /** Suma una llamada al cupo gratis si queda; `false` si ya está lleno. */
 async function takeFree(db: D1Like, user: string, bucket: Bucket, limit: number): Promise<boolean> {
 	if (limit <= 0) return false;
@@ -194,6 +218,8 @@ export async function charge(request: Request, env: QuotaEnv, bucket: Bucket): P
 	if (!db) return { ok: false, status: 500, error: 'quota_unavailable' };
 	try {
 		await ensureSchema(db);
+		if (!(await confirmedAdult(request, db, who.user)))
+			return { ok: false, status: 403, error: 'age_confirmation_required' };
 		if (await takeFree(db, who.user, bucket, limitsFromEnv(env)[bucket]))
 			return { ok: true, user: who.user, paid: 0 };
 		if (who.mode === 'code' || !authEnabled(env))
