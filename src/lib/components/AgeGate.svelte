@@ -1,18 +1,19 @@
 <script lang="ts">
 	// Pregunta una vez, antes de la primera llamada a la IA, si la persona tiene 18 años o más (lo exigen los
-	// términos de Meta Model API). Se abre desde ensureAdult(); el resto del juego no la necesita.
+	// términos de Meta Model API). Se abre desde ensureAdult(); el resto del juego no la necesita. La respuesta
+	// (mayor o menor) se guarda y se cambia desde el perfil; cerrar sin elegir no guarda nada.
 	import { resolve } from '$app/paths';
-	import { age, confirmAdult, declineAdult } from '$lib/age.svelte';
+	import { age, confirmAdult, declareMinor, dismissAge } from '$lib/age.svelte';
 	import { t } from '$lib/i18n';
 </script>
 
-<svelte:window onkeydown={(e) => age.asking && e.key === 'Escape' && declineAdult()} />
+<svelte:window onkeydown={(e) => age.asking && e.key === 'Escape' && dismissAge()} />
 
 {#if age.asking}
 	<div
 		class="fixed inset-0 z-[80] grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
 		role="presentation"
-		onclick={(e) => e.target === e.currentTarget && declineAdult()}
+		onclick={(e) => e.target === e.currentTarget && dismissAge()}
 	>
 		<div
 			class="flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden bg-surface text-fg"
@@ -45,10 +46,14 @@
 					</button>
 					<button
 						class="rounded-lg border border-border bg-surface px-5 py-2 text-[1.05rem]"
-						onclick={declineAdult}
+						onclick={declareMinor}
 					>
+						{t('age.minor')}
+					</button>
+					<button class="mt-1 text-sm text-muted underline hover:text-fg" onclick={dismissAge}>
 						{t('age.decline')}
 					</button>
+					<p class="text-center text-xs text-muted">{t('age.changeLater')}</p>
 				</div>
 			</div>
 		</div>

@@ -279,10 +279,45 @@ const es = {
 	'age.rest': 'El resto del juego es para todos y no necesita esta confirmación.',
 	'age.confirm': 'Tengo 18 años o más',
 	'age.decline': 'Ahora no',
-	'age.declined': 'Las funciones con IA son solo para personas de 18 años o más.',
+	'age.declined':
+		'Las funciones con IA son solo para personas de 18 años o más. Si te equivocaste, cámbialo desde el menú de tu perfil.',
 	'age.required':
 		'Confirma que tienes 18 años o más para usar las funciones con IA y vuelve a intentarlo.',
-	'coach.ask': 'Ver la recomendación del entrenador (IA)',
+	'age.minor': 'Soy menor de 18',
+	'age.changeLater': 'Puedes cambiarlo cuando quieras desde el menú de tu perfil.',
+	'age.profile': 'Edad para usar la IA',
+	'age.optAdult': '18 o más',
+	'age.optMinor': 'Menor de 18',
+	'age.minorNote':
+		'Sin IA: el entrenador te da consejos igual, y el resto del juego es para todos.',
+	'coachLocal.great': '¡Excelente! Acertaste el {pct}% de las notas.',
+	'coachLocal.improving': 'Fuiste mejorando en cada vuelta, ¡bien hecho!',
+	'coachLocal.tired':
+		'Al final te costó un poco más: puede ser cansancio, haz una pausa corta y toma agua.',
+	'coachLocal.result': 'Acertaste el {pct}% de las notas.',
+	'coachLocal.desynced':
+		'Parece que el ejercicio va desfasado con tu voz: puedes sincronizarla desde el menú de tu perfil.',
+	'coachLocal.silent':
+		'Varias veces se cortó el sonido: respira antes de cada frase y trata de sostener la nota hasta el final.',
+	'coachLocal.notesLow':
+		'En {notes} la voz quedó un poco por debajo: apunta un poquito más arriba.',
+	'coachLocal.notesHigh':
+		'En {notes} la voz quedó un poco por encima: relaja y apunta un poquito más abajo.',
+	'coachLocal.notes':
+		'Lo que más te costó fue {notes}: prueba escuchar la nota guía antes de cantar.',
+	'coachLocal.low':
+		'A veces la voz quedó un poco por debajo de la nota: apunta un poquito más arriba.',
+	'coachLocal.high':
+		'A veces la voz quedó un poco por encima de la nota: relaja y apunta un poquito más abajo.',
+	'coachLocal.highHarder':
+		'Las notas agudas te costaron más que las graves: ve con calma en esa zona.',
+	'coachLocal.lowHarder':
+		'Las notas graves te costaron más que las agudas: no fuerces, deja salir el sonido suave.',
+	'coachLocal.nextUp': 'Puedes subir de nivel con este:',
+	'coachLocal.nextEasier': 'Para afianzarlo, prueba primero uno un poco más fácil:',
+	'coachLocal.mastered': 'Ya dominas este ejercicio: prueba otro de un nivel más alto en la lista.',
+	'coachLocal.repeat': 'Repítelo una vez más con calma: te va a salir cada vez mejor.',
+	'coach.ask': 'Ver la recomendación con IA',
 	'coach.title': 'Tu entrenador',
 	'coach.thinking': 'Tu entrenador está revisando cómo te fue…',
 	'coach.levelUp': 'Para subir de nivel',
@@ -885,9 +920,42 @@ const en: Record<Key, string> = {
 	'age.rest': 'The rest of the game is for everyone and does not need this confirmation.',
 	'age.confirm': 'I am 18 or older',
 	'age.decline': 'Not now',
-	'age.declined': 'AI features are only for people aged 18 or over.',
+	'age.declined':
+		'AI features are only for people aged 18 or over. If that was a mistake, change it from your profile menu.',
 	'age.required': 'Confirm that you are 18 or older to use the AI features, then try again.',
-	'coach.ask': 'See the coach’s recommendation (AI)',
+	'age.minor': 'I am under 18',
+	'age.changeLater': 'You can change it anytime from your profile menu.',
+	'age.profile': 'Age for AI features',
+	'age.optAdult': '18 or over',
+	'age.optMinor': 'Under 18',
+	'age.minorNote':
+		'No AI: the coach still gives you tips, and the rest of the game is for everyone.',
+	'coachLocal.great': 'Excellent! You hit {pct}% of the notes.',
+	'coachLocal.improving': 'You got better with every round. Well done!',
+	'coachLocal.tired':
+		'It got a bit harder at the end: it may be tiredness, take a short break and drink some water.',
+	'coachLocal.result': 'You hit {pct}% of the notes.',
+	'coachLocal.desynced':
+		'The exercise seems out of step with your voice: you can sync it from your profile menu.',
+	'coachLocal.silent':
+		'The sound stopped several times: breathe before each phrase and try to hold the note to the end.',
+	'coachLocal.notesLow':
+		'On {notes} your voice landed a little under the note: aim slightly higher.',
+	'coachLocal.notesHigh':
+		'On {notes} your voice landed a little over the note: relax and aim slightly lower.',
+	'coachLocal.notes':
+		'The hardest part was {notes}: try listening to the guide note before singing.',
+	'coachLocal.low': 'Sometimes your voice landed a little under the note: aim slightly higher.',
+	'coachLocal.high':
+		'Sometimes your voice landed a little over the note: relax and aim slightly lower.',
+	'coachLocal.highHarder': 'The high notes were harder than the low ones: take it easy up there.',
+	'coachLocal.lowHarder':
+		"The low notes were harder than the high ones: don't push, let the sound come out softly.",
+	'coachLocal.nextUp': 'You can level up with this one:',
+	'coachLocal.nextEasier': 'To lock it in, first try a slightly easier one:',
+	'coachLocal.mastered': 'You have mastered this exercise: try a higher-level one from the list.',
+	'coachLocal.repeat': 'Try it once more, calmly: it will keep getting better.',
+	'coach.ask': 'See the AI recommendation',
 	'coach.title': 'Your coach',
 	'coach.thinking': 'Your coach is checking how it went…',
 	'coach.levelUp': 'Level up',

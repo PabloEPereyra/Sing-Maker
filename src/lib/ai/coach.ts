@@ -5,8 +5,9 @@ import { z } from 'zod';
 import { askJson } from './character';
 import { GenerateError, type LlmConfig, type Message } from './generate';
 
-/** A partir de este porcentaje la recomendación es para subir de nivel. */
-export const LEVEL_UP_PERCENT = 85;
+import { eligible, LEVEL_UP_PERCENT } from '../coach/rules';
+
+export { LEVEL_UP_PERCENT };
 
 const Candidate = z.object({
 	id: z.string().max(40),
@@ -83,12 +84,7 @@ export interface CoachResult {
  * en la lista; si no, solo los anteriores. Sin posición (ejercicio propio) se dejan todos.
  */
 export function eligibleCandidates(req: CoachRequest): CoachRequest['candidates'] {
-	const here = req.exercise.order;
-	if (here === undefined) return req.candidates;
-	const up = req.summary.percent >= LEVEL_UP_PERCENT;
-	return req.candidates.filter((c) =>
-		c.order === undefined ? true : up ? c.order > here : c.order < here
-	);
+	return eligible(req.exercise, req.summary.percent, req.candidates);
 }
 
 export function coachSystem(lang: 'es' | 'en'): string {
