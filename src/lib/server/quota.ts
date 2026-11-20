@@ -45,12 +45,18 @@ export interface QuotaEnv extends AuthEnv {
 /** El entorno completo de una función de Pages: variables de texto más el binding de la base. */
 export type FunctionEnv = Record<string, string | undefined> & QuotaEnv;
 
+/**
+ * Cupo gratis de cada persona (de por vida, no se renueva); después se paga con créditos. Alcanza para probar
+ * crear con IA sin reemplazar la compra: 10 ejercicios o ritmos y 2 personajes completos.
+ */
 export const DEFAULT_LIMITS: Record<Bucket, number> = {
-	exercises: 200,
-	characters: 40,
-	// Tiras y fondos: unas 4 por personaje, más los reintentos (también los que pide la revisión de Wonder).
-	images: 300,
-	other: 3000
+	exercises: 10,
+	characters: 2,
+	// Tiras y fondos: unas 4 tiras por personaje, más algún reintento o un fondo.
+	images: 12,
+	// Entrenador, dictado y llamadas auxiliares de los personajes (interpretar el pedido, revisar, recortar).
+	// Al agotarse, el entrenador sigue con la devolución sin IA.
+	other: 150
 };
 
 /**

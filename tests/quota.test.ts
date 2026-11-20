@@ -67,12 +67,12 @@ describe('códigos y límites', () => {
 
 	it('los límites tienen valores por defecto y se pueden cambiar', () => {
 		expect(limitsFromEnv({})).toEqual(DEFAULT_LIMITS);
-		expect(DEFAULT_LIMITS).toEqual({ exercises: 200, characters: 40, images: 300, other: 3000 });
+		expect(DEFAULT_LIMITS).toEqual({ exercises: 10, characters: 2, images: 12, other: 150 });
 		expect(limitsFromEnv({ LIMIT_EXERCISES: '10', LIMIT_IMAGES: '0', LIMIT_OTHER: 'x' })).toEqual({
 			exercises: 10,
-			characters: 40,
+			characters: 2,
 			images: 0,
-			other: 3000
+			other: 150
 		});
 	});
 });

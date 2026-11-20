@@ -33,8 +33,9 @@ LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
 # RESEND_API_KEY=re_...
 # AUTH_EMAIL_FROM=Vocal Quest <hola@vocal.quest>
 # Cupo gratis por persona (LIMIT_*) y créditos por llamada después del cupo (CREDIT_COST_*).
-# Por defecto: LIMIT 200/40/300/3000 (los del hackathon) y COST 1/5/2/0.
-# LIMIT_EXERCISES=20
+# Por defecto: LIMIT 10/2/12/150 (cupo gratis de por vida) y COST 1/5/2/0. Con códigos de acceso (beta)
+# conviene subirlos, porque ahí no hay créditos.
+# LIMIT_EXERCISES=10
 # LIMIT_CHARACTERS=2
 # LIMIT_IMAGES=10
 # LIMIT_OTHER=200
