@@ -125,7 +125,7 @@ export async function composeCard(
 	g.textBaseline = 'alphabetic';
 	g.textAlign = 'left';
 	g.font = `64px ${display}`;
-	outlined(g, 'Sing Maker', 172, 112, 16);
+	outlined(g, 'Vocal Quest', 172, 112, 16);
 
 	// Panel de resultados
 	const panel = g.createLinearGradient(0, PANEL_TOP, 0, CARD_HEIGHT);

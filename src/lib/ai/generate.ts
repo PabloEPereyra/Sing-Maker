@@ -256,8 +256,8 @@ export async function complete(
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${config.apiKey}`,
 			// Opcionales en OpenRouter (identifican la app); otros proveedores los ignoran.
-			'HTTP-Referer': 'https://github.com/singmaker',
-			'X-Title': 'Sing Maker'
+			'HTTP-Referer': 'https://vocal.quest',
+			'X-Title': 'Vocal Quest'
 		},
 		body: JSON.stringify(body)
 	});

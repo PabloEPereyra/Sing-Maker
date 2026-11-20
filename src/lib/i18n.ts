@@ -127,7 +127,7 @@ const es = {
 	'asset.tweakUndo': 'Deshacer retoque',
 	'rotate.title': 'Gira tu celular',
 	'rotate.text':
-		'Sing Maker se juega con el celular acostado, en horizontal. Si no gira solo, activa el giro automático.',
+		'Vocal Quest se juega con el celular acostado, en horizontal. Si no gira solo, activa el giro automático.',
 	'rotate.fullscreen': 'Jugar',
 	'stage.repsLabel': 'Repeticiones',
 	'rhythms.speed': 'Velocidad de la batería',
@@ -174,7 +174,8 @@ const es = {
 	'profile.title': 'Configuración',
 	'install.item': 'Instalar como app',
 	'install.helpIos': 'Toca el botón Compartir del navegador y elige «Agregar a inicio».',
-	'install.helpOther': 'Abre el menú del navegador (⋮) y elige «Instalar app» o «Agregar a la pantalla de inicio».',
+	'install.helpOther':
+		'Abre el menú del navegador (⋮) y elige «Instalar app» o «Agregar a la pantalla de inicio».',
 	'mic.calibrateItem': 'Calibrar micrófono',
 	'mic.calibrateTitle': 'Calibración del micrófono',
 	'sync.item': 'Sincronizar la voz',
@@ -353,7 +354,7 @@ const es = {
 	'onb.skip': 'Saltar guía',
 	'onb.next': 'Siguiente',
 	'onb.back': 'Atrás',
-	'onb.welcome.title': '¡Bienvenido a Sing Maker!',
+	'onb.welcome.title': '¡Bienvenido a Vocal Quest!',
 	'onb.welcome.body':
 		'Cantas y el personaje se mueve con tu voz. Te guío en unos pasos cortos (unos 2 minutos) para dejar todo a tu medida: micrófono, rango, retraso de la voz, dificultad y un nivel para empezar.',
 	'onb.welcome.go': 'Empezar',
@@ -420,8 +421,10 @@ const es = {
 	'char.cancel': 'Cancelar creación',
 	'char.pickType': '¿Qué tipo de personaje quieres crear?',
 	'char.pickTypeHelp': 'Elige bien: cambia cómo se dibuja y cómo se mueve en el juego.',
-	'char.walkerDesc': 'Corre y salta de nota en nota sobre plataformas. Ej.: un zorro, un niño, un robot.',
-	'char.flyerDesc': 'Vuela o nada a la altura de la nota que cantas. Ej.: un pájaro, un pez, un brujito en escoba.',
+	'char.walkerDesc':
+		'Corre y salta de nota en nota sobre plataformas. Ej.: un zorro, un niño, un robot.',
+	'char.flyerDesc':
+		'Vuela o nada a la altura de la nota que cantas. Ej.: un pájaro, un pez, un brujito en escoba.',
 	'char.back': 'Volver',
 	'char.step.hero': 'Diseño del personaje',
 	'char.step.move': 'Poses de movimiento',
@@ -688,7 +691,7 @@ const en: Record<Key, string> = {
 	'asset.tweakUndo': 'Undo retouch',
 	'rotate.title': 'Rotate your phone',
 	'rotate.text':
-		'Sing Maker is played with the phone on its side, in landscape. If it does not turn by itself, enable auto-rotate.',
+		'Vocal Quest is played with the phone on its side, in landscape. If it does not turn by itself, enable auto-rotate.',
 	'rotate.fullscreen': 'Play',
 	'stage.repsLabel': 'Repetitions',
 	'rhythms.speed': 'Drum speed',
@@ -735,7 +738,8 @@ const en: Record<Key, string> = {
 	'profile.title': 'Settings',
 	'install.item': 'Install as app',
 	'install.helpIos': 'Tap the browser’s Share button and choose “Add to Home Screen”.',
-	'install.helpOther': 'Open the browser menu (⋮) and choose “Install app” or “Add to Home screen”.',
+	'install.helpOther':
+		'Open the browser menu (⋮) and choose “Install app” or “Add to Home screen”.',
 	'mic.calibrateItem': 'Calibrate microphone',
 	'mic.calibrateTitle': 'Microphone calibration',
 	'sync.item': 'Sync your voice',
@@ -913,7 +917,7 @@ const en: Record<Key, string> = {
 	'onb.skip': 'Skip guide',
 	'onb.next': 'Next',
 	'onb.back': 'Back',
-	'onb.welcome.title': 'Welcome to Sing Maker!',
+	'onb.welcome.title': 'Welcome to Vocal Quest!',
 	'onb.welcome.body':
 		'You sing and the character moves with your voice. I will walk you through a few short steps (about 2 minutes) to set everything up for you: microphone, range, voice delay, difficulty and a level to start from.',
 	'onb.welcome.go': 'Start',
@@ -980,7 +984,8 @@ const en: Record<Key, string> = {
 	'char.cancel': 'Cancel creation',
 	'char.pickType': 'What kind of character do you want to create?',
 	'char.pickTypeHelp': 'Choose carefully: it changes how it is drawn and how it moves in the game.',
-	'char.walkerDesc': 'Runs and jumps from note to note over platforms. E.g.: a fox, a kid, a robot.',
+	'char.walkerDesc':
+		'Runs and jumps from note to note over platforms. E.g.: a fox, a kid, a robot.',
 	'char.flyerDesc':
 		'Flies or swims at the height of the note you sing. E.g.: a bird, a fish, a little witch on a broom.',
 	'char.back': 'Back',

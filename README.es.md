@@ -1,4 +1,4 @@
-# Sing Maker
+# Vocal Quest
 
 [English](README.md) | Español
 
@@ -10,7 +10,7 @@ Proyecto para el **Meta AI Developer Hackathon** (27 oct – 4 nov 2026). La IA 
 vocales a pedido**: crea ejercicios a partir de texto, de una frase hablada o cantada, de la foto de una partitura o de
 un dibujo, y también dibuja los personajes, objetos y fondos del juego. Usa los modelos de Meta (ver la tabla de abajo).
 
-**Probalo:** https://singmaker.pages.dev (pensado para el celular acostado; puede usarse en modo demo sin micrófono).
+**Probalo:** https://vocal.quest (pensado para el celular acostado; puede usarse en modo demo sin micrófono).
 
 ## Qué incluye
 
@@ -69,7 +69,7 @@ que se suma a la lista del compás elegido.
 
 | Modelo                    | Para qué                                                                                                                                                                                           |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Muse Spark 1.3**        | Compone los ejercicios y los patrones de batería (JSON validado), lee partituras y dibujos, da la recomendación al terminar un ejercicio e interpreta los pedidos de personajes, objetos y fondos. |
+| **Muse Ember 1.0**        | Compone los ejercicios y los patrones de batería (JSON validado), lee partituras y dibujos, da la recomendación al terminar un ejercicio e interpreta los pedidos de personajes, objetos y fondos. |
 | **Muse Wonder**           | Relee las partituras en clave de fa (a pedido también cualquier otra imagen) y **revisa cada hoja de poses** que dibuja Muse Image antes de usarla.                                                |
 | **Muse Image**            | Dibuja los personajes y sus hojas de poses, los objetos y los fondos.                                                                                                                              |
 | **SAM 3.1**               | Recorta cada pose y los objetos de las fotos.                                                                                                                                                      |
@@ -103,7 +103,7 @@ pegándola con Ctrl+V; en el celular se puede sacar con la cámara). Se achica e
   borde derecho y se les puede poner nombre); el lienzo se convierte en una imagen y la lee el mismo modelo. Si no tiene nombres, se escribe la escala en el
   cuadro de texto («quiero este ejercicio en do mayor») y, si no se escribe nada, el modelo pregunta en qué escala leerlo.
 
-**Quién lee la imagen**: Spark primero, porque es más barato. Si lee una partitura en **clave de fa** (donde Spark
+**Quién lee la imagen**: Ember primero, porque es más barato. Si lee una partitura en **clave de fa** (donde Ember
 confunde alturas), el servidor la relee solo con **Muse Wonder**, que en las pruebas acierta mucho más ahí. Y en
 cualquier lectura el botón **«Releer con Wonder»** vuelve a leerla con el modelo más fuerte (también mide mejor los
 anchos de un dibujo), a costa de más créditos. El resultado siempre se puede escuchar y corregir en el piano roll.
@@ -126,7 +126,7 @@ o como variables del proyecto en Cloudflare:
 | ---------------------- | ---------------------------------------------------------------------------------- |
 | `LLM_API_KEY`          | clave de la Meta Model API                                                         |
 | `LLM_BASE_URL`         | `https://api.meta.ai/v1`                                                           |
-| `LLM_MODEL`            | `muse-spark-1.3-contributor`                                                       |
+| `LLM_MODEL`            | `muse-ember-1.0`                                                       |
 | `LLM_VISION_MODEL`     | `muse-wonder-1.0` (por defecto con Meta): clave de fa, «Releer», revisión de poses |
 | `LLM_IMAGE_MODEL`      | `muse-image-1.0` (por defecto)                                                     |
 | `LLM_SEGMENT_MODEL`    | `sam-3.1` (por defecto)                                                            |
@@ -137,13 +137,13 @@ o como variables del proyecto en Cloudflare:
 ## Personajes, objetos y fondos con IA
 
 «Personalizar» crea un personaje (que corre o vuela), un objeto para recoger o un fondo a partir de un texto o de una
-foto. Es una cadena de modelos, del más barato al más caro: **Spark** interpreta el pedido (y rechaza lo que no
+foto. Es una cadena de modelos, del más barato al más caro: **Ember** interpreta el pedido (y rechaza lo que no
 corresponde), **Muse Image** dibuja al personaje y sus hojas de poses (una grilla, una pose por celda), **Muse Wonder
 revisa cada hoja** (¿una pose por celda, ninguna cortada, el mismo personaje, fondo verde liso?) y, si ve un defecto claro,
 se vuelve a dibujar diciéndole qué corregir, y **SAM** recorta cada pose. El navegador arma las hojas de cuadros
 (`src/lib/character/`). Todo se guarda en el dispositivo y se puede exportar e importar.
 
-En los fondos para personajes que caminan, **Spark también mira la imagen** para decir dónde empieza el suelo y qué tipo de
+En los fondos para personajes que caminan, **Ember también mira la imagen** para decir dónde empieza el suelo y qué tipo de
 plataformas le van al paisaje (tronco, piedra, hielo, nube, cristal u hongo; se puede cambiar en la vista previa). Los
 colores de las plataformas se miden del propio fondo y se dibujan por código (`src/lib/game/themes/platform.ts`): no
 cuesta ninguna imagen más.

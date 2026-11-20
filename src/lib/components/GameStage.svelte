@@ -652,7 +652,7 @@
 		<!-- Marca: solo en reposo, abajo a la izquierda -->
 		<div class="pointer-events-none absolute bottom-3 left-3 z-10 flex items-center gap-2">
 			<img src="/logo.png" alt="" class="h-12 w-12 drop-shadow-md short:h-9 short:w-9" />
-			<span class="logo-text hidden text-2xl leading-tight sm:inline">Sing Maker</span>
+			<span class="logo-text hidden text-2xl leading-tight sm:inline">Vocal Quest</span>
 		</div>
 	{/if}
 

@@ -1,4 +1,4 @@
-# Sing Maker
+# Vocal Quest
 
 English | [Español](README.es.md)
 
@@ -10,7 +10,7 @@ Built for the **Meta AI Developer Hackathon** (Oct 27 – Nov 4, 2026). The AI i
 exercises**: it creates exercises from text, from a spoken or sung phrase, from a photo of sheet music or from a drawing,
 and it also draws the game's characters, objects and backgrounds. It uses Meta's models (see the table below).
 
-**Try it:** https://singmaker.pages.dev (designed for a phone held sideways; it can be used in demo mode without a microphone).
+**Try it:** https://vocal.quest (designed for a phone held sideways; it can be used in demo mode without a microphone).
 
 ## What's included
 
@@ -68,7 +68,7 @@ grid per instrument) that is added to the list for the chosen time signature.
 
 | Model                     | What for                                                                                                                                                                                                |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Muse Spark 1.3**        | Composes the exercises and drum patterns (validated JSON), reads sheet music and drawings, gives the recommendation after an exercise, and interprets requests for characters, objects and backgrounds. |
+| **Muse Ember 1.0**        | Composes the exercises and drum patterns (validated JSON), reads sheet music and drawings, gives the recommendation after an exercise, and interprets requests for characters, objects and backgrounds. |
 | **Muse Wonder**           | Re-reads bass-clef sheet music (on request, any other image too) and **reviews every pose sheet** that Muse Image draws before it is used.                                                              |
 | **Muse Image**            | Draws the characters and their pose sheets, the objects and the backgrounds.                                                                                                                            |
 | **SAM 3.1**               | Cuts out each pose and the objects from the photos.                                                                                                                                                     |
@@ -102,7 +102,7 @@ Two cases:
   turned into an image and read by the same model. If it has no names, you write the scale in the text box ("I want this
   exercise in C major") and, if you write nothing, the model asks which scale to read it in.
 
-**Who reads the image**: Spark first, because it is cheaper. If it reads sheet music in **bass clef** (where Spark mixes
+**Who reads the image**: Ember first, because it is cheaper. If it reads sheet music in **bass clef** (where Ember mixes
 up pitches), the server re-reads it with **Muse Wonder** alone, which in our tests is far more accurate there. And on any
 reading, the **"Re-read with Wonder"** button reads it again with the stronger model (it also measures the widths of a
 drawing better), at the cost of more credits. The result can always be listened to and corrected in the piano roll.
@@ -124,7 +124,7 @@ project variables in Cloudflare:
 | ---------------------- | ------------------------------------------------------------------------------ |
 | `LLM_API_KEY`          | Meta Model API key                                                             |
 | `LLM_BASE_URL`         | `https://api.meta.ai/v1`                                                       |
-| `LLM_MODEL`            | `muse-spark-1.3-contributor`                                                   |
+| `LLM_MODEL`            | `muse-ember-1.0`                                                   |
 | `LLM_VISION_MODEL`     | `muse-wonder-1.0` (default with Meta): bass clef, "Re-read", pose-sheet review |
 | `LLM_IMAGE_MODEL`      | `muse-image-1.0` (default)                                                     |
 | `LLM_SEGMENT_MODEL`    | `sam-3.1` (default)                                                            |
@@ -135,13 +135,13 @@ project variables in Cloudflare:
 ## Characters, objects and backgrounds with AI
 
 "Customize" creates a character (that runs or flies), a collectible object or a background from a text or a photo. It is a
-chain of models, from cheapest to most expensive: **Spark** interprets the request (and rejects what doesn't fit), **Muse
+chain of models, from cheapest to most expensive: **Ember** interprets the request (and rejects what doesn't fit), **Muse
 Image** draws the character and its pose sheets (a grid, one pose per cell), **Muse Wonder reviews every sheet** (one pose
 per cell, none cut off, the same character, a plain green background?) and, if it sees a clear defect, the sheet is redrawn
 with instructions on what to fix, and **SAM** cuts out each pose. The browser assembles the frame sheets
 (`src/lib/character/`). Everything is stored on the device and can be exported and imported.
 
-For backgrounds meant for walking characters, **Spark also looks at the image** to say where the ground starts and which
+For backgrounds meant for walking characters, **Ember also looks at the image** to say where the ground starts and which
 kind of platforms suit the landscape (log, stone, ice, cloud, crystal or mushroom; it can be changed in the preview). The
 platform colors are sampled from the background itself and drawn in code (`src/lib/game/themes/platform.ts`): no extra
 image costs anything.
