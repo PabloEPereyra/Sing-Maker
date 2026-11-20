@@ -1,5 +1,5 @@
 // Pedidos JSON al servidor (/api/*): agregan la identificación y traducen los errores de acceso y
-// de cupo (401 y 429) a mensajes para la persona. Los demás errores los resuelve quien llama.
+// de cupo (401, 402 y 429) a mensajes para la persona. Los demás errores los resuelve quien llama.
 import { identityHeaders } from '../access.svelte';
 import { t } from '../i18n';
 import { GenerateRequestError } from './client';
@@ -25,6 +25,8 @@ export function accessMessage(status: number, data: ApiBody): string | null {
 		return t(data.error === 'invalid_access_code' ? 'access.invalid' : 'access.required');
 	if (status === 429 && data.error === 'quota_exceeded')
 		return t(`access.quota.${data.bucket ?? 'other'}`);
+	if (status === 402 && data.error === 'login_required') return t('account.loginRequired');
+	if (status === 402 && data.error === 'credits_required') return t('account.creditsRequired');
 	return null;
 }
 

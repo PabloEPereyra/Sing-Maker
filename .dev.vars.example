@@ -23,3 +23,22 @@ LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
 # (none/minimal/low/medium/high; por defecto none en OpenRouter, low en Meta).
 # LLM_MAX_TOKENS=8000
 # LLM_REASONING_EFFORT=none
+
+# Cuentas y créditos (ver src/lib/server/quota.ts y auth.ts).
+# Desarrollo: DEV_DB crea una base SQLite local que hace de D1, y AUTH_DEV_LINKS=1 muestra el enlace de login
+# en pantalla en vez de mandarlo por email. En Cloudflare no se usan: allá DB es la base D1 del proyecto.
+# DEV_DB=.wrangler/dev.sqlite
+# AUTH_DEV_LINKS=1
+# Producción: emails de login con Resend (el remitente tiene que ser de un dominio verificado en Resend).
+# RESEND_API_KEY=re_...
+# AUTH_EMAIL_FROM=Vocal Quest <hola@vocal.quest>
+# Cupo gratis por persona (LIMIT_*) y créditos por llamada después del cupo (CREDIT_COST_*).
+# Por defecto: LIMIT 200/40/300/3000 (los del hackathon) y COST 1/5/2/0.
+# LIMIT_EXERCISES=20
+# LIMIT_CHARACTERS=2
+# LIMIT_IMAGES=10
+# LIMIT_OTHER=200
+# CREDIT_COST_EXERCISES=1
+# CREDIT_COST_CHARACTERS=5
+# CREDIT_COST_IMAGES=2
+# CREDIT_COST_OTHER=0

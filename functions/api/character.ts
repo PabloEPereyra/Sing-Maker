@@ -92,7 +92,7 @@ export async function onRequestPost({
 			case 'scene': {
 				const editing = !!input.reference && !!input.change;
 				if (!editing && input.visual.trim().length < 3) {
-					await refund(env, gate.user, bucket);
+					await refund(env, gate, bucket);
 					return json({ error: 'Invalid request.' }, 400);
 				}
 				return json({
@@ -117,7 +117,7 @@ export async function onRequestPost({
 	} catch (e) {
 		if (e instanceof GenerateError && e.status < 500)
 			return json({ error: e.message, details: e.details }, e.status);
-		await refund(env, gate.user, bucket);
+		await refund(env, gate, bucket);
 		if (e instanceof GenerateError) return json({ error: e.message, details: e.details }, e.status);
 		return json({ error: 'Unexpected error.' }, 500);
 	}

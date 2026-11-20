@@ -5,6 +5,16 @@
 // - Sin códigos (lo normal por ahora): por un identificador anónimo que cada navegador genera y manda en
 //   X-Client-Id. Se esquiva borrando los datos del sitio, pero alcanza para acotar el gasto.
 // Sin códigos y sin base D1 el acceso es libre y no se cuenta nada (desarrollo local).
+//
+// Cupo gratis y créditos: los límites (LIMIT_*) son el cupo gratis de cada persona. Quien inició sesión cuenta
+// el cupo en su cuenta (y al entrar se le suma lo que ya había gastado su dispositivo); cuando se le acaba,
+// cada llamada descuenta créditos de su saldo según CREDIT_COST_* (créditos que compró). Un costo 0 (lo
+// normal en «other»: entrenador, dictado, revisiones) sigue sin cobrar, pero solo a quien tiene saldo.
+// Con códigos de acceso no hay créditos: el cupo es el tope.
+import { authEnabled, sessionAccount, type Account, type AuthEnv } from './auth';
+import { ensureSchema, inBatch, type D1Like } from './db';
+
+export type { D1Like } from './db';
 
 /**
  * Qué se cuenta: los ejercicios y patrones de batería, los personajes (la imagen principal), el resto de las
@@ -14,24 +24,17 @@ export type Bucket = 'exercises' | 'characters' | 'images' | 'other';
 
 export const BUCKETS: Bucket[] = ['exercises', 'characters', 'images', 'other'];
 
-/** Lo mínimo que se usa de la API de D1. */
-export interface D1Like {
-	prepare(sql: string): {
-		bind(...values: unknown[]): {
-			run(): Promise<{ meta: { changes: number } }>;
-			all<T>(): Promise<{ results: T[] }>;
-		};
-		run(): Promise<unknown>;
-	};
-}
-
 /** Las variables y el binding que usa este módulo. */
-export interface QuotaEnv {
+export interface QuotaEnv extends AuthEnv {
 	ACCESS_CODES?: string;
 	LIMIT_EXERCISES?: string;
 	LIMIT_CHARACTERS?: string;
 	LIMIT_IMAGES?: string;
 	LIMIT_OTHER?: string;
+	CREDIT_COST_EXERCISES?: string;
+	CREDIT_COST_CHARACTERS?: string;
+	CREDIT_COST_IMAGES?: string;
+	CREDIT_COST_OTHER?: string;
 	DB?: D1Like;
 }
 
@@ -46,14 +49,22 @@ export const DEFAULT_LIMITS: Record<Bucket, number> = {
 	other: 3000
 };
 
-export const limitsFromEnv = (env: QuotaEnv): Record<Bucket, number> => {
-	const raw: Record<Bucket, string | undefined> = {
-		exercises: env.LIMIT_EXERCISES,
-		characters: env.LIMIT_CHARACTERS,
-		images: env.LIMIT_IMAGES,
-		other: env.LIMIT_OTHER
-	};
-	const out = { ...DEFAULT_LIMITS };
+/**
+ * Créditos por llamada una vez agotado el cupo gratis. Un personaje completo es la imagen principal más unas 4
+ * tiras (~13 créditos); con 1 crédito ≈ US$ 0,01 de costo de IA y el paquete a 4–5×, deja margen.
+ */
+export const DEFAULT_COSTS: Record<Bucket, number> = {
+	exercises: 1,
+	characters: 5,
+	images: 2,
+	other: 0
+};
+
+const numbersFromEnv = (
+	raw: Record<Bucket, string | undefined>,
+	defaults: Record<Bucket, number>
+): Record<Bucket, number> => {
+	const out = { ...defaults };
 	for (const b of BUCKETS) {
 		const n = Number(raw[b]);
 		if (raw[b] !== undefined && raw[b] !== '' && Number.isFinite(n) && n >= 0)
@@ -61,6 +72,28 @@ export const limitsFromEnv = (env: QuotaEnv): Record<Bucket, number> => {
 	}
 	return out;
 };
+
+export const limitsFromEnv = (env: QuotaEnv): Record<Bucket, number> =>
+	numbersFromEnv(
+		{
+			exercises: env.LIMIT_EXERCISES,
+			characters: env.LIMIT_CHARACTERS,
+			images: env.LIMIT_IMAGES,
+			other: env.LIMIT_OTHER
+		},
+		DEFAULT_LIMITS
+	);
+
+export const costsFromEnv = (env: QuotaEnv): Record<Bucket, number> =>
+	numbersFromEnv(
+		{
+			exercises: env.CREDIT_COST_EXERCISES,
+			characters: env.CREDIT_COST_CHARACTERS,
+			images: env.CREDIT_COST_IMAGES,
+			other: env.CREDIT_COST_OTHER
+		},
+		DEFAULT_COSTS
+	);
 
 /** «ana=K3f9,beto=Pq82»: código → nombre. Sin «=», el código también es el nombre. */
 export function parseCodes(raw: string | undefined): Map<string, string> {
@@ -80,25 +113,44 @@ export const ACCESS_HEADER = 'X-Access-Code';
 export const CLIENT_HEADER = 'X-Client-Id';
 
 export type Gate =
-	{ ok: true; user: string | null } | { ok: false; status: number; error: string; bucket?: Bucket };
+	| {
+			ok: true;
+			/** Con qué nombre se contó el cupo (`null` si el acceso es libre). */
+			user: string | null;
+			/** Créditos que se descontaron (0 si salió del cupo gratis). */
+			paid?: number;
+			/** La cuenta que pagó, si pagó con créditos. */
+			account?: string;
+	  }
+	| { ok: false; status: number; error: string; bucket?: Bucket };
 
 /** Identificador anónimo válido: solo letras, números, guiones y guiones bajos. */
 const CLIENT_ID = /^[A-Za-z0-9_-]{16,64}$/;
 
+type Who =
+	| { open: true }
+	| {
+			open: false;
+			mode: 'code' | 'device' | 'account';
+			user: string | null;
+			sent: boolean;
+			account?: Account;
+	  };
+
 /**
  * Quién es. `open` = no hay nada que contar (sin códigos ni base). `mode` dice cómo se reconoció a la persona:
- * por código o por dispositivo; `user` es `null` si falta el dato o no es válido.
+ * por código, por su cuenta (sesión iniciada) o por dispositivo; `user` es `null` si falta el dato o no es válido.
  */
-export function identify(
-	request: Request,
-	env: QuotaEnv
-): { open: true } | { open: false; mode: 'code' | 'device'; user: string | null; sent: boolean } {
+export async function identify(request: Request, env: QuotaEnv): Promise<Who> {
 	const codes = parseCodes(env.ACCESS_CODES);
 	if (codes.size > 0) {
 		const code = request.headers.get(ACCESS_HEADER)?.trim() ?? '';
 		return { open: false, mode: 'code', user: codes.get(code) ?? null, sent: !!code };
 	}
 	if (!env.DB) return { open: true };
+	const account = await sessionAccount(request, env).catch(() => null);
+	if (account)
+		return { open: false, mode: 'account', user: `user:${account.id}`, sent: true, account };
 	const id = request.headers.get(CLIENT_HEADER)?.trim() ?? '';
 	return {
 		open: false,
@@ -109,10 +161,7 @@ export function identify(
 }
 
 /** Error para quien no se pudo reconocer. */
-function unknownUser(who: {
-	mode: 'code' | 'device';
-	sent: boolean;
-}): Extract<Gate, { ok: false }> {
+function unknownUser(who: { mode: string; sent: boolean }): Extract<Gate, { ok: false }> {
 	if (who.mode === 'device') return { ok: false, status: 400, error: 'client_id_required' };
 	return {
 		ok: false,
@@ -121,56 +170,124 @@ function unknownUser(who: {
 	};
 }
 
-let ready: Promise<unknown> | null = null;
-
-/** Crea la tabla la primera vez que se usa (por instancia). */
-function ensureTable(db: D1Like): Promise<unknown> {
-	ready ??= db
+/** Suma una llamada al cupo gratis si queda; `false` si ya está lleno. */
+async function takeFree(db: D1Like, user: string, bucket: Bucket, limit: number): Promise<boolean> {
+	if (limit <= 0) return false;
+	const r = await db
 		.prepare(
-			'CREATE TABLE IF NOT EXISTS usage (name TEXT NOT NULL, bucket TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (name, bucket))'
+			'INSERT INTO usage (name, bucket, n) VALUES (?1, ?2, 1) ON CONFLICT(name, bucket) DO UPDATE SET n = n + 1 WHERE n < ?3'
 		)
-		.run()
-		.catch((e) => {
-			ready = null;
-			throw e;
-		});
-	return ready;
+		.bind(user, bucket, limit)
+		.run();
+	return r.meta.changes >= 1;
 }
 
-/** Revisa el código y suma una llamada al cupo; `ok: false` trae el estado y el mensaje para responder. */
+/**
+ * Revisa quién es y cobra la llamada: primero del cupo gratis y, si se acabó, en créditos de su cuenta.
+ * `ok: false` trae el estado y el mensaje para responder.
+ */
 export async function charge(request: Request, env: QuotaEnv, bucket: Bucket): Promise<Gate> {
-	const who = identify(request, env);
+	const who = await identify(request, env);
 	if (who.open) return { ok: true, user: null };
 	if (who.user === null) return unknownUser(who);
 	const db = env.DB;
 	if (!db) return { ok: false, status: 500, error: 'quota_unavailable' };
-	const limit = limitsFromEnv(env)[bucket];
-	if (limit <= 0) return { ok: false, status: 429, error: 'quota_exceeded', bucket };
 	try {
-		await ensureTable(db);
+		await ensureSchema(db);
+		if (await takeFree(db, who.user, bucket, limitsFromEnv(env)[bucket]))
+			return { ok: true, user: who.user, paid: 0 };
+		if (who.mode === 'code' || !authEnabled(env))
+			return { ok: false, status: 429, error: 'quota_exceeded', bucket };
+		if (!who.account) return { ok: false, status: 402, error: 'login_required', bucket };
+		const cost = costsFromEnv(env)[bucket];
+		const id = who.account.id;
+		if (cost === 0) {
+			// Sin costo, pero solo para quien compró créditos (y le queda saldo).
+			if (who.account.credits > 0) return { ok: true, user: who.user, paid: 0 };
+			return { ok: false, status: 402, error: 'credits_required', bucket };
+		}
 		const r = await db
-			.prepare(
-				'INSERT INTO usage (name, bucket, n) VALUES (?1, ?2, 1) ON CONFLICT(name, bucket) DO UPDATE SET n = n + 1 WHERE n < ?3'
-			)
-			.bind(who.user, bucket, limit)
+			.prepare('UPDATE users SET credits = credits - ?2 WHERE id = ?1 AND credits >= ?2')
+			.bind(id, cost)
 			.run();
-		if (r.meta.changes < 1) return { ok: false, status: 429, error: 'quota_exceeded', bucket };
+		if (r.meta.changes < 1) return { ok: false, status: 402, error: 'credits_required', bucket };
+		await db
+			.prepare(
+				'INSERT INTO credit_ledger (user_id, delta, reason, created_at) VALUES (?1, ?2, ?3, ?4)'
+			)
+			.bind(id, -cost, `use:${bucket}`, Date.now())
+			.run();
+		return { ok: true, user: who.user, paid: cost, account: id };
 	} catch {
 		return { ok: false, status: 500, error: 'quota_unavailable' };
 	}
-	return { ok: true, user: who.user };
 }
 
-/** Devuelve una llamada al cupo cuando el servidor falló por su cuenta (no se gastó crédito). */
-export async function refund(env: QuotaEnv, user: string | null, bucket: Bucket): Promise<void> {
-	if (!user || !env.DB) return;
+/**
+ * Devuelve lo cobrado cuando el servidor falló por su cuenta (no se gastó crédito de IA): los créditos si
+ * pagó con ellos, o la llamada del cupo gratis.
+ */
+export async function refund(
+	env: QuotaEnv,
+	gate: Extract<Gate, { ok: true }>,
+	bucket: Bucket
+): Promise<void> {
+	if (!gate.user || !env.DB) return;
+	const db = env.DB;
 	try {
-		await env.DB.prepare('UPDATE usage SET n = MAX(n - 1, 0) WHERE name = ?1 AND bucket = ?2')
-			.bind(user, bucket)
+		if (gate.paid && gate.account) {
+			await inBatch(db, [
+				db
+					.prepare('UPDATE users SET credits = credits + ?2 WHERE id = ?1')
+					.bind(gate.account, gate.paid),
+				db
+					.prepare(
+						'INSERT INTO credit_ledger (user_id, delta, reason, created_at) VALUES (?1, ?2, ?3, ?4)'
+					)
+					.bind(gate.account, gate.paid, `refund:${bucket}`, Date.now())
+			]);
+			return;
+		}
+		await db
+			.prepare('UPDATE usage SET n = MAX(n - 1, 0) WHERE name = ?1 AND bucket = ?2')
+			.bind(gate.user, bucket)
 			.run();
 	} catch {
 		// sin devolución: el cupo queda como estaba
 	}
+}
+
+/**
+ * Suma créditos comprados a una cuenta. `ref` (p. ej. el id del pago) es único: si el aviso del pago llega
+ * dos veces, los créditos se suman una sola vez. Devuelve `false` si esa referencia ya estaba.
+ */
+export async function addCredits(
+	db: D1Like,
+	userId: string,
+	credits: number,
+	reason: string,
+	ref: string
+): Promise<boolean> {
+	await ensureSchema(db);
+	const before = await db
+		.prepare('SELECT 1 AS x FROM credit_ledger WHERE ref = ?1')
+		.bind(ref)
+		.first<{ x: number }>();
+	if (before) return false;
+	// En una transacción: el saldo solo sube si la referencia todavía no está en el registro.
+	await inBatch(db, [
+		db
+			.prepare(
+				'UPDATE users SET credits = credits + ?2 WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM credit_ledger WHERE ref = ?3)'
+			)
+			.bind(userId, credits, ref),
+		db
+			.prepare(
+				'INSERT OR IGNORE INTO credit_ledger (user_id, delta, reason, ref, created_at) VALUES (?1, ?2, ?3, ?4, ?5)'
+			)
+			.bind(userId, credits, reason, ref, Date.now())
+	]);
+	return true;
 }
 
 export interface UsageReport {
@@ -181,6 +298,12 @@ export interface UsageReport {
 	name?: string;
 	used?: Record<Bucket, number>;
 	limits?: Record<Bucket, number>;
+	/** Se puede iniciar sesión (y comprar créditos). */
+	auth?: boolean;
+	/** La cuenta con la sesión iniciada (`null` si no inició sesión). */
+	account?: { email: string; credits: number } | null;
+	/** Créditos por llamada una vez agotado el cupo gratis. */
+	costs?: Record<Bucket, number>;
 }
 
 /** Consumo de quien hace el pedido (para mostrarlo en el perfil). */
@@ -188,13 +311,13 @@ export async function usageFor(
 	request: Request,
 	env: QuotaEnv
 ): Promise<Extract<Gate, { ok: false }> | UsageReport> {
-	const who = identify(request, env);
+	const who = await identify(request, env);
 	if (who.open) return { open: true };
 	if (who.user === null) return unknownUser(who);
 	const used: Record<Bucket, number> = { exercises: 0, characters: 0, images: 0, other: 0 };
 	if (env.DB) {
 		try {
-			await ensureTable(env.DB);
+			await ensureSchema(env.DB);
 			const rows = await env.DB.prepare('SELECT bucket, n FROM usage WHERE name = ?1')
 				.bind(who.user)
 				.all<{ bucket: Bucket; n: number }>();
@@ -203,11 +326,19 @@ export async function usageFor(
 			return { ok: false, status: 500, error: 'quota_unavailable' };
 		}
 	}
-	return {
+	const report: UsageReport = {
 		open: false,
 		codes: who.mode === 'code',
 		name: who.user,
 		used,
 		limits: limitsFromEnv(env)
 	};
+	if (who.mode !== 'code' && authEnabled(env)) {
+		report.auth = true;
+		report.account = who.account
+			? { email: who.account.email, credits: who.account.credits }
+			: null;
+		report.costs = costsFromEnv(env);
+	}
+	return report;
 }
