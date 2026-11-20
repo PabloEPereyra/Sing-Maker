@@ -6,11 +6,11 @@ LLM_API_KEY=sk-or-...
 LLM_BASE_URL=https://openrouter.ai/api/v1
 LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
 
-# Hackathon: Meta Model API (Muse Spark). La clave se crea en el panel de Model API > API keys
+# Producción: Meta Model API (Muse Ember). La clave se crea en el panel de Model API > API keys
 # (Meta la llama MODEL_API_KEY; acá va en LLM_API_KEY). Para usarla, comentá las 3 líneas de arriba.
 # LLM_API_KEY=...
 # LLM_BASE_URL=https://api.meta.ai/v1
-# LLM_MODEL=muse-spark-1.3-contributor   (o muse-spark-1.3, muse-wonder-1.0)
+# LLM_MODEL=muse-ember-1.0   (no usar los «-contributor»: Meta entrena con esos datos)
 # Muse Wonder: relee las partituras en clave de fa, el botón «Releer con Wonder» y revisa las hojas de poses de los
 # personajes. Con Meta es muse-wonder-1.0 por defecto; con otro proveedor, el mismo LLM_MODEL (sin relectura).
 # LLM_VISION_MODEL=muse-wonder-1.0
@@ -23,3 +23,29 @@ LLM_MODEL=nvidia/nemotron-3.5-super-vl:free
 # (none/minimal/low/medium/high; por defecto none en OpenRouter, low en Meta).
 # LLM_MAX_TOKENS=8000
 # LLM_REASONING_EFFORT=none
+
+# Cuentas y créditos (ver src/lib/server/quota.ts y auth.ts).
+# Desarrollo: DEV_DB crea una base SQLite local que hace de D1, y AUTH_DEV_LINKS=1 muestra el enlace de login
+# en pantalla en vez de mandarlo por email. En Cloudflare no se usan: allá DB es la base D1 del proyecto.
+# DEV_DB=.wrangler/dev.sqlite
+# AUTH_DEV_LINKS=1
+# Producción: emails de login con Resend (el remitente tiene que ser de un dominio verificado en Resend).
+# RESEND_API_KEY=re_...
+# AUTH_EMAIL_FROM=Vocal Quest <hola@vocal.quest>
+# Cupo gratis por persona (LIMIT_*) y créditos por llamada después del cupo (CREDIT_COST_*).
+# Por defecto: LIMIT 200/40/300/3000 (los del hackathon) y COST 1/5/2/0.
+# LIMIT_EXERCISES=20
+# LIMIT_CHARACTERS=2
+# LIMIT_IMAGES=10
+# LIMIT_OTHER=200
+# CREDIT_COST_EXERCISES=1
+# CREDIT_COST_CHARACTERS=5
+# CREDIT_COST_IMAGES=2
+# CREDIT_COST_OTHER=0
+# Compra de créditos con Dodo Payments (ver src/lib/server/payments.ts). Webhook: https://vocal.quest/api/dodo-webhook
+# con los eventos payment.succeeded y refund.succeeded. Paquetes: «id_producto:créditos:precio» separados por coma
+# (el precio solo se muestra; el que cobra es el del producto en Dodo). DODO_MODE=live para cobrar de verdad.
+# DODO_API_KEY=...
+# DODO_WEBHOOK_SECRET=whsec_...
+# DODO_MODE=test
+# DODO_PACKS=pdt_xxx:250:10,pdt_yyy:600:20

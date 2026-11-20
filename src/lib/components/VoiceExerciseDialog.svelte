@@ -225,7 +225,7 @@
 				class="mt-1 block text-xs text-muted underline"
 				onclick={() => {
 					const a = document.createElement('a');
-					a.download = 'singmaker-grabacion.json';
+					a.download = 'vocal-quest-grabacion.json';
 					a.href = URL.createObjectURL(
 						new Blob([JSON.stringify({ frames, root, result: ex })], {
 							type: 'application/json'

@@ -22,6 +22,7 @@ function fakeDb(): D1Like & { rows: Map<string, number> } {
 				run,
 				bind: (...v: unknown[]) => ({
 					run: async () => {
+						if (sql.includes('age_confirmations')) return { meta: { changes: 1 } };
 						if (sql.startsWith('INSERT')) {
 							const k = key(v[0], v[1]);
 							const n = rows.get(k);
@@ -36,6 +37,7 @@ function fakeDb(): D1Like & { rows: Map<string, number> } {
 						}
 						return { meta: { changes: 1 } };
 					},
+					first: async () => null,
 					all: async <T>() => ({
 						results: [...rows.entries()]
 							.filter(([k]) => k.startsWith(`${v[0]}|`))
@@ -50,7 +52,7 @@ function fakeDb(): D1Like & { rows: Map<string, number> } {
 const req = (code?: string) =>
 	new Request('https://x.test/api/generate', {
 		method: 'POST',
-		headers: code ? { 'X-Access-Code': code } : {}
+		headers: { 'X-Adult': '1', ...(code ? { 'X-Access-Code': code } : {}) }
 	});
 
 describe('códigos y límites', () => {
@@ -99,8 +101,8 @@ describe('cupos por persona', () => {
 	it('cuenta por persona y tipo, y corta al llegar al tope', async () => {
 		const db = fakeDb();
 		const env = { ...base(db), LIMIT_EXERCISES: '2' };
-		expect(await charge(req('K3f9'), env, 'exercises')).toEqual({ ok: true, user: 'ana' });
-		expect(await charge(req('K3f9'), env, 'exercises')).toEqual({ ok: true, user: 'ana' });
+		expect(await charge(req('K3f9'), env, 'exercises')).toEqual({ ok: true, user: 'ana', paid: 0 });
+		expect(await charge(req('K3f9'), env, 'exercises')).toEqual({ ok: true, user: 'ana', paid: 0 });
 		expect(await charge(req('K3f9'), env, 'exercises')).toEqual({
 			ok: false,
 			status: 429,
@@ -108,8 +110,12 @@ describe('cupos por persona', () => {
 			bucket: 'exercises'
 		});
 		// otra persona y otro tipo de cupo no se ven afectados
-		expect(await charge(req('Pq82'), env, 'exercises')).toEqual({ ok: true, user: 'beto' });
-		expect(await charge(req('K3f9'), env, 'images')).toEqual({ ok: true, user: 'ana' });
+		expect(await charge(req('Pq82'), env, 'exercises')).toEqual({
+			ok: true,
+			user: 'beto',
+			paid: 0
+		});
+		expect(await charge(req('K3f9'), env, 'images')).toEqual({ ok: true, user: 'ana', paid: 0 });
 		expect(db.rows.get('ana|exercises')).toBe(2);
 	});
 
@@ -130,9 +136,9 @@ describe('cupos por persona', () => {
 		const db = fakeDb();
 		const env = base(db);
 		await charge(req('K3f9'), env, 'exercises');
-		await refund(env, 'ana', 'exercises');
+		await refund(env, { ok: true, user: 'ana' }, 'exercises');
 		expect(db.rows.get('ana|exercises')).toBe(0);
-		await refund(env, 'ana', 'exercises');
+		await refund(env, { ok: true, user: 'ana' }, 'exercises');
 		expect(db.rows.get('ana|exercises')).toBe(0);
 	});
 
@@ -158,7 +164,7 @@ describe('cupos por dispositivo (sin códigos)', () => {
 	const dev = (id?: string) =>
 		new Request('https://x.test/api/generate', {
 			method: 'POST',
-			headers: id ? { 'X-Client-Id': id } : {}
+			headers: { 'X-Adult': '1', ...(id ? { 'X-Client-Id': id } : {}) }
 		});
 
 	it('sin códigos ni base de datos el acceso es libre', async () => {
@@ -169,8 +175,8 @@ describe('cupos por dispositivo (sin códigos)', () => {
 		const db = fakeDb();
 		const env: QuotaEnv = { DB: db, LIMIT_EXERCISES: '2' };
 		const user = `device:${ID}`;
-		expect(await charge(dev(ID), env, 'exercises')).toEqual({ ok: true, user });
-		expect(await charge(dev(ID), env, 'exercises')).toEqual({ ok: true, user });
+		expect(await charge(dev(ID), env, 'exercises')).toEqual({ ok: true, user, paid: 0 });
+		expect(await charge(dev(ID), env, 'exercises')).toEqual({ ok: true, user, paid: 0 });
 		expect(await charge(dev(ID), env, 'exercises')).toMatchObject({ ok: false, status: 429 });
 		expect(await charge(dev('zzzzzzzz-other-device-id'), env, 'exercises')).toMatchObject({
 			ok: true

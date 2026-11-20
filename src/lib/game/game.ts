@@ -1,7 +1,7 @@
 // Motor del juego: tiempo, cámara, física del personaje, puntuación y dibujo vía Theme.
 // El tiempo maestro es el reloj del AudioContext, así el piano y lo que se ve no se desfasan.
 import { nearestDifficulty, stricter, toleranceOf, type Difficulty } from './difficulty';
-import { getContext, playDrum, playNote, stopAll, tick } from '$lib/audio/engine';
+import { liveAudio, type AudioOut, type AudioRecorder } from '$lib/audio/engine';
 import { hitsAt, type DrumPattern } from '$lib/audio/drums';
 import { measureBeats, tickBeats } from '$lib/music/meter';
 import type { Sequence, TimedNote } from '$lib/music/generate';
@@ -23,7 +23,35 @@ import {
 import type { Theme } from './theme';
 
 /** 'listen': antes de la cuenta suena una vez la primera repetición, con el personaje de frente. */
+/** Modo sin conexión (render de video): tamaño fijo y reloj/audio virtuales, sin bucle de animación. */
+export interface OfflineConfig {
+	recorder: AudioRecorder;
+	/** Tamaño lógico del escenario (px CSS) y escala: el canvas queda en width·dpr × height·dpr. */
+	width: number;
+	height: number;
+	dpr: number;
+	/** Si se pasa, dibuja en el canvas el anuncio de la nota guía (en vivo es HTML encima del canvas). */
+	guide?: { label: (midi: number) => string; font: string };
+}
+
 export type Phase = 'idle' | 'listen' | 'countin' | 'playing' | 'paused' | 'done';
+
+/** Duración del anuncio de la nota guía (la misma que la animación `guide-flash` de la página). */
+const GUIDE_FLASH_SEC = 0.9;
+
+/** CSS `ease-in` = cubic-bezier(0.42, 0, 1, 1): progreso x (0–1) → valor y. */
+function easeIn(x: number): number {
+	let lo = 0;
+	let hi = 1;
+	for (let i = 0; i < 20; i++) {
+		const t = (lo + hi) / 2;
+		const bx = 3 * (1 - t) * (1 - t) * t * 0.42 + 3 * (1 - t) * t * t + t * t * t;
+		if (bx < x) lo = t;
+		else hi = t;
+	}
+	const t = (lo + hi) / 2;
+	return 3 * (1 - t) * t * t + t * t * t;
+}
 
 /** Silencio entre la escucha previa y la cuenta. */
 const LISTEN_GAP_SEC = 0.6;
@@ -96,7 +124,10 @@ export class Game {
 	private w = 0;
 	private h = 0;
 	private dpr = 1;
-	private resizeObserver: ResizeObserver;
+	private resizeObserver: ResizeObserver | null = null;
+	/** Reloj y voces: los del AudioContext, o los virtuales del render sin conexión. */
+	private audio: AudioOut = liveAudio;
+	private offline: OfflineConfig | null = null;
 	private raf = 0;
 	private lastFrame = 0;
 
@@ -155,9 +186,16 @@ export class Game {
 	constructor(
 		private canvas: HTMLCanvasElement,
 		private theme: Theme,
-		private onStatus: (s: GameStatus) => void
+		private onStatus: (s: GameStatus) => void,
+		offline?: OfflineConfig
 	) {
 		this.g = canvas.getContext('2d')!;
+		if (offline) {
+			this.offline = offline;
+			this.audio = offline.recorder;
+			this.resize();
+			return;
+		}
 		this.resizeObserver = new ResizeObserver(() => this.resize());
 		this.resizeObserver.observe(canvas);
 		this.resize();
@@ -167,7 +205,7 @@ export class Game {
 	destroy(): void {
 		this.stop();
 		cancelAnimationFrame(this.raf);
-		this.resizeObserver.disconnect();
+		this.resizeObserver?.disconnect();
 	}
 
 	setTheme(theme: Theme): void {
@@ -176,8 +214,9 @@ export class Game {
 	}
 
 	/** 1 = normal; más es acercar (menos tiempo y menos notas a la vista), menos es alejar. */
-	setZoom(z: number): void {
+	setZoom(z: number, snap = false): void {
 		this.zoomTarget = z;
+		if (snap) this.zoomNow = z;
 	}
 
 	/** ¿La voz parece entrar desfasada respecto del ejercicio que terminó? */
@@ -247,18 +286,17 @@ export class Game {
 		this.guideNote = -1;
 		this.octave.reset();
 		this.octaveWarns = 0;
-		const ctx = getContext();
 		// Escucha previa: suena una vez la primera repetición, sin la nota guía (esa queda para la
 		// práctica); arranca directo en la primera nota a cantar.
 		const first = this.seq.reps[0];
-		const from = ctx.currentTime + 0.15;
+		const from = this.audio.now() + 0.15;
 		let listenSec = 0;
 		const sung = this.seq.notes.filter((n) => n.rep === 0 && !n.isHint);
 		const firstSung = sung.find((n) => !n.isRest);
 		if (first && firstSung) {
 			for (const n of sung) {
 				if (n.isRest) continue;
-				playNote(
+				this.audio.note(
 					n.midi,
 					from + n.start - firstSung.start,
 					n.staccato ? n.duration * 0.5 : n.duration,
@@ -286,16 +324,16 @@ export class Game {
 			return;
 		}
 		if (this.phase !== 'countin' && this.phase !== 'playing') return;
-		this.pausedAt = getContext().currentTime - this.t0;
+		this.pausedAt = this.audio.now() - this.t0;
 		this.phase = 'paused';
-		stopAll();
+		this.audio.stopAll();
 		this.emitStatus(true, this.pausedAt - this.latency);
 	}
 
 	resume(): void {
 		if (this.phase !== 'paused') return;
 		const from = this.pausedAt - RESUME_PREROLL_SEC;
-		this.t0 = getContext().currentTime - from;
+		this.t0 = this.audio.now() - from;
 		const notes = this.seq.notes;
 		this.nextNoteToSchedule = notes.findIndex((n) => n.start >= from);
 		if (this.nextNoteToSchedule < 0) this.nextNoteToSchedule = notes.length;
@@ -333,7 +371,18 @@ export class Game {
 			this.grounded = true;
 			this.resetWalker();
 		}
-		stopAll();
+		this.audio.stopAll();
+	}
+
+	/** Fase actual (la usa el render sin conexión para saber cuándo terminó). */
+	get currentPhase(): Phase {
+		return this.phase;
+	}
+
+	/** Render sin conexión: avanza el reloj virtual `dt` segundos y dibuja un cuadro. */
+	stepOffline(dt: number): void {
+		this.offline!.recorder.advance(dt);
+		this.step(dt);
 	}
 
 	getStars(): Star[] {
@@ -346,6 +395,11 @@ export class Game {
 		this.raf = requestAnimationFrame(this.frame);
 		const dt = Math.min(0.05, (ms - (this.lastFrame || ms)) / 1000);
 		this.lastFrame = ms;
+		this.step(dt);
+	};
+
+	/** Un cuadro de simulación y dibujo (`dt` en segundos). */
+	private step(dt: number): void {
 		this.animClock += dt * this.speed;
 		this.zoomNow += (this.zoomTarget - this.zoomNow) * Math.min(1, dt * 10);
 		const anim = this.animClock;
@@ -353,9 +407,9 @@ export class Game {
 		let time = this.previewTime;
 		if (this.phase === 'listen') {
 			// Se ve la vista previa; la cuenta se programa con anticipación para que entre a tiempo.
-			const ctx = getContext();
-			this.scheduleAudio(ctx.currentTime - this.t0);
-			if (ctx.currentTime >= this.listenEnd) {
+			const clock = this.audio.now();
+			this.scheduleAudio(clock - this.t0);
+			if (clock >= this.listenEnd) {
 				this.phase = 'countin';
 				this.grounded = false;
 				this.emitStatus(true);
@@ -363,7 +417,7 @@ export class Game {
 			this.sung = null;
 			this.updateBird(dt);
 		} else if (this.phase === 'countin' || this.phase === 'playing') {
-			const songTime = getContext().currentTime - this.t0;
+			const songTime = this.audio.now() - this.t0;
 			this.scheduleAudio(songTime);
 			this.trackGuide(songTime);
 			time = songTime - this.latency;
@@ -387,7 +441,7 @@ export class Game {
 		this.focusCamera(time, false, dt);
 		this.draw(time, anim);
 		this.emitStatus(false, time);
-	};
+	}
 
 	/** Recuerda la última nota guía que ya empezó a sonar (por el reloj del audio, no el de la voz). */
 	private trackGuide(songTime: number): void {
@@ -409,7 +463,7 @@ export class Game {
 		) {
 			const n = notes[this.nextNoteToSchedule++];
 			if (n.isRest || (!n.isHint && !this.opts.guide)) continue;
-			playNote(
+			this.audio.note(
 				n.midi,
 				this.t0 + n.start,
 				n.staccato ? n.duration * 0.5 : n.duration,
@@ -421,7 +475,7 @@ export class Game {
 		const per = this.opts.beatsPerMeasure;
 		while (this.nextBeatToSchedule < 0 && this.nextBeatToSchedule * pulse < horizon) {
 			const b = this.nextBeatToSchedule++;
-			tick(this.t0 + b * pulse, ((b % per) + per) % per === 0);
+			this.audio.tick(this.t0 + b * pulse, ((b % per) + per) % per === 0);
 		}
 		// Batería: un paso del patrón cada `drumStepSec`; acentúa el primer paso de cada compás.
 		const drums = this.opts.drums;
@@ -430,7 +484,8 @@ export class Game {
 		const perMeasure = per * drums.stepsPerTick;
 		while (this.nextDrumStep * step < horizon && this.nextDrumStep * step <= this.seq.duration) {
 			const k = this.nextDrumStep++;
-			for (const part of hitsAt(drums, k)) playDrum(part, this.t0 + k * step, k % perMeasure === 0);
+			for (const part of hitsAt(drums, k))
+				this.audio.drum(part, this.t0 + k * step, k % perMeasure === 0);
 		}
 	}
 
@@ -687,12 +742,12 @@ export class Game {
 	// ---------- dibujo ----------
 
 	private resize(): void {
-		const rect = this.canvas.getBoundingClientRect();
-		this.dpr = Math.min(2, window.devicePixelRatio || 1);
-		this.w = rect.width;
-		this.h = rect.height;
-		this.canvas.width = Math.round(rect.width * this.dpr);
-		this.canvas.height = Math.round(rect.height * this.dpr);
+		const size = this.offline ?? this.canvas.getBoundingClientRect();
+		this.dpr = this.offline?.dpr ?? Math.min(2, window.devicePixelRatio || 1);
+		this.w = size.width;
+		this.h = size.height;
+		this.canvas.width = Math.round(this.w * this.dpr);
+		this.canvas.height = Math.round(this.h * this.dpr);
 	}
 
 	private draw(time: number, anim: number): void {
@@ -724,6 +779,48 @@ export class Game {
 			onTarget,
 			vy: this.birdVy
 		});
+		this.drawGuideFlash(time);
+	}
+
+	/**
+	 * Anuncio de la nota guía, igual que el `.guide-flash` de la página: aparece desde chico, se agranda
+	 * y se esfuma en 0,9 s (en vivo es HTML; en el video hay que pintarlo en el canvas).
+	 */
+	private drawGuideFlash(time: number): void {
+		const cfg = this.offline?.guide;
+		const playing = this.phase === 'countin' || this.phase === 'playing' || this.phase === 'paused';
+		if (!cfg || !playing || this.guideNote < 0) return;
+		const note = this.seq.notes[this.guideNote];
+		const p = (time - note.start) / GUIDE_FLASH_SEC;
+		if (p < 0 || p >= 1) return;
+		const { g } = this;
+		// Opacidad: sube hasta el 22 %, se mantiene hasta el 65 % y baja (ease-in en cada tramo).
+		const opacity = p < 0.22 ? easeIn(p / 0.22) : p < 0.65 ? 1 : 1 - easeIn((p - 0.65) / 0.35);
+		const scale = 0.12 + (2.8 - 0.12) * easeIn(p);
+		const blur = p < 0.22 ? 6 * (1 - easeIn(p / 0.22)) : 0;
+		const text = cfg.label(note.midi).replace(/-?\d+$/, '');
+		const size = 128;
+		g.save();
+		g.translate(this.w / 2, this.h / 2);
+		g.scale(scale, scale);
+		g.globalAlpha = opacity;
+		if (blur > 0.05) g.filter = `blur(${blur}px)`;
+		g.font = `${size}px ${cfg.font}`;
+		g.textAlign = 'center';
+		g.textBaseline = 'middle';
+		g.lineJoin = 'round';
+		g.lineWidth = 2;
+		g.fillStyle = '#7c2d12';
+		g.fillText(text, 0, 3); // sombra
+		const fill = g.createLinearGradient(0, -size / 2, 0, size / 2);
+		fill.addColorStop(0, '#ffe066');
+		fill.addColorStop(0.48, '#ffa41b');
+		fill.addColorStop(1, '#ff6a00');
+		g.fillStyle = fill;
+		g.fillText(text, 0, 0);
+		g.strokeStyle = '#7c2d12';
+		g.strokeText(text, 0, 0);
+		g.restore();
 	}
 
 	private drawPerches(time: number): void {

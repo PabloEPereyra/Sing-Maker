@@ -1,7 +1,9 @@
 <script lang="ts">
 	// Perfil al estilo juego de celular: avatar redondo (columna derecha del escenario) que abre un popup
 	// de configuración: idioma, dificultad, sonidos, código de acceso y calibraciones.
+	import { resolve } from '$app/paths';
 	import type { PitchDetector } from '$lib/audio/pitch';
+	import { age, ageStatus, changeAge } from '$lib/age.svelte';
 	import { settings } from '$lib/settings.svelte';
 	import { DIFFICULTIES } from '$lib/game/difficulty';
 	import { t } from '$lib/i18n';
@@ -36,6 +38,8 @@
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape' && open) open = false;
 	}
+
+	ageStatus(); // lee la edad guardada para mostrarla en el selector
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -144,6 +148,25 @@
 						<span class="menu-switch" data-on={settings.sfx}><span></span></span>
 					</button>
 
+					<!-- Edad para la IA (términos de Meta): se cambia acá; pasar a «18 o más» muestra el aviso con los términos -->
+					<div class="menu-row-static">
+						{@render head('sparkles', t('age.profile'))}
+						<div class="pill-group !h-9 w-full" role="group" aria-label={t('age.profile')}>
+							{#each [['adult', t('age.optAdult')], ['minor', t('age.optMinor')]] as const as [value, label] (value)}
+								<button
+									class="flex-1 px-1 text-xs font-semibold transition {age.status === value
+										? 'bg-accent text-white'
+										: 'hover:bg-surface-2'}"
+									aria-pressed={age.status === value}
+									onclick={() => changeAge(value)}
+								>
+									{label}
+								</button>
+							{/each}
+						</div>
+						{#if age.status === 'minor'}<p class="text-xs text-muted">{t('age.minorNote')}</p>{/if}
+					</div>
+
 					<AccessCode />
 
 					<div class="my-1.5 h-px bg-border"></div>
@@ -205,13 +228,19 @@
 							</p>
 						{/if}
 					{/if}
+
+					<div class="my-1.5 h-px bg-border"></div>
+					<p class="flex gap-3 px-3 pb-1 text-xs text-muted">
+						<a class="underline hover:text-fg" href={resolve('/terms')}>{t('legal.terms')}</a>
+						<a class="underline hover:text-fg" href={resolve('/privacy')}>{t('legal.privacy')}</a>
+					</p>
 				</div>
 			</div>
 		</div>
 	{/if}
 </div>
 
-{#snippet head(icon: 'globe' | 'ruler', label: string)}
+{#snippet head(icon: 'globe' | 'ruler' | 'sparkles', label: string)}
 	<div class="flex items-center gap-2.5 text-sm">
 		<Icon name={icon} class="h-5 w-5 shrink-0 text-accent" />
 		{label}

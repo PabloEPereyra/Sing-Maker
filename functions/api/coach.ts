@@ -29,7 +29,7 @@ export async function onRequestPost({
 	} catch (e) {
 		if (e instanceof GenerateError && e.status < 500)
 			return json({ error: e.message, details: e.details }, e.status);
-		await refund(env, gate.user, 'other');
+		await refund(env, gate, 'other');
 		if (e instanceof GenerateError) return json({ error: e.message, details: e.details }, e.status);
 		return json({ error: 'Unexpected error.' }, 500);
 	}

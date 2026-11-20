@@ -127,7 +127,7 @@ const es = {
 	'asset.tweakUndo': 'Deshacer retoque',
 	'rotate.title': 'Gira tu celular',
 	'rotate.text':
-		'Sing Maker se juega con el celular acostado, en horizontal. Si no gira solo, activa el giro automático.',
+		'Vocal Quest se juega con el celular acostado, en horizontal. Si no gira solo, activa el giro automático.',
 	'rotate.fullscreen': 'Jugar',
 	'stage.repsLabel': 'Repeticiones',
 	'rhythms.speed': 'Velocidad de la batería',
@@ -174,7 +174,8 @@ const es = {
 	'profile.title': 'Configuración',
 	'install.item': 'Instalar como app',
 	'install.helpIos': 'Toca el botón Compartir del navegador y elige «Agregar a inicio».',
-	'install.helpOther': 'Abre el menú del navegador (⋮) y elige «Instalar app» o «Agregar a la pantalla de inicio».',
+	'install.helpOther':
+		'Abre el menú del navegador (⋮) y elige «Instalar app» o «Agregar a la pantalla de inicio».',
 	'mic.calibrateItem': 'Calibrar micrófono',
 	'mic.calibrateTitle': 'Calibración del micrófono',
 	'sync.item': 'Sincronizar la voz',
@@ -266,6 +267,57 @@ const es = {
 	'stage.outOfRange': 'Este ejercicio no entra en el rango elegido. Ampliá el rango de voz.',
 	'stage.done': '¡Llegaste!',
 	'stage.retry': 'Repetir',
+	'legal.terms': 'Términos',
+	'legal.privacy': 'Privacidad',
+	'legal.loginAccept': 'Al entrar aceptas los términos y la política de privacidad:',
+	'legal.buyAccept':
+		'Al comprar aceptas los términos (reembolso dentro de 14 días si no usaste los créditos):',
+	'legal.ageAccept': 'Al confirmar aceptas los términos y la política de privacidad:',
+	'age.title': 'Funciones con IA',
+	'age.body':
+		'Crear ejercicios, personajes y fondos, el dictado y las recomendaciones del entrenador usan modelos de IA de Meta, que solo pueden usar personas de 18 años o más.',
+	'age.rest': 'El resto del juego es para todos y no necesita esta confirmación.',
+	'age.confirm': 'Tengo 18 años o más',
+	'age.decline': 'Ahora no',
+	'age.declined':
+		'Las funciones con IA son solo para personas de 18 años o más. Si te equivocaste, cámbialo desde el menú de tu perfil.',
+	'age.required':
+		'Confirma que tienes 18 años o más para usar las funciones con IA y vuelve a intentarlo.',
+	'age.minor': 'Soy menor de 18',
+	'age.changeLater': 'Puedes cambiarlo cuando quieras desde el menú de tu perfil.',
+	'age.profile': 'Edad para usar la IA',
+	'age.optAdult': '18 o más',
+	'age.optMinor': 'Menor de 18',
+	'age.minorNote':
+		'Sin IA: el entrenador te da consejos igual, y el resto del juego es para todos.',
+	'coachLocal.great': '¡Excelente! Acertaste el {pct}% de las notas.',
+	'coachLocal.improving': 'Fuiste mejorando en cada vuelta, ¡bien hecho!',
+	'coachLocal.tired':
+		'Al final te costó un poco más: puede ser cansancio, haz una pausa corta y toma agua.',
+	'coachLocal.result': 'Acertaste el {pct}% de las notas.',
+	'coachLocal.desynced':
+		'Parece que el ejercicio va desfasado con tu voz: puedes sincronizarla desde el menú de tu perfil.',
+	'coachLocal.silent':
+		'Varias veces se cortó el sonido: respira antes de cada frase y trata de sostener la nota hasta el final.',
+	'coachLocal.notesLow':
+		'En {notes} la voz quedó un poco por debajo: apunta un poquito más arriba.',
+	'coachLocal.notesHigh':
+		'En {notes} la voz quedó un poco por encima: relaja y apunta un poquito más abajo.',
+	'coachLocal.notes':
+		'Lo que más te costó fue {notes}: prueba escuchar la nota guía antes de cantar.',
+	'coachLocal.low':
+		'A veces la voz quedó un poco por debajo de la nota: apunta un poquito más arriba.',
+	'coachLocal.high':
+		'A veces la voz quedó un poco por encima de la nota: relaja y apunta un poquito más abajo.',
+	'coachLocal.highHarder':
+		'Las notas agudas te costaron más que las graves: ve con calma en esa zona.',
+	'coachLocal.lowHarder':
+		'Las notas graves te costaron más que las agudas: no fuerces, deja salir el sonido suave.',
+	'coachLocal.nextUp': 'Puedes subir de nivel con este:',
+	'coachLocal.nextEasier': 'Para afianzarlo, prueba primero uno un poco más fácil:',
+	'coachLocal.mastered': 'Ya dominas este ejercicio: prueba otro de un nivel más alto en la lista.',
+	'coachLocal.repeat': 'Repítelo una vez más con calma: te va a salir cada vez mejor.',
+	'coach.ask': 'Ver la recomendación con IA',
 	'coach.title': 'Tu entrenador',
 	'coach.thinking': 'Tu entrenador está revisando cómo te fue…',
 	'coach.levelUp': 'Para subir de nivel',
@@ -297,6 +349,32 @@ const es = {
 	'access.quota.characters': 'Llegaste al límite de personajes con IA de tu cupo.',
 	'access.quota.images': 'Llegaste al límite de imágenes con IA de tu cupo (animaciones y fondos).',
 	'access.quota.other': 'Llegaste al límite de uso de la IA de tu cupo.',
+	'account.title': 'Tu cuenta',
+	'account.why': 'Entra con tu email para usar créditos y tenerlos en cualquier dispositivo.',
+	'account.emailPlaceholder': 'Tu email',
+	'account.send': 'Enviar enlace',
+	'account.sending': 'Enviando…',
+	'account.sent': 'Te enviamos un enlace a {email}. Ábrelo en este dispositivo para entrar.',
+	'account.devLink': 'Modo desarrollo: abrir el enlace',
+	'account.invalidEmail': 'Revisa el email.',
+	'account.tooMany': 'Pediste demasiados enlaces. Espera un rato y vuelve a intentar.',
+	'account.error': 'No se pudo enviar el enlace. Prueba de nuevo en un rato.',
+	'account.credits': 'Créditos',
+	'account.free': 'Gratis',
+	'account.logout': 'Cerrar sesión',
+	'account.welcome': '¡Listo! Entraste como {email}.',
+	'account.linkInvalid': 'El enlace venció o ya se usó. Pide uno nuevo desde el menú de tu perfil.',
+	'account.loginRequired':
+		'Usaste todo tu cupo gratis. Entra con tu email desde el menú de tu perfil para seguir con créditos.',
+	'account.creditsRequired':
+		'No te alcanzan los créditos para esto. Puedes comprar más en el menú de tu perfil.',
+	'account.buy': 'Comprar créditos',
+	'account.paymentFailed':
+		'El pago no se completó y no se cobró nada. Puedes intentar de nuevo desde el menú de tu perfil.',
+	'account.pack': '{credits} créditos · US$ {price}',
+	'account.buyError': 'No se pudo abrir el pago. Prueba de nuevo en un rato.',
+	'account.thanks':
+		'¡Gracias por tu compra! Tus créditos se suman en unos segundos: míralos en el menú de tu perfil.',
 	'tip.ok': 'Entendido',
 	'tip.skipAll': 'No más pistas',
 	'tip.play': 'Pulsa ▶︎ para empezar: suena una nota guía y luego cantas siguiendo al personaje.',
@@ -353,7 +431,7 @@ const es = {
 	'onb.skip': 'Saltar guía',
 	'onb.next': 'Siguiente',
 	'onb.back': 'Atrás',
-	'onb.welcome.title': '¡Bienvenido a Sing Maker!',
+	'onb.welcome.title': '¡Bienvenido a Vocal Quest!',
 	'onb.welcome.body':
 		'Cantas y el personaje se mueve con tu voz. Te guío en unos pasos cortos (unos 2 minutos) para dejar todo a tu medida: micrófono, rango, retraso de la voz, dificultad y un nivel para empezar.',
 	'onb.welcome.go': 'Empezar',
@@ -420,8 +498,10 @@ const es = {
 	'char.cancel': 'Cancelar creación',
 	'char.pickType': '¿Qué tipo de personaje quieres crear?',
 	'char.pickTypeHelp': 'Elige bien: cambia cómo se dibuja y cómo se mueve en el juego.',
-	'char.walkerDesc': 'Corre y salta de nota en nota sobre plataformas. Ej.: un zorro, un niño, un robot.',
-	'char.flyerDesc': 'Vuela o nada a la altura de la nota que cantas. Ej.: un pájaro, un pez, un brujito en escoba.',
+	'char.walkerDesc':
+		'Corre y salta de nota en nota sobre plataformas. Ej.: un zorro, un niño, un robot.',
+	'char.flyerDesc':
+		'Vuela o nada a la altura de la nota que cantas. Ej.: un pájaro, un pez, un brujito en escoba.',
 	'char.back': 'Volver',
 	'char.step.hero': 'Diseño del personaje',
 	'char.step.move': 'Poses de movimiento',
@@ -688,7 +768,7 @@ const en: Record<Key, string> = {
 	'asset.tweakUndo': 'Undo retouch',
 	'rotate.title': 'Rotate your phone',
 	'rotate.text':
-		'Sing Maker is played with the phone on its side, in landscape. If it does not turn by itself, enable auto-rotate.',
+		'Vocal Quest is played with the phone on its side, in landscape. If it does not turn by itself, enable auto-rotate.',
 	'rotate.fullscreen': 'Play',
 	'stage.repsLabel': 'Repetitions',
 	'rhythms.speed': 'Drum speed',
@@ -735,7 +815,8 @@ const en: Record<Key, string> = {
 	'profile.title': 'Settings',
 	'install.item': 'Install as app',
 	'install.helpIos': 'Tap the browser’s Share button and choose “Add to Home Screen”.',
-	'install.helpOther': 'Open the browser menu (⋮) and choose “Install app” or “Add to Home screen”.',
+	'install.helpOther':
+		'Open the browser menu (⋮) and choose “Install app” or “Add to Home screen”.',
 	'mic.calibrateItem': 'Calibrate microphone',
 	'mic.calibrateTitle': 'Microphone calibration',
 	'sync.item': 'Sync your voice',
@@ -827,6 +908,54 @@ const en: Record<Key, string> = {
 	'stage.outOfRange': 'This exercise does not fit the selected range. Widen your voice range.',
 	'stage.done': 'You made it!',
 	'stage.retry': 'Retry',
+	'legal.terms': 'Terms',
+	'legal.privacy': 'Privacy',
+	'legal.loginAccept': 'By signing in you accept the terms and the privacy policy:',
+	'legal.buyAccept':
+		'By buying you accept the terms (refund within 14 days if you have not used the credits):',
+	'legal.ageAccept': 'By confirming you accept the terms and the privacy policy:',
+	'age.title': 'AI features',
+	'age.body':
+		'Creating exercises, characters and backgrounds, dictation and the coach’s recommendations use AI models from Meta, which may only be used by people aged 18 or over.',
+	'age.rest': 'The rest of the game is for everyone and does not need this confirmation.',
+	'age.confirm': 'I am 18 or older',
+	'age.decline': 'Not now',
+	'age.declined':
+		'AI features are only for people aged 18 or over. If that was a mistake, change it from your profile menu.',
+	'age.required': 'Confirm that you are 18 or older to use the AI features, then try again.',
+	'age.minor': 'I am under 18',
+	'age.changeLater': 'You can change it anytime from your profile menu.',
+	'age.profile': 'Age for AI features',
+	'age.optAdult': '18 or over',
+	'age.optMinor': 'Under 18',
+	'age.minorNote':
+		'No AI: the coach still gives you tips, and the rest of the game is for everyone.',
+	'coachLocal.great': 'Excellent! You hit {pct}% of the notes.',
+	'coachLocal.improving': 'You got better with every round. Well done!',
+	'coachLocal.tired':
+		'It got a bit harder at the end: it may be tiredness, take a short break and drink some water.',
+	'coachLocal.result': 'You hit {pct}% of the notes.',
+	'coachLocal.desynced':
+		'The exercise seems out of step with your voice: you can sync it from your profile menu.',
+	'coachLocal.silent':
+		'The sound stopped several times: breathe before each phrase and try to hold the note to the end.',
+	'coachLocal.notesLow':
+		'On {notes} your voice landed a little under the note: aim slightly higher.',
+	'coachLocal.notesHigh':
+		'On {notes} your voice landed a little over the note: relax and aim slightly lower.',
+	'coachLocal.notes':
+		'The hardest part was {notes}: try listening to the guide note before singing.',
+	'coachLocal.low': 'Sometimes your voice landed a little under the note: aim slightly higher.',
+	'coachLocal.high':
+		'Sometimes your voice landed a little over the note: relax and aim slightly lower.',
+	'coachLocal.highHarder': 'The high notes were harder than the low ones: take it easy up there.',
+	'coachLocal.lowHarder':
+		"The low notes were harder than the high ones: don't push, let the sound come out softly.",
+	'coachLocal.nextUp': 'You can level up with this one:',
+	'coachLocal.nextEasier': 'To lock it in, first try a slightly easier one:',
+	'coachLocal.mastered': 'You have mastered this exercise: try a higher-level one from the list.',
+	'coachLocal.repeat': 'Try it once more, calmly: it will keep getting better.',
+	'coach.ask': 'See the AI recommendation',
 	'coach.title': 'Your coach',
 	'coach.thinking': 'Your coach is checking how it went…',
 	'coach.levelUp': 'Level up',
@@ -858,6 +987,33 @@ const en: Record<Key, string> = {
 	'access.quota.images':
 		'You reached the limit of AI images in your allowance (animations and backgrounds).',
 	'access.quota.other': 'You reached the limit of AI use in your allowance.',
+	'account.title': 'Your account',
+	'account.why': 'Sign in with your email to use credits and keep them on any device.',
+	'account.emailPlaceholder': 'Your email',
+	'account.send': 'Send link',
+	'account.sending': 'Sending…',
+	'account.sent': 'We sent a link to {email}. Open it on this device to sign in.',
+	'account.devLink': 'Development mode: open the link',
+	'account.invalidEmail': 'Check the email.',
+	'account.tooMany': 'You asked for too many links. Wait a while and try again.',
+	'account.error': 'The link could not be sent. Try again in a while.',
+	'account.credits': 'Credits',
+	'account.free': 'Free',
+	'account.logout': 'Sign out',
+	'account.welcome': 'Done! You signed in as {email}.',
+	'account.linkInvalid':
+		'The link expired or was already used. Ask for a new one from your profile menu.',
+	'account.loginRequired':
+		'You used all your free allowance. Sign in with your email from your profile menu to continue with credits.',
+	'account.creditsRequired':
+		"You don't have enough credits for this. You can buy more from your profile menu.",
+	'account.buy': 'Buy credits',
+	'account.paymentFailed':
+		'The payment was not completed and nothing was charged. You can try again from your profile menu.',
+	'account.pack': '{credits} credits · US$ {price}',
+	'account.buyError': 'The payment page could not be opened. Try again in a while.',
+	'account.thanks':
+		'Thanks for your purchase! Your credits will show up in a few seconds in your profile menu.',
 	'tip.ok': 'Got it',
 	'tip.skipAll': 'No more tips',
 	'tip.play': 'Press ▶︎ to start: a guide note plays, then you sing following the character.',
@@ -913,7 +1069,7 @@ const en: Record<Key, string> = {
 	'onb.skip': 'Skip guide',
 	'onb.next': 'Next',
 	'onb.back': 'Back',
-	'onb.welcome.title': 'Welcome to Sing Maker!',
+	'onb.welcome.title': 'Welcome to Vocal Quest!',
 	'onb.welcome.body':
 		'You sing and the character moves with your voice. I will walk you through a few short steps (about 2 minutes) to set everything up for you: microphone, range, voice delay, difficulty and a level to start from.',
 	'onb.welcome.go': 'Start',
@@ -980,7 +1136,8 @@ const en: Record<Key, string> = {
 	'char.cancel': 'Cancel creation',
 	'char.pickType': 'What kind of character do you want to create?',
 	'char.pickTypeHelp': 'Choose carefully: it changes how it is drawn and how it moves in the game.',
-	'char.walkerDesc': 'Runs and jumps from note to note over platforms. E.g.: a fox, a kid, a robot.',
+	'char.walkerDesc':
+		'Runs and jumps from note to note over platforms. E.g.: a fox, a kid, a robot.',
 	'char.flyerDesc':
 		'Flies or swims at the height of the note you sing. E.g.: a bird, a fish, a little witch on a broom.',
 	'char.back': 'Back',

@@ -226,7 +226,9 @@
 		aria-labelledby="create-title"
 	>
 		<div class="flex items-center justify-between">
-			<h3 id="create-title" class="text-lg font-bold"><Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('create.title')}</h3>
+			<h3 id="create-title" class="text-lg font-bold">
+				<Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('create.title')}
+			</h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2"
 				aria-label={t('range.close')}
@@ -251,7 +253,9 @@
 					class="h-16 max-w-40 rounded border border-border bg-white object-contain"
 				/>
 				<div class="min-w-0 flex-1 text-sm">
-					<div class="font-semibold"><Icon name="note" class="mr-1 inline h-4 w-4 align-text-bottom" />{t('score.attached')}</div>
+					<div class="font-semibold">
+						<Icon name="note" class="mr-1 inline h-4 w-4 align-text-bottom" />{t('score.attached')}
+					</div>
 					<div class="text-xs text-muted">{t('score.attachedHint')}</div>
 					{#if fromDrawing}
 						<button
@@ -260,7 +264,10 @@
 								score = null;
 								asking = '';
 								drawing = true;
-							}}><Icon name="pencil" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t('draw.edit')}</button
+							}}
+							><Icon name="pencil" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t(
+								'draw.edit'
+							)}</button
 						>
 					{/if}
 				</div>
@@ -471,7 +478,14 @@
 						<div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
 							<span
 								>{t('score.readBy', {
-									engine: result.engine === 'wonder' ? 'Wonder' : 'Spark'
+									// El nombre sale del modelo que leyó (muse-ember-1.0 → Ember), no de un nombre fijo
+									engine:
+										result.engine === 'wonder'
+											? 'Wonder'
+											: (result.model.replace(/^muse-/, '').split('-')[0] ?? '').replace(
+													/^./,
+													(c) => c.toUpperCase()
+												)
 								})}</span
 							>
 							{#if result.engine === 'spark'}
@@ -479,7 +493,10 @@
 									class="rounded-lg border border-border bg-surface px-3 py-1 text-xs font-semibold text-fg hover:border-accent/50 disabled:opacity-50"
 									title={t('score.rereadHint')}
 									disabled={loading}
-									onclick={() => create('wonder')}><Icon name="eye" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t('score.reread')}</button
+									onclick={() => create('wonder')}
+									><Icon name="eye" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t(
+										'score.reread'
+									)}</button
 								>
 							{/if}
 						</div>
@@ -490,7 +507,11 @@
 								? 'border-accent text-accent'
 								: ''}"
 							onclick={listen}
-							> {#if listening}<Icon name="stop" class="h-4 w-4" />{:else}<Icon name="play" class="h-4 w-4" />{/if}
+						>
+							{#if listening}<Icon name="stop" class="h-4 w-4" />{:else}<Icon
+									name="play"
+									class="h-4 w-4"
+								/>{/if}
 							{listening ? t('create.stopListen') : t('create.listen')}</button
 						>
 						<button
@@ -502,7 +523,10 @@
 								? 'border-accent text-accent'
 								: ''}"
 							aria-pressed={editing}
-							onclick={() => (editing = !editing)}><Icon name="pencil" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t('create.edit')}</button
+							onclick={() => (editing = !editing)}
+							><Icon name="pencil" class="mr-1 inline h-3.5 w-3.5 align-text-bottom" />{t(
+								'create.edit'
+							)}</button
 						>
 						<button
 							class="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white"

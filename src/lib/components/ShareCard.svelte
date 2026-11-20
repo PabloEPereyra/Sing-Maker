@@ -20,7 +20,7 @@
 	let failed = $state(false);
 	let canShare = $state(false);
 
-	const name = $derived(`sing-maker-${info.pct}.png`);
+	const name = $derived(`vocal-quest-${info.pct}.png`);
 
 	onMount(() => {
 		let objectUrl = '';

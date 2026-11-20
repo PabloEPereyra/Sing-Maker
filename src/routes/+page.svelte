@@ -53,6 +53,7 @@
 	import { toleranceOf, type Difficulty } from '$lib/game/difficulty';
 	import { setUiSoundsMuted, uiClick } from '$lib/audio/uiSounds';
 	import { loadAccess } from '$lib/access.svelte';
+	import { accountNotice, completeLoginFromUrl } from '$lib/account.svelte';
 	import { loadHistory, recordAttempt } from '$lib/practice/history.svelte';
 	import { loadTips, markAllSeen, markSeen, nextTip, recordDone } from '$lib/tips.svelte';
 	import { t } from '$lib/i18n';
@@ -193,6 +194,7 @@
 		loadUnlocked();
 		loadTips();
 		loadAccess();
+		void completeLoginFromUrl();
 		loadHistory();
 
 		loadMyDrums();
@@ -664,6 +666,22 @@
 {/snippet}
 
 <svelte:document onpointerdown={onPointerDown} />
+
+<!-- Aviso al volver del enlace de inicio de sesión del email -->
+{#if accountNotice.text}
+	<div
+		class="fixed inset-x-0 top-3 z-[60] mx-auto flex w-[min(92vw,30rem)] items-center gap-3 rounded-xl border px-4 py-2.5 text-sm shadow-lg {accountNotice.error
+			? 'border-red-300 bg-red-50 text-red-800'
+			: 'border-border bg-surface text-fg'}"
+		role="status"
+	>
+		<span class="flex-1">{accountNotice.text}</span>
+		<button
+			class="text-xs font-bold text-muted hover:text-fg"
+			onclick={() => (accountNotice.text = '')}>{t('tip.ok')}</button
+		>
+	</div>
+{/if}
 
 <div class="flex h-dvh flex-col">
 	{#if micError}
