@@ -11,6 +11,11 @@
 	const legal = $derived(page.url.pathname === '/terms' || page.url.pathname === '/privacy');
 </script>
 
+<svelte:head>
+	<!-- Un solo sitio para los buscadores: la misma página en vocal.quest, venga de la dirección que venga -->
+	<link rel="canonical" href={`https://vocal.quest${page.url.pathname}`} />
+</svelte:head>
+
 {@render children()}
 {#if !legal}
 	<OrientationGuard />
