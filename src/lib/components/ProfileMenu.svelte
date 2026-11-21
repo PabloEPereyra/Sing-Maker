@@ -231,6 +231,7 @@
 
 					<div class="my-1.5 h-px bg-border"></div>
 					<p class="flex gap-3 px-3 pb-1 text-xs text-muted">
+						<a class="underline hover:text-fg" href={resolve('/pricing')}>{t('legal.pricing')}</a>
 						<a class="underline hover:text-fg" href={resolve('/terms')}>{t('legal.terms')}</a>
 						<a class="underline hover:text-fg" href={resolve('/privacy')}>{t('legal.privacy')}</a>
 					</p>

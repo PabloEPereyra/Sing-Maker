@@ -1,6 +1,13 @@
-// Términos y política de privacidad de Vocal Quest, en español e inglés. Las páginas /terms y /privacy los
-// muestran según el idioma elegido. Si cambia algo de fondo (qué datos se guardan, proveedores, precios,
+// Términos, política de privacidad y precios de Vocal Quest, en español e inglés. Las páginas /terms, /privacy y
+// /pricing los muestran según el idioma elegido. Si cambia algo de fondo (qué datos se guardan, proveedores, precios,
 // reembolsos), actualizar el texto y la fecha.
+import {
+	CREDIT_COSTS,
+	FREE_LIMITS,
+	PUBLIC_PACKS,
+	REFUND_DAYS,
+	STRIPS_PER_CHARACTER
+} from './pricing';
 import type { Lang } from './settings.svelte';
 
 /** Responsable del servicio. */
@@ -63,7 +70,7 @@ export function termsDoc(lang: Lang): LegalDoc {
 					title: '4. Payments and refunds',
 					body: [
 						'Payments are processed by Dodo Payments, which acts as the reseller (merchant of record). The price shown at checkout is the one charged, including any applicable taxes.',
-						`You can ask for a full refund within 14 days of a purchase as long as you have not used any credits from that pack. Write to ${CONTACT_EMAIL} from the email of your account. When the refund is processed, the credits of that pack are removed from your balance.`,
+						`You can ask for a full refund within ${REFUND_DAYS} days of a purchase as long as you have not used any credits from that pack. Write to ${CONTACT_EMAIL} from the email of your account. When the refund is processed, the credits of that pack are removed from your balance.`,
 						'This does not limit any additional rights that consumer law in your country gives you.'
 					]
 				},
@@ -142,7 +149,7 @@ export function termsDoc(lang: Lang): LegalDoc {
 				title: '4. Pagos y reembolsos',
 				body: [
 					'Los pagos los procesa Dodo Payments, que actúa como revendedor (merchant of record). El precio que ves al pagar es el que se cobra, con los impuestos que correspondan.',
-					`Puedes pedir el reembolso completo dentro de los 14 días de una compra, siempre que no hayas usado créditos de ese paquete. Escríbenos a ${CONTACT_EMAIL} desde el email de tu cuenta. Al reembolsarse, los créditos de ese paquete se descuentan de tu saldo.`,
+					`Puedes pedir el reembolso completo dentro de los ${REFUND_DAYS} días de una compra, siempre que no hayas usado créditos de ese paquete. Escríbenos a ${CONTACT_EMAIL} desde el email de tu cuenta. Al reembolsarse, los créditos de ese paquete se descuentan de tu saldo.`,
 					'Esto no limita otros derechos que te dé la ley de defensa del consumidor de tu país.'
 				]
 			},
@@ -345,6 +352,103 @@ export function privacyDoc(lang: Lang): LegalDoc {
 				title: '10. Cambios',
 				body: [
 					'Si cambiamos esta política, actualizaremos la fecha. Si los cambios son importantes, los avisaremos en el sitio.'
+				]
+			}
+		]
+	};
+}
+
+/** Precios: cupo gratis, paquetes y lo que cuesta cada uso, con los números de src/lib/pricing.ts. */
+export function pricingDoc(lang: Lang): LegalDoc {
+	const f = FREE_LIMITS;
+	const c = CREDIT_COSTS;
+	const character = c.characters + c.images * STRIPS_PER_CHARACTER;
+	const money = (n: number) => `US$ ${n}`;
+	if (lang === 'en')
+		return {
+			title: 'Pricing',
+			intro:
+				'Playing Vocal Quest is free. The AI features have a free allowance and, after that, are paid for with credits bought once, with no subscription.',
+			sections: [
+				{
+					title: 'Free',
+					body: [
+						'• All the exercises in the game, the level test, the daily routine, video recording and the coach without AI, with no limit.',
+						`• With AI, once per person: ${f.exercises} exercises or drum patterns, ${f.characters} characters (with up to ${f.images} images for their animations and backgrounds) and ${f.other} uses of the other AI features (the AI coach, dictation and helper steps).`
+					]
+				},
+				{
+					title: 'Credit packs',
+					body: [
+						...PUBLIC_PACKS.map((p) => `• ${p.credits} credits: ${money(p.price)}`),
+						'One-time payment. Credits do not expire while the service is running. Payments are processed by Dodo Payments as the reseller (merchant of record); depending on your country, taxes may be added, and the total is shown before you confirm.'
+					]
+				},
+				{
+					title: 'What each use costs',
+					body: [
+						'Once the free allowance is used up:',
+						`• Create an exercise or a drum pattern with AI: ${c.exercises} credit`,
+						`• Create a character: ${c.characters} credits for the main image, plus ${c.images} for each animation image (about ${STRIPS_PER_CHARACTER}), around ${character} credits in total`,
+						`• Each extra animation image or background: ${c.images} credits`,
+						'• AI coach, dictation and helper steps: no cost for people who have credits',
+						'If an AI request fails because of an error on our side, its credits are returned automatically. The profile menu shows your balance.'
+					]
+				},
+				{
+					title: 'Refunds',
+					body: [
+						`You can ask for a full refund within ${REFUND_DAYS} days of a purchase as long as you have not used any credits from that pack. Write to ${CONTACT_EMAIL} from the email of your account. The details are in the terms of use.`
+					]
+				},
+				{
+					title: 'Who can buy',
+					body: [
+						"The AI features, accounts and purchases are only for people aged 18 or over (a requirement of Meta's AI models). The rest of the game is for everyone."
+					]
+				}
+			]
+		};
+	return {
+		title: 'Precios',
+		intro:
+			'Jugar a Vocal Quest es gratis. Las funciones con IA tienen un cupo gratis y, después, se pagan con créditos que se compran una sola vez, sin suscripción.',
+		sections: [
+			{
+				title: 'Gratis',
+				body: [
+					'• Todos los ejercicios del juego, la prueba de nivel, la rutina diaria, la grabación de videos y el entrenador sin IA, sin límite.',
+					`• Con IA, una vez por persona: ${f.exercises} ejercicios o ritmos de batería, ${f.characters} personajes (con hasta ${f.images} imágenes para sus animaciones y fondos) y ${f.other} usos de las demás funciones con IA (el entrenador con IA, el dictado y pasos auxiliares).`
+				]
+			},
+			{
+				title: 'Paquetes de créditos',
+				body: [
+					...PUBLIC_PACKS.map((p) => `• ${p.credits} créditos: ${money(p.price)}`),
+					'Pago único. Los créditos no vencen mientras el servicio esté activo. Los pagos los procesa Dodo Payments como revendedor (merchant of record); según tu país se pueden sumar impuestos, y el total se muestra antes de confirmar.'
+				]
+			},
+			{
+				title: 'Cuánto cuesta cada uso',
+				body: [
+					'Cuando se termina el cupo gratis:',
+					`• Crear un ejercicio o un ritmo con IA: ${c.exercises} crédito`,
+					`• Crear un personaje: ${c.characters} créditos por la imagen principal, más ${c.images} por cada imagen de animación (unas ${STRIPS_PER_CHARACTER}), alrededor de ${character} créditos en total`,
+					`• Cada imagen de animación o fondo adicional: ${c.images} créditos`,
+					'• Entrenador con IA, dictado y pasos auxiliares: sin costo para quien tiene créditos',
+					'Si un pedido a la IA falla por un error nuestro, sus créditos se devuelven solos. El menú de tu perfil muestra tu saldo.'
+				]
+			},
+			{
+				title: 'Reembolsos',
+				body: [
+					`Puedes pedir el reembolso completo dentro de los ${REFUND_DAYS} días de una compra, siempre que no hayas usado créditos de ese paquete. Escríbenos a ${CONTACT_EMAIL} desde el email de tu cuenta. El detalle está en los términos de uso.`
+				]
+			},
+			{
+				title: 'Quién puede comprar',
+				body: [
+					'Las funciones con IA, las cuentas y las compras son solo para personas de 18 años o más (un requisito de los modelos de IA de Meta). El resto del juego es para todos.'
 				]
 			}
 		]

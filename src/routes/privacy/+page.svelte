@@ -3,4 +3,4 @@
 	import { privacyDoc } from '$lib/legal';
 </script>
 
-<LegalPage doc={privacyDoc} other="terms" />
+<LegalPage doc={privacyDoc} current="privacy" />

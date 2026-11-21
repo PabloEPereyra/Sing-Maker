@@ -7,8 +7,8 @@
 	import Tooltip from '$lib/components/Tooltip.svelte';
 
 	let { children } = $props();
-	// Términos y privacidad se leen también con el celular en vertical
-	const legal = $derived(page.url.pathname === '/terms' || page.url.pathname === '/privacy');
+	// Términos, privacidad y precios se leen también con el celular en vertical
+	const legal = $derived(['/terms', '/privacy', '/pricing'].includes(page.url.pathname));
 </script>
 
 <svelte:head>

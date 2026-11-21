@@ -1,12 +1,15 @@
 <script lang="ts">
-	// Página de texto legal (términos o privacidad): se lee en vertical o en horizontal, con el texto
+	// Página de texto legal (términos, privacidad o precios): se lee en vertical o en horizontal, con el texto
 	// seleccionable y el idioma que la persona eligió en el juego (se puede cambiar acá mismo).
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { UPDATED, type LegalDoc } from '$lib/legal';
 	import { loadSettings, settings, type Lang } from '$lib/settings.svelte';
 
-	let { doc, other }: { doc: (lang: Lang) => LegalDoc; other: 'terms' | 'privacy' } = $props();
+	type Page = 'terms' | 'privacy' | 'pricing';
+	let { doc, current }: { doc: (lang: Lang) => LegalDoc; current: Page } = $props();
+	/** Las otras dos páginas, para el pie. */
+	const others = $derived((['pricing', 'terms', 'privacy'] as const).filter((p) => p !== current));
 
 	let lang = $state<Lang>(settings.lang);
 	onMount(() => {
@@ -38,13 +41,15 @@
 					back: '← Volver al juego',
 					updated: 'Última actualización',
 					terms: 'Términos de uso',
-					privacy: 'Política de privacidad'
+					privacy: 'Política de privacidad',
+					pricing: 'Precios'
 				}
 			: {
 					back: '← Back to the game',
 					updated: 'Last updated',
 					terms: 'Terms of use',
-					privacy: 'Privacy policy'
+					privacy: 'Privacy policy',
+					pricing: 'Pricing'
 				}
 	);
 </script>
@@ -87,10 +92,12 @@
 					{/if}
 				{/each}
 			{/each}
-			<p class="mt-8 border-t border-border pt-4 text-sm">
-				<a href={resolve(`/${other}`)} class="font-semibold text-accent hover:underline"
-					>{labels[other]}</a
-				>
+			<p class="mt-8 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-4 text-sm">
+				{#each others as page (page)}
+					<a href={resolve(`/${page}`)} class="font-semibold text-accent hover:underline"
+						>{labels[page]}</a
+					>
+				{/each}
 			</p>
 		</article>
 	</main>

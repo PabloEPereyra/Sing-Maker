@@ -208,7 +208,8 @@
 			</div>
 			<p class="text-xs text-muted">
 				{t('legal.buyAccept')}
-				<a class="underline hover:text-fg" href={resolve('/terms')}>{t('legal.terms')}</a>
+				<a class="underline hover:text-fg" href={resolve('/terms')}>{t('legal.terms')}</a> ·
+				<a class="underline hover:text-fg" href={resolve('/pricing')}>{t('legal.pricing')}</a>
 			</p>
 			{#if buyMessage}<p class="text-xs text-red-600" role="status">{buyMessage}</p>{/if}
 		{/if}

@@ -269,6 +269,7 @@ const es = {
 	'stage.retry': 'Repetir',
 	'legal.terms': 'Términos',
 	'legal.privacy': 'Privacidad',
+	'legal.pricing': 'Precios',
 	'legal.loginAccept': 'Al entrar aceptas los términos y la política de privacidad:',
 	'legal.buyAccept':
 		'Al comprar aceptas los términos (reembolso dentro de 14 días si no usaste los créditos):',
@@ -910,6 +911,7 @@ const en: Record<Key, string> = {
 	'stage.retry': 'Retry',
 	'legal.terms': 'Terms',
 	'legal.privacy': 'Privacy',
+	'legal.pricing': 'Pricing',
 	'legal.loginAccept': 'By signing in you accept the terms and the privacy policy:',
 	'legal.buyAccept':
 		'By buying you accept the terms (refund within 14 days if you have not used the credits):',

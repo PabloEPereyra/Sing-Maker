@@ -17,6 +17,7 @@
 // age_confirmations, y sin el encabezado se acepta solo si ya había una declaración guardada para esa persona.
 import { authEnabled, sessionAccount, type Account, type AuthEnv } from './auth';
 import { ensureSchema, inBatch, type D1Like } from './db';
+import { CREDIT_COSTS, FREE_LIMITS } from '../pricing';
 
 export type { D1Like } from './db';
 
@@ -45,30 +46,11 @@ export interface QuotaEnv extends AuthEnv {
 /** El entorno completo de una función de Pages: variables de texto más el binding de la base. */
 export type FunctionEnv = Record<string, string | undefined> & QuotaEnv;
 
-/**
- * Cupo gratis de cada persona (de por vida, no se renueva); después se paga con créditos. Alcanza para probar
- * crear con IA sin reemplazar la compra: 10 ejercicios o ritmos y 2 personajes completos.
- */
-export const DEFAULT_LIMITS: Record<Bucket, number> = {
-	exercises: 10,
-	characters: 2,
-	// Tiras y fondos: unas 4 tiras por personaje, más algún reintento o un fondo.
-	images: 12,
-	// Entrenador, dictado y llamadas auxiliares de los personajes (interpretar el pedido, revisar, recortar).
-	// Al agotarse, el entrenador sigue con la devolución sin IA.
-	other: 150
-};
+/** Cupo gratis por defecto (ver src/lib/pricing.ts). */
+export const DEFAULT_LIMITS: Record<Bucket, number> = FREE_LIMITS;
 
-/**
- * Créditos por llamada una vez agotado el cupo gratis. Un personaje completo es la imagen principal más unas 4
- * tiras (~13 créditos); con 1 crédito ≈ US$ 0,01 de costo de IA y el paquete a 4–5×, deja margen.
- */
-export const DEFAULT_COSTS: Record<Bucket, number> = {
-	exercises: 1,
-	characters: 5,
-	images: 2,
-	other: 0
-};
+/** Créditos por llamada después del cupo gratis (ver src/lib/pricing.ts). */
+export const DEFAULT_COSTS: Record<Bucket, number> = CREDIT_COSTS;
 
 const numbersFromEnv = (
 	raw: Record<Bucket, string | undefined>,
