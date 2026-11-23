@@ -132,13 +132,13 @@ function loginEmail(
 }
 
 /**
- * Confirma un enlace: lo marca usado, crea la cuenta si no existe, abre una sesión y suma a la cuenta lo que
- * ya había gastado este dispositivo del cupo gratis (entrar no vuelve a dar el cupo).
+ * Confirma un enlace: lo marca usado, crea la cuenta si no existe y abre una sesión. El regalo de bienvenida lo
+ * da aparte quien llama (src/lib/server/welcome.ts).
  */
 export async function verifyLogin(
 	request: Request,
 	env: AuthEnv,
-	input: { token: unknown; device?: string | null }
+	input: { token: unknown }
 ): Promise<{ ok: true; account: Account; setCookie: string } | AuthError> {
 	const db = env.DB;
 	if (!db) return { ok: false, status: 503, error: 'auth_unavailable' };
@@ -171,15 +171,6 @@ export async function verifyLogin(
 		.bind(row.email)
 		.first<Account>();
 	if (!account) return { ok: false, status: 500, error: 'auth_unavailable' };
-
-	if (input.device && /^[A-Za-z0-9_-]{16,64}$/.test(input.device)) {
-		await db
-			.prepare(
-				'INSERT INTO usage (name, bucket, n) SELECT ?1, bucket, n FROM usage WHERE name = ?2 AND true ON CONFLICT(name, bucket) DO UPDATE SET n = MAX(n, excluded.n)'
-			)
-			.bind(`user:${account.id}`, `device:${input.device}`)
-			.run();
-	}
 
 	const session = randomToken();
 	await db

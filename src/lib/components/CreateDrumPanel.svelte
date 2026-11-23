@@ -11,6 +11,7 @@
 	import type { MeterId } from '$lib/music/meter';
 	import { settings } from '$lib/settings.svelte';
 	import Icon from './Icon.svelte';
+	import CreditBadge from './CreditBadge.svelte';
 
 	let {
 		meter: initialMeter,
@@ -123,6 +124,7 @@
 		onclick={create}>{loading ? t('drums.working') : t('drums.submit')}</button
 	>
 </div>
+<CreditBadge spend="exercise" />
 
 {#if error}
 	<div

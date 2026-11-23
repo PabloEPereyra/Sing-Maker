@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import CreditBadge from './CreditBadge.svelte';
 	// "Crear personaje con IA". Reparto de modelos (de barato a caro): Spark 1.3 interpreta el pedido y
 	// reconoce qué hay en una foto; SAM 3.1 recorta (un objeto de la foto y cada pose de las tiras);
 	// Muse Image dibuja las poses. Después se anima en vivo para aprobarlo y queda guardado en el dispositivo.
@@ -681,6 +682,7 @@
 					onclick={askType}>{t('char.create')}</button
 				>
 			</div>
+			<CreditBadge spend="character" />
 		{:else if phase === 'type'}
 			<p class="mt-3 text-lg font-semibold">{t('char.pickType')}</p>
 			<p class="mt-1 text-sm text-muted">{t('char.pickTypeHelp')}</p>

@@ -6,8 +6,8 @@
 export type Bucket = 'exercises' | 'characters' | 'images' | 'other';
 
 /**
- * Cupo gratis de cada persona (de por vida, no se renueva); después se paga con créditos. Alcanza para probar
- * crear con IA sin reemplazar la compra: 10 ejercicios o ritmos y 2 personajes completos.
+ * Cupo gratis cuando no hay cuentas (sitio sin inicio de sesión o con códigos de acceso): de por vida, no se
+ * renueva, y es el tope. Con cuentas no se usa: quien entra recibe WELCOME_CREDITS y quien no, ANON_LIMITS.
  */
 export const FREE_LIMITS: Record<Bucket, number> = {
 	exercises: 10,
@@ -18,6 +18,33 @@ export const FREE_LIMITS: Record<Bucket, number> = {
 	// Al agotarse, el entrenador sigue con la devolución sin IA.
 	other: 150
 };
+
+/**
+ * Lo que puede usar sin cuenta cada navegador cuando hay inicio de sesión: unos pocos ejercicios para probar la
+ * IA. Personajes, tiras y fondos piden cuenta, porque una ventana privada es un navegador nuevo y el personaje es
+ * lo caro. Se cambia con ANON_LIMIT_* (no con LIMIT_*, que es el cupo sin cuentas).
+ */
+export const ANON_LIMITS: Record<Bucket, number> = {
+	exercises: 3,
+	characters: 0,
+	images: 0,
+	// El entrenador y el dictado de esos ejercicios.
+	other: 20
+};
+
+/**
+ * Créditos de regalo al crear la cuenta (una vez por email, contando sus variantes «+algo» y los puntos de
+ * Gmail). Equivalen al viejo cupo gratis: 10 ejercicios (10) más 2 personajes completos (2 × 13) ≈ 36.
+ * Se cambia con WELCOME_CREDITS.
+ */
+export const WELCOME_CREDITS = 40;
+
+/**
+ * Cuentas que pueden recibir el regalo desde una misma IP en WELCOME_IP_DAYS días: alcanza para una familia o una
+ * oficina, y frena a quien crea cuentas en serie. Se cambia con WELCOME_PER_IP (0 = sin tope).
+ */
+export const WELCOME_PER_IP = 10;
+export const WELCOME_IP_DAYS = 30;
 
 /**
  * Créditos por llamada una vez agotado el cupo gratis. Un personaje completo es la imagen principal más unas 4

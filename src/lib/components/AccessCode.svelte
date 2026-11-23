@@ -1,78 +1,29 @@
 <script lang="ts">
 	// Lo que lleva gastado esta persona de su cupo con IA y, si el sitio reparte códigos de acceso, el campo
-	// para escribir el código. Si hay cuentas, también su sesión: entrar con el email (enlace mágico), los
-	// créditos que le quedan y cerrar sesión. Sin servidor de cupos (desarrollo) no se muestra nada.
+	// para escribir el código. Si hay cuentas, también su sesión: entrar con el email (enlace mágico, con el
+	// regalo de créditos de bienvenida), los créditos que le quedan y cerrar sesión. Sin servidor de cupos
+	// (desarrollo) no se muestra nada.
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
-	import { access, identityHeaders, saveAccess } from '$lib/access.svelte';
-	import { buyPack, requestLink, signOut } from '$lib/account.svelte';
-	import type { Bucket } from '$lib/ai/http';
+	import { access, saveAccess } from '$lib/access.svelte';
+	import { buyPack, signOut } from '$lib/account.svelte';
 	import { t } from '$lib/i18n';
+	import { refreshWallet, wallet } from '$lib/wallet.svelte';
 	import Icon from './Icon.svelte';
+	import LoginForm from './LoginForm.svelte';
 
-	interface Report {
-		open: boolean;
-		codes?: boolean;
-		name?: string;
-		used?: Record<Bucket, number>;
-		limits?: Record<Bucket, number>;
-		auth?: boolean;
-		account?: { email: string; credits: number } | null;
-		packs?: { productId: string; credits: number; price: number }[];
-	}
-
-	/** `none`: sin servidor de cupos; `locked`: hay códigos y falta uno válido; `ok`: persona reconocida. */
-	let mode = $state<'unknown' | 'none' | 'locked' | 'ok'>('unknown');
-	let report = $state<Report | null>(null);
-	let message = $state('');
+	const mode = $derived(wallet.mode);
+	const report = $derived(wallet.report);
+	const message = $derived(mode === 'locked' && access.code ? t('access.invalid') : '');
 	let draft = $state(access.code);
 
-	// Inicio de sesión
-	let email = $state('');
-	let sending = $state(false);
-	let linkMessage = $state('');
-	let linkOk = $state(false);
-	let devLink = $state('');
-
-	async function refresh() {
-		message = '';
-		report = null;
-		try {
-			const res = await fetch('/api/quota', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', ...identityHeaders() },
-				body: '{}'
-			});
-			const data = await res.json().catch(() => null);
-			if (res.status === 401) {
-				mode = 'locked';
-				message = access.code ? t('access.invalid') : '';
-			} else if (res.ok && data?.open) mode = 'none';
-			else if (res.ok && data?.name) {
-				mode = 'ok';
-				report = data as Report;
-			} else mode = 'none';
-		} catch {
-			mode = 'none';
-		}
-	}
-
-	onMount(refresh);
+	onMount(() => {
+		void refreshWallet();
+	});
 
 	function save() {
 		saveAccess(draft);
-		void refresh();
-	}
-
-	async function sendLink() {
-		if (sending || !email.trim()) return;
-		sending = true;
-		devLink = '';
-		const r = await requestLink(email);
-		sending = false;
-		linkOk = r.ok;
-		linkMessage = r.message;
-		devLink = r.devLink ?? '';
+		void refreshWallet();
 	}
 
 	let buying = $state('');
@@ -87,11 +38,14 @@
 
 	async function logout() {
 		await signOut();
-		linkMessage = '';
-		void refresh();
+		void refreshWallet();
 	}
 
 	const signedIn = $derived(!!report?.auth && !!report.account);
+	/** Sin sesión, con cuentas: qué cupos mostrar (solo los que tienen algo). */
+	const shown = $derived(
+		(['exercises', 'characters'] as const).filter((b) => !report?.auth || (report.limits?.[b] ?? 0) > 0)
+	);
 </script>
 
 {#if mode === 'locked' || mode === 'ok'}
@@ -136,44 +90,10 @@
 		{#if message}<p class="mt-1 text-xs text-red-600">{message}</p>{/if}
 
 		{#if report?.auth && !report.account}
-			<p class="text-xs text-muted">{t('account.why')}</p>
 			<p class="text-xs text-muted">
-				{t('legal.loginAccept')}
-				<a class="underline hover:text-fg" href={resolve('/terms')}>{t('legal.terms')}</a> ·
-				<a class="underline hover:text-fg" href={resolve('/privacy')}>{t('legal.privacy')}</a>
+				{report.welcome ? t('account.whyWelcome', { n: report.welcome }) : t('account.why')}
 			</p>
-			<form
-				class="flex gap-1.5"
-				onsubmit={(e) => {
-					e.preventDefault();
-					void sendLink();
-				}}
-			>
-				<input
-					type="email"
-					bind:value={email}
-					autocomplete="email"
-					autocapitalize="off"
-					spellcheck="false"
-					required
-					placeholder={t('account.emailPlaceholder')}
-					class="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs outline-none focus:border-accent"
-				/>
-				<button
-					type="submit"
-					disabled={sending}
-					class="rounded-lg bg-accent px-3 text-xs font-bold text-white hover:brightness-105 disabled:opacity-60"
-				>
-					{sending ? t('account.sending') : t('account.send')}
-				</button>
-			</form>
-			{#if linkMessage}
-				<p class="text-xs {linkOk ? 'text-muted' : 'text-red-600'}" role="status">{linkMessage}</p>
-			{/if}
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- enlace completo de desarrollo -->
-			{#if devLink}<a class="text-xs font-semibold text-accent underline" href={devLink}
-					>{t('account.devLink')}</a
-				>{/if}
+			<LoginForm />
 		{/if}
 
 		{#if report?.used && report.limits}
@@ -184,9 +104,11 @@
 						<dd class="font-bold text-fg tabular-nums">{report.account?.credits}</dd>
 					</div>
 				{/if}
-				{#each ['exercises', 'characters'] as const as b (b)}
+				{#each signedIn ? [] : shown as b (b)}
 					<div class="flex justify-between">
-						<dt>{t(`access.used.${b}`)}{report.auth ? ` · ${t('account.free')}` : ''}</dt>
+						<dt>
+							{t(`access.used.${b}`)}{report.auth ? ` · ${t('account.freeNoAccount')}` : ''}
+						</dt>
 						<dd class="font-semibold tabular-nums">
 							{Math.min(report.used[b], report.limits[b])} / {report.limits[b]}
 						</dd>

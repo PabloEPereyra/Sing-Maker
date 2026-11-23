@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import CreditBadge from './CreditBadge.svelte';
 	// "Crear fondo con IA": Spark interpreta el lugar, Muse Image pinta un fondo ancho que se repite al avanzar y,
 	// para los que caminan, Spark mira la imagen y dice dónde empieza el suelo (se puede ajustar con el deslizador).
 	import { onDestroy } from 'svelte';
@@ -281,6 +282,7 @@
 					onclick={create}>{t('scene.create')}</button
 				>
 			</div>
+			<CreditBadge spend="scene" />
 		{:else if phase === 'working'}
 			<div
 				class="mt-6 mb-4 flex items-center justify-center gap-3 text-sm text-muted"

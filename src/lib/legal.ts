@@ -2,11 +2,12 @@
 // /pricing los muestran según el idioma elegido. Si cambia algo de fondo (qué datos se guardan, proveedores, precios,
 // reembolsos), actualizar el texto y la fecha.
 import {
+	ANON_LIMITS,
 	CREDIT_COSTS,
-	FREE_LIMITS,
 	PUBLIC_PACKS,
 	REFUND_DAYS,
-	STRIPS_PER_CHARACTER
+	STRIPS_PER_CHARACTER,
+	WELCOME_CREDITS
 } from './pricing';
 import type { Lang } from './settings.svelte';
 
@@ -18,8 +19,8 @@ export const OWNER_COUNTRY: Record<Lang, string> = {
 };
 export const CONTACT_EMAIL = 'hola@vocal.quest';
 export const UPDATED: Record<Lang, string> = {
-	es: '20 de noviembre de 2026',
-	en: 'November 20, 2026'
+	es: '23 de noviembre de 2026',
+	en: 'November 23, 2026'
 };
 
 export interface LegalSection {
@@ -59,8 +60,8 @@ export function termsDoc(lang: Lang): LegalDoc {
 				{
 					title: '3. Free allowance and credits',
 					body: [
-						'Each person gets a free allowance of AI uses. We may change the size of the free allowance at any time.',
-						'Once the free allowance is used up, the AI features are paid for with credits bought in packs. The profile menu shows how many credits each type of use costs before you use it.',
+						'Without an account you can try a few AI uses for free. When you create an account you get free credits once per person (one per email, and a limited number of accounts per network). We may change the free allowance and the free credits at any time, and we do not give them to temporary email addresses.',
+						'Free credits are spent before purchased ones and are not refundable. After that, the AI features are paid for with credits bought in packs. The profile menu shows how many credits each type of use costs before you use it.',
 						'Credits have no monetary value outside Vocal Quest, cannot be transferred or exchanged for money, and are tied to the email of your account.',
 						'Credits do not expire while the service is running. If we ever close the service, we will announce it at least 30 days in advance.',
 						'If an AI request fails because of an error on our side, the credits for that request are returned automatically.'
@@ -138,8 +139,8 @@ export function termsDoc(lang: Lang): LegalDoc {
 			{
 				title: '3. Cupo gratis y créditos',
 				body: [
-					'Cada persona tiene un cupo gratis de usos de la IA. Podemos cambiar el tamaño del cupo gratis en cualquier momento.',
-					'Cuando se termina el cupo gratis, las funciones con IA se pagan con créditos que se compran en paquetes. El menú de tu perfil muestra cuántos créditos cuesta cada tipo de uso antes de usarlo.',
+					'Sin cuenta puedes probar gratis algunos usos de la IA. Al crear tu cuenta recibes créditos de regalo una vez por persona (uno por email y una cantidad limitada de cuentas por red). Podemos cambiar el cupo gratis y los créditos de regalo en cualquier momento, y no los damos a emails temporales.',
+					'Los créditos de regalo se gastan antes que los comprados y no se reembolsan. Después, las funciones con IA se pagan con créditos que se compran en paquetes. El menú de tu perfil muestra cuántos créditos cuesta cada tipo de uso antes de usarlo.',
 					'Los créditos no tienen valor en dinero fuera de Vocal Quest, no se pueden transferir ni cambiar por dinero, y quedan asociados al email de tu cuenta.',
 					'Los créditos no vencen mientras el servicio esté activo. Si alguna vez cerramos el servicio, lo avisaremos con al menos 30 días de anticipación.',
 					'Si un pedido a la IA falla por un error nuestro, los créditos de ese pedido se devuelven solos.'
@@ -216,9 +217,10 @@ export function privacyDoc(lang: Lang): LegalDoc {
 					body: [
 						'• A random anonymous identifier created by your browser, with how many AI uses it has consumed from the free allowance.',
 						'• The date on which you confirmed being 18 or older (linked to that identifier or to your account).',
-						'• If you create an account: your email, your credit balance, the history of credit movements (purchases, uses and refunds) and your open sessions. We do not use passwords: you sign in with a link sent to your email.',
+						'• If you create an account: your email, your credit balance, the history of credit movements (free credits, purchases, uses and refunds) and your open sessions. We do not use passwords: you sign in with a link sent to your email.',
+						'• When an account receives the free credits: a hash of your email without aliases and a hash of your network (IP address), with the date, so that the free credits are given once per person and a limited number of times per network. We do not store the IP address itself.',
 						'• Sign-in links are stored only as a hash, expire and can be used once.',
-						'We use them to count the free allowance, charge credits, let you sign in and keep your balance on any device.'
+						'We use them to count the free allowance, give the free credits, charge credits, let you sign in and keep your balance on any device.'
 					]
 				},
 				{
@@ -294,9 +296,10 @@ export function privacyDoc(lang: Lang): LegalDoc {
 				body: [
 					'• Un identificador anónimo al azar que crea tu navegador, con cuántos usos de la IA consumió del cupo gratis.',
 					'• La fecha en que confirmaste tener 18 años o más (asociada a ese identificador o a tu cuenta).',
-					'• Si creas una cuenta: tu email, tu saldo de créditos, el historial de movimientos de créditos (compras, usos y reembolsos) y tus sesiones abiertas. No usamos contraseñas: entras con un enlace que te llega por email.',
+					'• Si creas una cuenta: tu email, tu saldo de créditos, el historial de movimientos de créditos (regalos, compras, usos y reembolsos) y tus sesiones abiertas. No usamos contraseñas: entras con un enlace que te llega por email.',
+					'• Cuando una cuenta recibe los créditos de regalo: un hash de tu email sin alias y un hash de tu red (dirección IP), con la fecha, para dar el regalo una vez por persona y una cantidad limitada de veces por red. No guardamos la dirección IP.',
 					'• Los enlaces para entrar se guardan solo como un hash, vencen y se usan una sola vez.',
-					'Los usamos para contar el cupo gratis, cobrar los créditos, dejarte entrar y mantener tu saldo en cualquier dispositivo.'
+					'Los usamos para contar el cupo gratis, dar los créditos de regalo, cobrar los créditos, dejarte entrar y mantener tu saldo en cualquier dispositivo.'
 				]
 			},
 			{
@@ -360,7 +363,8 @@ export function privacyDoc(lang: Lang): LegalDoc {
 
 /** Precios: cupo gratis, paquetes y lo que cuesta cada uso, con los números de src/lib/pricing.ts. */
 export function pricingDoc(lang: Lang): LegalDoc {
-	const f = FREE_LIMITS;
+	const a = ANON_LIMITS;
+	const w = WELCOME_CREDITS;
 	const c = CREDIT_COSTS;
 	const character = c.characters + c.images * STRIPS_PER_CHARACTER;
 	const money = (n: number) => `US$ ${n}`;
@@ -368,13 +372,14 @@ export function pricingDoc(lang: Lang): LegalDoc {
 		return {
 			title: 'Pricing',
 			intro:
-				'Playing Vocal Quest is free. The AI features have a free allowance and, after that, are paid for with credits bought once, with no subscription.',
+				'Playing Vocal Quest is free. To create with AI you get free credits when you create your account and, after that, you pay with credits bought once, with no subscription.',
 			sections: [
 				{
 					title: 'Free',
 					body: [
 						'• All the exercises in the game, the level test, the daily routine, video recording and the coach without AI, with no limit.',
-						`• With AI, once per person: ${f.exercises} exercises or drum patterns, ${f.characters} characters (with up to ${f.images} images for their animations and backgrounds) and ${f.other} uses of the other AI features (the AI coach, dictation and helper steps).`
+						`• Without an account: ${a.exercises} exercises with AI to try it out.`,
+						`• When you create your account: ${w} free credits, once per person. They are enough for about ${Math.floor(w / character)} complete characters, or ${w} exercises, or a mix.`
 					]
 				},
 				{
@@ -387,7 +392,7 @@ export function pricingDoc(lang: Lang): LegalDoc {
 				{
 					title: 'What each use costs',
 					body: [
-						'Once the free allowance is used up:',
+						'Paid with your free or purchased credits:',
 						`• Create an exercise or a drum pattern with AI: ${c.exercises} credit`,
 						`• Create a character: ${c.characters} credits for the main image, plus ${c.images} for each animation image (about ${STRIPS_PER_CHARACTER}), around ${character} credits in total`,
 						`• Each extra animation image or background: ${c.images} credits`,
@@ -412,13 +417,14 @@ export function pricingDoc(lang: Lang): LegalDoc {
 	return {
 		title: 'Precios',
 		intro:
-			'Jugar a Vocal Quest es gratis. Las funciones con IA tienen un cupo gratis y, después, se pagan con créditos que se compran una sola vez, sin suscripción.',
+			'Jugar a Vocal Quest es gratis. Para crear con IA recibes créditos de regalo al crear tu cuenta y, después, pagas con créditos que se compran una sola vez, sin suscripción.',
 		sections: [
 			{
 				title: 'Gratis',
 				body: [
 					'• Todos los ejercicios del juego, la prueba de nivel, la rutina diaria, la grabación de videos y el entrenador sin IA, sin límite.',
-					`• Con IA, una vez por persona: ${f.exercises} ejercicios o ritmos de batería, ${f.characters} personajes (con hasta ${f.images} imágenes para sus animaciones y fondos) y ${f.other} usos de las demás funciones con IA (el entrenador con IA, el dictado y pasos auxiliares).`
+					`• Sin cuenta: ${a.exercises} ejercicios con IA para probar.`,
+					`• Al crear tu cuenta: ${w} créditos de regalo, una vez por persona. Alcanzan para unos ${Math.floor(w / character)} personajes completos, o ${w} ejercicios, o una mezcla.`
 				]
 			},
 			{
@@ -431,7 +437,7 @@ export function pricingDoc(lang: Lang): LegalDoc {
 			{
 				title: 'Cuánto cuesta cada uso',
 				body: [
-					'Cuando se termina el cupo gratis:',
+					'Se paga con tus créditos de regalo o comprados:',
 					`• Crear un ejercicio o un ritmo con IA: ${c.exercises} crédito`,
 					`• Crear un personaje: ${c.characters} créditos por la imagen principal, más ${c.images} por cada imagen de animación (unas ${STRIPS_PER_CHARACTER}), alrededor de ${character} créditos en total`,
 					`• Cada imagen de animación o fondo adicional: ${c.images} créditos`,

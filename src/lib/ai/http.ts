@@ -3,6 +3,8 @@
 import { identityHeaders } from '../access.svelte';
 import { ensureAdult, resetAdult } from '../age.svelte';
 import { t } from '../i18n';
+import { WELCOME_CREDITS } from '../pricing';
+import { refreshWallet, wallet } from '../wallet.svelte';
 import { GenerateRequestError } from './client';
 
 export type Bucket = 'exercises' | 'characters' | 'images' | 'other';
@@ -27,7 +29,8 @@ export function accessMessage(status: number, data: ApiBody): string | null {
 		return t(data.error === 'invalid_access_code' ? 'access.invalid' : 'access.required');
 	if (status === 429 && data.error === 'quota_exceeded')
 		return t(`access.quota.${data.bucket ?? 'other'}`);
-	if (status === 402 && data.error === 'login_required') return t('account.loginRequired');
+	if (status === 402 && data.error === 'login_required')
+		return t('account.loginRequired', { n: wallet.report?.welcome ?? WELCOME_CREDITS });
 	if (status === 402 && data.error === 'credits_required') return t('account.creditsRequired');
 	return null;
 }
@@ -49,6 +52,8 @@ export async function postJson<T = unknown>(
 		signal
 	});
 	const data = await res.json().catch(() => ({}));
+	// Cada llamada pudo gastar cupo o créditos: el indicador de los creadores se pone al día.
+	void refreshWallet();
 	// El servidor no tiene la declaración: se vuelve a preguntar la próxima vez.
 	if (res.status === 403 && data.error === 'age_confirmation_required') resetAdult();
 	const message = accessMessage(res.status, data);

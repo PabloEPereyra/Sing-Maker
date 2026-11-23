@@ -6,6 +6,7 @@
 //   login_tokens   enlaces de inicio de sesión mandados por email (hash, vencen y se usan una sola vez)
 //   credit_ledger  cada movimiento de créditos: compras, usos y devoluciones (`ref` único evita duplicados)
 //   age_confirmations  cuándo cada persona (dispositivo, cuenta o código) declaró tener 18 años o más
+//   welcome_grants cuándo se dio el regalo de bienvenida y desde qué red (hash de la IP), para el tope por IP
 
 /** Resultado de una consulta ya con sus parámetros. */
 export interface D1Bound {
@@ -32,7 +33,9 @@ const SCHEMA = [
 	'CREATE INDEX IF NOT EXISTS login_tokens_email ON login_tokens (email, created_at)',
 	'CREATE TABLE IF NOT EXISTS credit_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, delta INTEGER NOT NULL, reason TEXT NOT NULL, ref TEXT UNIQUE, created_at INTEGER NOT NULL)',
 	'CREATE INDEX IF NOT EXISTS credit_ledger_user ON credit_ledger (user_id, created_at)',
-	'CREATE TABLE IF NOT EXISTS age_confirmations (name TEXT PRIMARY KEY, confirmed_at INTEGER NOT NULL)'
+	'CREATE TABLE IF NOT EXISTS age_confirmations (name TEXT PRIMARY KEY, confirmed_at INTEGER NOT NULL)',
+	'CREATE TABLE IF NOT EXISTS welcome_grants (ip_hash TEXT NOT NULL, created_at INTEGER NOT NULL)',
+	'CREATE INDEX IF NOT EXISTS welcome_grants_ip ON welcome_grants (ip_hash, created_at)'
 ];
 
 const ready = new WeakMap<D1Like, Promise<unknown>>();

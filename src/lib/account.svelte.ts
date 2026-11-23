@@ -3,6 +3,7 @@
 import { identityHeaders } from './access.svelte';
 import { t } from './i18n';
 import { settings } from './settings.svelte';
+import { refreshWallet } from './wallet.svelte';
 
 /** Aviso corto arriba de la pantalla (al entrar desde el enlace del email). */
 export const accountNotice = $state({ text: '', error: false });
@@ -76,10 +77,22 @@ export async function completeLoginFromUrl(): Promise<void> {
 	}
 	try {
 		const { res, data } = await post('/api/auth-verify', { token });
-		const email = (data.account as { email?: string } | undefined)?.email;
+		const account = data.account as { email?: string; credits?: number } | undefined;
+		const email = account?.email;
 		if (res.ok && email) {
-			accountNotice.text = t('account.welcome', { email });
+			// El regalo de bienvenida: se dio ahora, ya se había dado, o no corresponde (email descartable o
+			// demasiadas cuentas desde la misma red).
+			const welcome = data.welcome;
+			accountNotice.text =
+				welcome === 'granted'
+					? t('account.welcomeGift', { email, n: account?.credits ?? 0 })
+					: welcome === 'disposable'
+						? t('account.welcomeDisposable', { email })
+						: welcome === 'ip_limit'
+							? t('account.welcomeIpLimit', { email })
+							: t('account.welcome', { email });
 			accountNotice.error = false;
+			void refreshWallet();
 			return;
 		}
 	} catch {

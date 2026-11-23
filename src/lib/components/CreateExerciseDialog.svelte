@@ -23,6 +23,7 @@
 	import VoiceExerciseDialog from './VoiceExerciseDialog.svelte';
 	import type { PitchDetector } from '$lib/audio/pitch';
 	import Icon from './Icon.svelte';
+	import CreditBadge from './CreditBadge.svelte';
 
 	let {
 		range,
@@ -440,6 +441,7 @@
 								: t('create.submit')}</button
 				>
 			</div>
+			<CreditBadge spend="exercise" />
 
 			{#if error}
 				<div

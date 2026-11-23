@@ -6,18 +6,20 @@
 //   X-Client-Id. Se esquiva borrando los datos del sitio, pero alcanza para acotar el gasto.
 // Sin códigos y sin base D1 el acceso es libre y no se cuenta nada (desarrollo local).
 //
-// Cupo gratis y créditos: los límites (LIMIT_*) son el cupo gratis de cada persona. Quien inició sesión cuenta
-// el cupo en su cuenta (y al entrar se le suma lo que ya había gastado su dispositivo); cuando se le acaba,
-// cada llamada descuenta créditos de su saldo según CREDIT_COST_* (créditos que compró). Un costo 0 (lo
-// normal en «other»: entrenador, dictado, revisiones) sigue sin cobrar, pero solo a quien tiene saldo.
-// Con códigos de acceso no hay créditos: el cupo es el tope.
+// Cupo gratis y créditos:
+// - Sin cuentas (sin inicio de sesión configurado, o con códigos de acceso) los límites LIMIT_* son el cupo de
+//   cada persona y el tope.
+// - Con cuentas, quien no inició sesión tiene un cupo chico por navegador (ANON_LIMIT_*: unos ejercicios, sin
+//   personajes ni imágenes) y después se le pide entrar. Quien entra recibe créditos de regalo una vez
+//   (src/lib/server/welcome.ts) y cada llamada descuenta créditos de su saldo según CREDIT_COST_*. Un costo 0
+//   (lo normal en «other»: entrenador, dictado, revisiones) no cobra, pero solo pasa si le queda saldo.
 //
 // Edad: los términos de Meta Model API (sección 10.1) piden que quien usa la IA tenga 18 años o más. El navegador
 // manda X-Adult: 1 cuando la persona lo declaró; la primera vez queda registrado (con la fecha) en
 // age_confirmations, y sin el encabezado se acepta solo si ya había una declaración guardada para esa persona.
 import { authEnabled, sessionAccount, type Account, type AuthEnv } from './auth';
 import { ensureSchema, inBatch, type D1Like } from './db';
-import { CREDIT_COSTS, FREE_LIMITS } from '../pricing';
+import { ANON_LIMITS, CREDIT_COSTS, FREE_LIMITS, WELCOME_CREDITS } from '../pricing';
 
 export type { D1Like } from './db';
 
@@ -36,6 +38,11 @@ export interface QuotaEnv extends AuthEnv {
 	LIMIT_CHARACTERS?: string;
 	LIMIT_IMAGES?: string;
 	LIMIT_OTHER?: string;
+	ANON_LIMIT_EXERCISES?: string;
+	ANON_LIMIT_CHARACTERS?: string;
+	ANON_LIMIT_IMAGES?: string;
+	ANON_LIMIT_OTHER?: string;
+	WELCOME_CREDITS?: string;
 	CREDIT_COST_EXERCISES?: string;
 	CREDIT_COST_CHARACTERS?: string;
 	CREDIT_COST_IMAGES?: string;
@@ -46,8 +53,11 @@ export interface QuotaEnv extends AuthEnv {
 /** El entorno completo de una función de Pages: variables de texto más el binding de la base. */
 export type FunctionEnv = Record<string, string | undefined> & QuotaEnv;
 
-/** Cupo gratis por defecto (ver src/lib/pricing.ts). */
+/** Cupo gratis por defecto cuando no hay cuentas (ver src/lib/pricing.ts). */
 export const DEFAULT_LIMITS: Record<Bucket, number> = FREE_LIMITS;
+
+/** Cupo por defecto de quien no inició sesión cuando hay cuentas (ver src/lib/pricing.ts). */
+export const DEFAULT_ANON_LIMITS: Record<Bucket, number> = ANON_LIMITS;
 
 /** Créditos por llamada después del cupo gratis (ver src/lib/pricing.ts). */
 export const DEFAULT_COSTS: Record<Bucket, number> = CREDIT_COSTS;
@@ -75,6 +85,34 @@ export const limitsFromEnv = (env: QuotaEnv): Record<Bucket, number> =>
 		},
 		DEFAULT_LIMITS
 	);
+
+export const anonLimitsFromEnv = (env: QuotaEnv): Record<Bucket, number> =>
+	numbersFromEnv(
+		{
+			exercises: env.ANON_LIMIT_EXERCISES,
+			characters: env.ANON_LIMIT_CHARACTERS,
+			images: env.ANON_LIMIT_IMAGES,
+			other: env.ANON_LIMIT_OTHER
+		},
+		DEFAULT_ANON_LIMITS
+	);
+
+/** Créditos de regalo al crear la cuenta (WELCOME_CREDITS, 0 = sin regalo). */
+export function welcomeCredits(env: { WELCOME_CREDITS?: string }): number {
+	const raw = env.WELCOME_CREDITS;
+	const n = Number(raw);
+	return raw !== undefined && raw !== '' && Number.isFinite(n) && n >= 0
+		? Math.floor(n)
+		: WELCOME_CREDITS;
+}
+
+/** El cupo gratis que le toca a quien no tiene cuenta: el chico si hay cuentas, el de siempre si no. */
+const freeLimitsFor = (env: QuotaEnv, mode: 'code' | 'device' | 'account'): Record<Bucket, number> =>
+	mode === 'account'
+		? { exercises: 0, characters: 0, images: 0, other: 0 }
+		: mode === 'device' && authEnabled(env)
+			? anonLimitsFromEnv(env)
+			: limitsFromEnv(env);
 
 export const costsFromEnv = (env: QuotaEnv): Record<Bucket, number> =>
 	numbersFromEnv(
@@ -195,7 +233,7 @@ async function takeFree(db: D1Like, user: string, bucket: Bucket, limit: number)
 }
 
 /**
- * Revisa quién es y cobra la llamada: primero del cupo gratis y, si se acabó, en créditos de su cuenta.
+ * Revisa quién es y cobra la llamada: sin sesión, del cupo gratis; con sesión, en créditos de su cuenta.
  * `ok: false` trae el estado y el mensaje para responder.
  */
 export async function charge(request: Request, env: QuotaEnv, bucket: Bucket): Promise<Gate> {
@@ -208,11 +246,13 @@ export async function charge(request: Request, env: QuotaEnv, bucket: Bucket): P
 		await ensureSchema(db);
 		if (!(await confirmedAdult(request, db, who.user)))
 			return { ok: false, status: 403, error: 'age_confirmation_required' };
-		if (await takeFree(db, who.user, bucket, limitsFromEnv(env)[bucket]))
-			return { ok: true, user: who.user, paid: 0 };
-		if (who.mode === 'code' || !authEnabled(env))
-			return { ok: false, status: 429, error: 'quota_exceeded', bucket };
-		if (!who.account) return { ok: false, status: 402, error: 'login_required', bucket };
+		if (!who.account) {
+			if (await takeFree(db, who.user, bucket, freeLimitsFor(env, who.mode)[bucket]))
+				return { ok: true, user: who.user, paid: 0 };
+			if (who.mode === 'code' || !authEnabled(env))
+				return { ok: false, status: 429, error: 'quota_exceeded', bucket };
+			return { ok: false, status: 402, error: 'login_required', bucket };
+		}
 		const cost = costsFromEnv(env)[bucket];
 		const id = who.account.id;
 		if (cost === 0) {
@@ -318,6 +358,8 @@ export interface UsageReport {
 	account?: { email: string; credits: number } | null;
 	/** Créditos por llamada una vez agotado el cupo gratis. */
 	costs?: Record<Bucket, number>;
+	/** Créditos de regalo al crear la cuenta. */
+	welcome?: number;
 }
 
 /** Consumo de quien hace el pedido (para mostrarlo en el perfil). */
@@ -345,7 +387,7 @@ export async function usageFor(
 		codes: who.mode === 'code',
 		name: who.user,
 		used,
-		limits: limitsFromEnv(env)
+		limits: freeLimitsFor(env, who.mode)
 	};
 	if (who.mode !== 'code' && authEnabled(env)) {
 		report.auth = true;
@@ -353,6 +395,7 @@ export async function usageFor(
 			? { email: who.account.email, credits: who.account.credits }
 			: null;
 		report.costs = costsFromEnv(env);
+		report.welcome = welcomeCredits(env);
 	}
 	return report;
 }

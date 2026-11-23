@@ -11,30 +11,42 @@ import {
 	type AuthEnv
 } from '../src/lib/server/auth';
 import { addCredits, charge, refund, usageFor, type QuotaEnv } from '../src/lib/server/quota';
+import {
+	canonicalEmail,
+	grantWelcome,
+	isDisposable,
+	networkOf,
+	type WelcomeEnv
+} from '../src/lib/server/welcome';
 
 const DEVICE = 'dev-device-0123456789';
 const URL_ = 'https://vocal.quest/api/x';
 
-function setup(extra: Partial<QuotaEnv> = {}) {
+function setup(extra: Partial<QuotaEnv & WelcomeEnv> = {}) {
 	const db = sqliteD1();
-	const env: QuotaEnv = { DB: db, AUTH_DEV_LINKS: '1', ...extra };
+	const env: QuotaEnv & WelcomeEnv = { DB: db, AUTH_DEV_LINKS: '1', ...extra };
 	return { db, env };
 }
 
 const tokenOf = (link: string) => new URL(link).searchParams.get('login')!;
 
-/** Un pedido con dispositivo y, si hay, la cookie de sesión. */
-const req = (cookie = '') =>
+/** Un pedido con dispositivo y, si hay, la cookie de sesión y la IP. */
+const req = (cookie = '', ip = '') =>
 	new Request(URL_, {
 		method: 'POST',
-		headers: { 'X-Client-Id': DEVICE, 'X-Adult': '1', ...(cookie ? { Cookie: cookie } : {}) }
+		headers: {
+			'X-Client-Id': DEVICE,
+			'X-Adult': '1',
+			...(cookie ? { Cookie: cookie } : {}),
+			...(ip ? { 'CF-Connecting-IP': ip } : {})
+		}
 	});
 
 /** Inicia sesión con ese email y devuelve la cookie («vq_session=…»). */
 async function login(env: AuthEnv, email = 'Ana@Example.com'): Promise<string> {
 	const start = await startLogin(env, { email, lang: 'es', origin: 'https://vocal.quest' });
 	if (!start.ok || !start.devLink) throw new Error('sin enlace');
-	const r = await verifyLogin(req(), env, { token: tokenOf(start.devLink), device: DEVICE });
+	const r = await verifyLogin(req(), env, { token: tokenOf(start.devLink) });
 	if (!r.ok) throw new Error(r.error);
 	return r.setCookie.split(';')[0];
 }
@@ -133,16 +145,14 @@ describe('inicio de sesión por enlace', () => {
 	});
 });
 
-describe('cupo gratis y créditos', () => {
-	const limits = {
-		LIMIT_EXERCISES: '2',
-		LIMIT_CHARACTERS: '1',
-		LIMIT_IMAGES: '0',
-		LIMIT_OTHER: '1'
-	};
+describe('cupo sin cuenta y créditos', () => {
+	const credits = (db: ReturnType<typeof sqliteD1>) =>
+		(db.raw.prepare('SELECT credits FROM users').get() as { credits: number }).credits;
+	const userId = (db: ReturnType<typeof sqliteD1>) =>
+		(db.raw.prepare('SELECT id FROM users').get() as { id: string }).id;
 
-	it('sin sesión, al terminar el cupo gratis pide iniciar sesión', async () => {
-		const { env } = setup(limits);
+	it('sin sesión: unos ejercicios gratis, personajes e imágenes piden cuenta', async () => {
+		const { env } = setup({ ANON_LIMIT_EXERCISES: '2' });
 		expect(await charge(req(), env, 'exercises')).toMatchObject({ ok: true, paid: 0 });
 		expect(await charge(req(), env, 'exercises')).toMatchObject({ ok: true, paid: 0 });
 		expect(await charge(req(), env, 'exercises')).toEqual({
@@ -151,35 +161,39 @@ describe('cupo gratis y créditos', () => {
 			error: 'login_required',
 			bucket: 'exercises'
 		});
+		for (const b of ['characters', 'images'] as const)
+			expect(await charge(req(), env, b)).toMatchObject({ status: 402, error: 'login_required' });
+		expect(await usageFor(req(), env)).toMatchObject({
+			auth: true,
+			account: null,
+			welcome: 40,
+			limits: { exercises: 2, characters: 0, images: 0, other: 20 }
+		});
 	});
 
-	it('sin login configurado sigue siendo un tope (429), como antes', async () => {
-		const { env } = setup({ ...limits, AUTH_DEV_LINKS: undefined });
-		await charge(req(), env, 'characters');
+	it('LIMIT_* no cambia el cupo sin cuenta cuando hay cuentas', async () => {
+		const { env } = setup({ LIMIT_CHARACTERS: '5' });
+		expect(await charge(req(), env, 'characters')).toMatchObject({ error: 'login_required' });
+	});
+
+	it('sin login configurado sigue siendo el cupo de siempre y un tope (429)', async () => {
+		const { env } = setup({ AUTH_DEV_LINKS: undefined, LIMIT_CHARACTERS: '1' });
+		expect(await charge(req(), env, 'characters')).toMatchObject({ ok: true, paid: 0 });
 		expect(await charge(req(), env, 'characters')).toMatchObject({
 			status: 429,
 			error: 'quota_exceeded'
 		});
 	});
 
-	it('entrar no devuelve el cupo gratis que ya gastó el dispositivo', async () => {
-		const { env } = setup(limits);
-		await charge(req(), env, 'exercises');
-		await charge(req(), env, 'exercises');
+	it('con sesión todo se paga con créditos, desde el primer uso', async () => {
+		const { db, env } = setup({ CREDIT_COST_IMAGES: '2', CREDIT_COST_CHARACTERS: '5' });
 		const cookie = await login(env);
 		expect(await charge(req(cookie), env, 'exercises')).toMatchObject({
 			ok: false,
+			status: 402,
 			error: 'credits_required'
 		});
-	});
-
-	it('con créditos descuenta según el costo, y se niega si no alcanza', async () => {
-		const { db, env } = setup({ ...limits, CREDIT_COST_IMAGES: '2', CREDIT_COST_CHARACTERS: '5' });
-		const cookie = await login(env);
-		const { id } = db.raw.prepare('SELECT id FROM users').get() as { id: string };
-		expect(await addCredits(db, id, 6, 'purchase', 'pay_1')).toBe(true);
-
-		await charge(req(cookie), env, 'characters'); // gratis (límite 1)
+		expect(await addCredits(db, userId(db), 6, 'purchase', 'pay_1')).toBe(true);
 		expect(await charge(req(cookie), env, 'characters')).toMatchObject({ ok: true, paid: 5 });
 		expect(await charge(req(cookie), env, 'images')).toMatchObject({
 			ok: false,
@@ -198,32 +212,105 @@ describe('cupo gratis y créditos', () => {
 	it('el mismo pago no suma créditos dos veces', async () => {
 		const { db, env } = setup();
 		await login(env);
-		const { id } = db.raw.prepare('SELECT id FROM users').get() as { id: string };
-		expect(await addCredits(db, id, 250, 'purchase', 'pay_X')).toBe(true);
-		expect(await addCredits(db, id, 250, 'purchase', 'pay_X')).toBe(false);
-		expect(db.raw.prepare('SELECT credits FROM users').get()).toEqual({ credits: 250 });
+		expect(await addCredits(db, userId(db), 250, 'purchase', 'pay_X')).toBe(true);
+		expect(await addCredits(db, userId(db), 250, 'purchase', 'pay_X')).toBe(false);
+		expect(credits(db)).toBe(250);
 	});
 
 	it('si el servidor falla devuelve los créditos cobrados', async () => {
-		const { db, env } = setup({ ...limits, LIMIT_EXERCISES: '0' });
+		const { db, env } = setup();
 		const cookie = await login(env);
-		const { id } = db.raw.prepare('SELECT id FROM users').get() as { id: string };
-		await addCredits(db, id, 3, 'purchase', 'pay_2');
+		await addCredits(db, userId(db), 3, 'purchase', 'pay_2');
 		const gate = await charge(req(cookie), env, 'exercises');
 		expect(gate).toMatchObject({ ok: true, paid: 1 });
 		if (gate.ok) await refund(env, gate, 'exercises');
-		expect(db.raw.prepare('SELECT credits FROM users').get()).toEqual({ credits: 3 });
+		expect(credits(db)).toBe(3);
 	});
 
-	it('lo que cuesta 0 (entrenador, dictado) solo pasa del cupo a quien tiene saldo', async () => {
-		const { db, env } = setup(limits);
+	it('lo que cuesta 0 (entrenador, dictado) solo pasa a quien tiene saldo', async () => {
+		const { db, env } = setup();
 		const cookie = await login(env);
-		await charge(req(cookie), env, 'other'); // gratis (límite 1)
 		expect(await charge(req(cookie), env, 'other')).toMatchObject({ error: 'credits_required' });
-		const { id } = db.raw.prepare('SELECT id FROM users').get() as { id: string };
-		await addCredits(db, id, 1, 'purchase', 'pay_3');
+		await addCredits(db, userId(db), 1, 'purchase', 'pay_3');
 		expect(await charge(req(cookie), env, 'other')).toMatchObject({ ok: true, paid: 0 });
-		expect(db.raw.prepare('SELECT credits FROM users').get()).toEqual({ credits: 1 });
+		expect(credits(db)).toBe(1);
+	});
+});
+
+describe('créditos de regalo al crear la cuenta', () => {
+	const credits = (db: ReturnType<typeof sqliteD1>, email: string) =>
+		(db.raw.prepare('SELECT credits FROM users WHERE email = ?').get(email) as { credits: number })
+			.credits;
+
+	/** Entra y pide el regalo, como hace /api/auth-verify. */
+	async function claim(env: QuotaEnv & WelcomeEnv, email: string, ip = '') {
+		const cookie = await login(env, email);
+		const account = await sessionAccount(req(cookie), env);
+		if (!account) throw new Error('sin sesión');
+		return grantWelcome(env.DB!, env, req(cookie, ip), account);
+	}
+
+	it('se da una vez por email y queda en el registro', async () => {
+		const { db, env } = setup();
+		expect(await claim(env, 'ana@example.com')).toBe('granted');
+		expect(await claim(env, 'ana@example.com')).toBe('already');
+		expect(credits(db, 'ana@example.com')).toBe(40);
+		expect(db.raw.prepare('SELECT delta, reason FROM credit_ledger').all()).toEqual([
+			{ delta: 40, reason: 'welcome' }
+		]);
+	});
+
+	it('las variantes de un email no lo vuelven a dar', async () => {
+		const { db, env } = setup();
+		expect(await claim(env, 'pablo@gmail.com')).toBe('granted');
+		expect(await claim(env, 'p.ab.lo+vq@gmail.com')).toBe('already');
+		expect(await claim(env, 'pablo+2@googlemail.com')).toBe('already');
+		expect(credits(db, 'p.ab.lo+vq@gmail.com')).toBe(0);
+	});
+
+	it('con el regalo en 0 o un email descartable no se da', async () => {
+		const { env } = setup();
+		expect(await claim(env, 'x@mailinator.com')).toBe('disposable');
+		expect(await claim({ ...env, WELCOME_CREDITS: '0' }, 'y@example.com')).toBe('off');
+	});
+
+	it('se puede cambiar la cantidad', async () => {
+		const { db, env } = setup({ WELCOME_CREDITS: '25' });
+		await claim(env, 'ana@example.com');
+		expect(credits(db, 'ana@example.com')).toBe(25);
+	});
+
+	it('tope por red: una familia entra, una serie de cuentas no', async () => {
+		const { db, env } = setup();
+		const capped = { ...env, WELCOME_PER_IP: '2' };
+		expect(await claim(capped, 'a@example.com', '203.0.113.7')).toBe('granted');
+		expect(await claim(capped, 'b@example.com', '203.0.113.7')).toBe('granted');
+		expect(await claim(capped, 'c@example.com', '203.0.113.7')).toBe('ip_limit');
+		// otra red sí; y en IPv6 cuenta el /64
+		expect(await claim(capped, 'd@example.com', '198.51.100.1')).toBe('granted');
+		expect(await claim(capped, 'e@example.com', '2001:db8:1:2::1')).toBe('granted');
+		expect(await claim(capped, 'f@example.com', '2001:db8:1:2:ffff::9')).toBe('granted');
+		expect(await claim(capped, 'g@example.com', '2001:db8:1:2:abcd::1')).toBe('ip_limit');
+		// la IP no se guarda, solo su hash
+		const stored = JSON.stringify(db.raw.prepare('SELECT * FROM welcome_grants').all());
+		expect(stored).not.toContain('203.0.113');
+		// los regalos viejos no cuentan
+		db.raw.prepare('UPDATE welcome_grants SET created_at = 0').run();
+		expect(await claim(capped, 'h@example.com', '203.0.113.7')).toBe('granted');
+	});
+
+	it('normaliza emails, reconoce descartables y agrupa la red', () => {
+		expect(canonicalEmail(' P.Ablo+test@GMail.com ')).toBe('pablo@gmail.com');
+		expect(canonicalEmail('ana.maria+x@example.com')).toBe('ana.maria@example.com');
+		expect(isDisposable('a@mailinator.com')).toBe(true);
+		expect(isDisposable('a@sub.yopmail.com')).toBe(true);
+		expect(isDisposable('a@gmail.com')).toBe(false);
+		const ip = (v: string) =>
+			networkOf(new Request(URL_, { headers: v ? { 'CF-Connecting-IP': v } : {} }));
+		expect(ip('')).toBeNull();
+		expect(ip('203.0.113.7')).toBe('203.0.113.7');
+		expect(ip('2001:0db8:0001:0002:0:0:0:1')).toBe('2001:db8:1:2');
+		expect(ip('2001:db8::1')).toBe('2001:db8:0:0');
 	});
 });
 

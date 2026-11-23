@@ -352,6 +352,24 @@ const es = {
 	'access.quota.other': 'Llegaste al límite de uso de la IA de tu cupo.',
 	'account.title': 'Tu cuenta',
 	'account.why': 'Entra con tu email para usar créditos y tenerlos en cualquier dispositivo.',
+	'account.whyWelcome':
+		'Crea tu cuenta con tu email y recibe {n} créditos gratis para crear personajes, fondos y ejercicios.',
+	'account.freeNoAccount': 'gratis sin cuenta',
+	'account.welcomeGift': '¡Listo! Entraste como {email} y recibiste tus créditos gratis: tienes {n}.',
+	'account.welcomeDisposable':
+		'Entraste como {email}. Los créditos gratis no se dan a emails temporales; usa tu email de siempre para recibirlos.',
+	'account.welcomeIpLimit':
+		'Entraste como {email}. Desde esta red ya se crearon muchas cuentas con créditos gratis, así que esta no los recibe.',
+	'wallet.costs': 'Cuesta {n} créditos',
+	'wallet.left': 'te quedan {n}',
+	'wallet.notEnough': 'No te alcanzan: compra más en el menú de tu perfil.',
+	'wallet.free.exercise': 'Te quedan {left} de {limit} ejercicios gratis sin cuenta.',
+	'wallet.free.character': 'Te quedan {left} de {limit} personajes gratis.',
+	'wallet.free.scene': 'Te quedan {left} de {limit} imágenes gratis.',
+	'wallet.claimShort': 'Reclama {n} créditos gratis',
+	'wallet.claim': 'Crea tu cuenta para recibir {n} créditos gratis',
+	'wallet.claimHelp':
+		'Te mandamos un enlace a tu email; al abrirlo se crea tu cuenta con {n} créditos de regalo. Un personaje completo cuesta unos 13.',
 	'account.emailPlaceholder': 'Tu email',
 	'account.send': 'Enviar enlace',
 	'account.sending': 'Enviando…',
@@ -366,7 +384,7 @@ const es = {
 	'account.welcome': '¡Listo! Entraste como {email}.',
 	'account.linkInvalid': 'El enlace venció o ya se usó. Pide uno nuevo desde el menú de tu perfil.',
 	'account.loginRequired':
-		'Usaste todo tu cupo gratis. Entra con tu email desde el menú de tu perfil para seguir con créditos.',
+		'Para seguir creando con IA, crea tu cuenta con tu email y recibe {n} créditos gratis.',
 	'account.creditsRequired':
 		'No te alcanzan los créditos para esto. Puedes comprar más en el menú de tu perfil.',
 	'account.buy': 'Comprar créditos',
@@ -991,6 +1009,24 @@ const en: Record<Key, string> = {
 	'access.quota.other': 'You reached the limit of AI use in your allowance.',
 	'account.title': 'Your account',
 	'account.why': 'Sign in with your email to use credits and keep them on any device.',
+	'account.whyWelcome':
+		'Create your account with your email and get {n} free credits to create characters, backgrounds and exercises.',
+	'account.freeNoAccount': 'free without an account',
+	'account.welcomeGift': 'Done! You signed in as {email} and got your free credits: you have {n}.',
+	'account.welcomeDisposable':
+		'You signed in as {email}. Free credits are not given to temporary emails; use your usual email to get them.',
+	'account.welcomeIpLimit':
+		'You signed in as {email}. Many accounts with free credits were already created from this network, so this one does not get them.',
+	'wallet.costs': 'Costs {n} credits',
+	'wallet.left': '{n} left',
+	'wallet.notEnough': 'Not enough: buy more from your profile menu.',
+	'wallet.free.exercise': '{left} of {limit} free exercises left without an account.',
+	'wallet.free.character': '{left} of {limit} free characters left.',
+	'wallet.free.scene': '{left} of {limit} free images left.',
+	'wallet.claimShort': 'Claim {n} free credits',
+	'wallet.claim': 'Create your account to get {n} free credits',
+	'wallet.claimHelp':
+		'We will email you a link; opening it creates your account with {n} free credits. A complete character costs about 13.',
 	'account.emailPlaceholder': 'Your email',
 	'account.send': 'Send link',
 	'account.sending': 'Sending…',
@@ -1006,7 +1042,7 @@ const en: Record<Key, string> = {
 	'account.linkInvalid':
 		'The link expired or was already used. Ask for a new one from your profile menu.',
 	'account.loginRequired':
-		'You used all your free allowance. Sign in with your email from your profile menu to continue with credits.',
+		'To keep creating with AI, create your account with your email and get {n} free credits.',
 	'account.creditsRequired':
 		"You don't have enough credits for this. You can buy more from your profile menu.",
 	'account.buy': 'Buy credits',
