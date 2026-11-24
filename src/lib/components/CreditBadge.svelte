@@ -36,7 +36,7 @@
 		role="status"
 	>
 		<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-			<Ticket class="h-4 w-6 shrink-0" />
+			<Ticket class="h-5 w-7 shrink-0" />
 			{#if info.kind === 'credits'}
 				<span>{t('wallet.balance', { n: info.credits })}</span>
 				{#if info.credits < info.cost}

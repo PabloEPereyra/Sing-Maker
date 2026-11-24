@@ -428,13 +428,13 @@
 			<!-- Fuera del juego el perfil ocupa la esquina (4 rem más la inclinación): el puntaje se corre a su izquierda -->
 			<!-- Si no entra todo en una fila, los créditos pasan debajo del puntaje (wrap-reverse) -->
 			<div
-				class="flex min-w-0 flex-wrap-reverse items-center justify-end gap-x-3 gap-y-1 pt-0.5 {side &&
+				class="flex min-w-0 flex-wrap-reverse items-center justify-end gap-x-3 gap-y-1 pt-0.5 short:gap-x-1.5 {side &&
 				!playing
 					? 'pr-[6.25rem] short:pr-[4.5rem]'
 					: ''}"
 			>
 				{#if credits && !playing}{@render credits()}{/if}
-				<div class="flex items-center gap-3">
+				<div class="flex items-center gap-3 short:gap-1.5">
 					<span
 						class="hud-3d pointer-events-auto inline-flex"
 						data-tip="difficulty"

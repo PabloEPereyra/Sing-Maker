@@ -26,15 +26,15 @@
 
 {#if info}
 	<button
-		class="hud-score pointer-events-auto flex min-h-9 min-w-9 items-center justify-center gap-1.5 whitespace-nowrap hover:brightness-110 short:min-h-7 short:min-w-7 short:gap-1"
+		class="hud-score pointer-events-auto flex min-h-9 min-w-9 items-center justify-center gap-1.5 whitespace-nowrap hover:brightness-110 short:min-h-7 short:min-w-7 short:gap-0.5"
 		title={label}
 		aria-label={label}
 		onclick={onOpen}
 	>
-		<span class="hud-3d inline-flex"><Ticket class="h-7 w-10 short:h-5 short:w-7" /></span>
+		<span class="hud-3d inline-flex"><Ticket class="h-9 w-12 short:h-6 short:w-7.5" /></span>
 		{#if info.kind === 'balance'}
 			<span
-				class="text-2xl tabular-nums short:text-lg {info.low
+				class="text-2xl tabular-nums short:text-[1rem] {info.low
 					? '[-webkit-text-stroke-color:#dc2626]'
 					: ''}">{info.credits}</span
 			>

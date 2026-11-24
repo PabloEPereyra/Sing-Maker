@@ -17,6 +17,6 @@
 		title={label}
 		aria-label={label}
 		>=
-		{cost}<Ticket class="h-4.5 w-6.5" /></span
+		{cost}<Ticket class="h-6 w-8" /></span
 	>
 {/if}

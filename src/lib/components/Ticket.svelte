@@ -1,37 +1,37 @@
 <script lang="ts">
-	// Símbolo de los créditos de IA: un ticket con muescas y un destello, en el mismo estilo que los diamantes de
-	// dificultad (capas translúcidas sobre un color base). No es una moneda para que no parezca algo que se junta
-	// cantando.
+	// Símbolo de los créditos de IA: dos tickets azules de papel, uno sobre otro, con las esquinas mordidas, los
+	// lados perforados, un marco y un destello; sin texto. No es una moneda para que no parezca algo que se junta
+	// cantando. El borde blanco los separa del cielo y de las barras azules.
 	let { class: cls = 'h-5 w-7' }: { class?: string } = $props();
+
+	/** Un ticket de 28×15 centrado en el origen. */
+	const SHAPE = `M-11.5-7.5H11.5A2.5 2.5 0 0 0 14-5${'a1 1 0 0 0 0 2'.repeat(5)}A2.5 2.5 0 0 0 11.5 7.5H-11.5A2.5 2.5 0 0 0-14 5${'a1 1 0 0 0 0-2'.repeat(5)}A2.5 2.5 0 0 0-11.5-7.5Z`;
 </script>
 
-<svg class={cls} viewBox="0 0 32 23" aria-hidden="true" stroke-linejoin="round">
-	<!-- Cuerpo: las muescas de arriba y abajo separan el talón -->
+{#snippet ticket(place: string, paper: string)}
+	<g transform={place}>
+		<path d={SHAPE} fill="none" stroke="#fff" stroke-width="3" />
+		<path d={SHAPE} fill={paper} />
+		<rect
+			x="-10.8"
+			y="-4.9"
+			width="21.6"
+			height="9.8"
+			rx="1.6"
+			fill="none"
+			stroke="#1e3fd8"
+			stroke-width="1.2"
+		/>
+	</g>
+{/snippet}
+
+<svg class={cls} viewBox="1 0 41 31" aria-hidden="true" stroke-linejoin="round">
+	{@render ticket('translate(19 14) rotate(-26)', '#3f86dd')}
+	{@render ticket('translate(25 20) rotate(-8)', '#62aaf5')}
+	<!-- Destello, solo en el de adelante (el otro queda tapado) -->
 	<path
-		d="M4 1.5h16a2.2 2.2 0 0 0 4.4 0H28a2.5 2.5 0 0 1 2.5 2.5v15a2.5 2.5 0 0 1-2.5 2.5h-3.6a2.2 2.2 0 0 0-4.4 0H4A2.5 2.5 0 0 1 1.5 19V4A2.5 2.5 0 0 1 4 1.5Z"
-		fill="#ec4899"
-		stroke="#fff"
-		stroke-width="1.6"
-	/>
-	<!-- Luz arriba y sombra abajo -->
-	<path
-		d="M4 2.6h15.3a3.3 3.3 0 0 0 5.8 0H28A1.5 1.5 0 0 1 29.4 4v4H2.6V4A1.5 1.5 0 0 1 4 2.6Z"
+		transform="translate(25 20) rotate(-8)"
+		d="M0-4.4 1.1-1.1 4.4 0 1.1 1.1 0 4.4-1.1 1.1-4.4 0-1.1-1.1Z"
 		fill="#fff"
-		opacity="0.25"
 	/>
-	<path
-		d="M2.6 15.5h26.8V19a1.5 1.5 0 0 1-1.4 1.4h-2.9a3.3 3.3 0 0 0-5.8 0H4A1.5 1.5 0 0 1 2.6 19Z"
-		fill="#000"
-		opacity="0.15"
-	/>
-	<!-- Perforado y destello -->
-	<path
-		d="M22.2 6.2v10.6"
-		fill="none"
-		stroke="#fff"
-		stroke-width="1.5"
-		stroke-dasharray="2 2"
-		opacity="0.9"
-	/>
-	<path d="M11 5.5 12.5 10 17 11.5 12.5 13 11 17.5 9.5 13 5 11.5 9.5 10Z" fill="#fff" />
 </svg>
