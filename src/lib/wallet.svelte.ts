@@ -2,6 +2,7 @@
 // créditos de su cuenta, lo que cuesta cada uso y el regalo por crear la cuenta. Lo da /api/quota y se vuelve a
 // pedir después de cada llamada a la IA (src/lib/ai/http.ts) y al entrar o salir de la cuenta.
 import { identityHeaders } from './access.svelte';
+import type { AgeStatus } from './age.svelte';
 import type { Bucket } from './pricing';
 import { CREDIT_COSTS, STRIPS_PER_CHARACTER } from './pricing';
 
@@ -69,19 +70,43 @@ export function refreshWallet(): Promise<void> {
 	return pending;
 }
 
-/** Lo que gasta crear algo: un personaje completo es la imagen principal más sus tiras. */
-export type Spend = 'exercise' | 'character' | 'scene';
+/**
+ * Lo que gasta crear algo: un personaje completo es la imagen principal más sus tiras; un objeto, su diseño (que
+ * cuenta como una imagen principal) más una hoja.
+ */
+export type Spend = 'exercise' | 'character' | 'scene' | 'item';
 
 const BUCKET_OF: Record<Spend, Bucket> = {
 	exercise: 'exercises',
 	character: 'characters',
-	scene: 'images'
+	scene: 'images',
+	item: 'characters'
 };
 
 /** Créditos que cuesta, con los costos del servidor (o los de pricing.ts si todavía no llegaron). */
 export function creditCost(spend: Spend, costs: Record<Bucket, number> = CREDIT_COSTS): number {
 	if (spend === 'character') return costs.characters + STRIPS_PER_CHARACTER * costs.images;
+	if (spend === 'item') return costs.characters + costs.images;
 	return costs[BUCKET_OF[spend]];
+}
+
+/** Es un estimado: cambia según el tipo de personaje, si parte de una foto y las hojas que haya que repetir. */
+export const isEstimate = (spend: Spend): boolean => spend === 'character' || spend === 'item';
+
+/**
+ * Qué muestra el ticket de la pantalla: el saldo (`low` = no alcanza para un personaje) o, sin sesión, el regalo
+ * por crear la cuenta. `null` para menores de edad o si el sitio no usa cuentas.
+ */
+export function ticketFor(
+	report: QuotaReport | null,
+	age: AgeStatus
+): { kind: 'balance'; credits: number; low: boolean } | { kind: 'gift'; credits: number } | null {
+	if (!report?.auth || age === 'minor') return null;
+	if (report.account) {
+		const { credits } = report.account;
+		return { kind: 'balance', credits, low: credits < creditCost('character', report.costs) };
+	}
+	return report.welcome ? { kind: 'gift', credits: report.welcome } : null;
 }
 
 /**

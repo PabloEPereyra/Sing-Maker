@@ -24,6 +24,7 @@
 	import type { PitchDetector } from '$lib/audio/pitch';
 	import Icon from './Icon.svelte';
 	import CreditBadge from './CreditBadge.svelte';
+	import TicketCost from './TicketCost.svelte';
 
 	let {
 		range,
@@ -228,7 +229,7 @@
 	>
 		<div class="flex items-center justify-between">
 			<h3 id="create-title" class="text-lg font-bold">
-				<Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('create.title')}
+				<Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('create.title')}<TicketCost spend="exercise" />
 			</h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2"

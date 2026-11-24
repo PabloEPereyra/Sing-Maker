@@ -44,13 +44,21 @@
 	const signedIn = $derived(!!report?.auth && !!report.account);
 	/** Sin sesión, con cuentas: qué cupos mostrar (solo los que tienen algo). */
 	const shown = $derived(
-		(['exercises', 'characters'] as const).filter((b) => !report?.auth || (report.limits?.[b] ?? 0) > 0)
+		(['exercises', 'characters'] as const).filter(
+			(b) => !report?.auth || (report.limits?.[b] ?? 0) > 0
+		)
 	);
 </script>
 
-{#if mode === 'locked' || mode === 'ok'}
-	<div class="menu-row-static">
-		<div class="flex items-center gap-2.5 text-sm">
+{#if mode === 'unknown'}
+	<!-- Mientras llega el saldo se reserva el lugar, para que el menú no salte -->
+	<div
+		class="mb-2 h-36 animate-pulse rounded-lg border border-accent/30 bg-accent/5"
+		aria-hidden="true"
+	></div>
+{:else if mode === 'locked' || mode === 'ok'}
+	<div class="menu-row-static mb-2 border border-accent/30 bg-accent/5 !p-3">
+		<div class="flex items-center gap-2.5 text-sm font-semibold">
 			<Icon name="key" class="h-5 w-5 shrink-0 text-accent" />
 			{report?.auth
 				? t('account.title')

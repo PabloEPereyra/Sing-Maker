@@ -1,12 +1,12 @@
 <script lang="ts">
-	// Lo que cuesta crear esto y lo que le queda a la persona, al lado del botón de crear: créditos si tiene
-	// cuenta, el cupo gratis que le queda si no, o la invitación a crear la cuenta para recibir créditos de
+	// Lo que le queda a la persona, al lado del botón de crear (el costo va junto al título, ver TicketCost):
+	// créditos si tiene cuenta, el cupo gratis que le queda si no, o la invitación a crear la cuenta para recibir créditos de
 	// regalo (con el campo del email ahí mismo). Sin servidor de cupos no muestra nada.
 	import { onMount } from 'svelte';
 	import { t } from '$lib/i18n';
-	import { allowanceFor, refreshWallet, wallet, type Spend } from '$lib/wallet.svelte';
-	import Icon from './Icon.svelte';
+	import { allowanceFor, isEstimate, refreshWallet, wallet, type Spend } from '$lib/wallet.svelte';
 	import LoginForm from './LoginForm.svelte';
+	import Ticket from './Ticket.svelte';
 
 	let { spend }: { spend: Spend } = $props();
 
@@ -26,14 +26,13 @@
 		role="status"
 	>
 		<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-			<Icon name="sparkles" class="h-4 w-4 shrink-0 text-accent" />
+			<Ticket class="h-4 w-6 shrink-0" />
 			{#if info.kind === 'credits'}
-				<span
-					>{t('wallet.costs', { n: info.cost })}
-					<span class="text-muted">· {t('wallet.left', { n: info.credits })}</span></span
-				>
+				<span>{t('wallet.balance', { n: info.credits })}</span>
 				{#if info.credits < info.cost}
-					<span class="font-semibold text-red-600">{t('wallet.notEnough')}</span>
+					<span class="font-semibold text-red-600"
+						>{t(isEstimate(spend) ? 'wallet.mayNotBeEnough' : 'wallet.notEnough')}</span
+					>
 				{/if}
 			{:else if info.kind === 'free'}
 				<span>{t(`wallet.free.${spend}`, { left: info.left, limit: info.limit })}</span>
@@ -46,7 +45,11 @@
 			{:else if info.kind === 'claim'}
 				<span class="font-semibold">{t('wallet.claim', { n: info.welcome })}</span>
 			{:else}
-				<span class="font-semibold">{t(`access.quota.${spend === 'exercise' ? 'exercises' : spend === 'character' ? 'characters' : 'images'}`)}</span>
+				<span class="font-semibold"
+					>{t(
+						`access.quota.${spend === 'exercise' ? 'exercises' : spend === 'scene' ? 'images' : 'characters'}`
+					)}</span
+				>
 			{/if}
 		</div>
 		{#if info.kind === 'claim' || (info.kind === 'free' && open)}

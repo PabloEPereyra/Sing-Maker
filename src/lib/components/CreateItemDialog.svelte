@@ -1,5 +1,7 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import CreditBadge from './CreditBadge.svelte';
+	import TicketCost from './TicketCost.svelte';
 	// "Crear objeto para recoger con IA": lo que se junta al cantar (una moneda, una fruta, una gema…).
 	// Spark interpreta el pedido y reconoce qué hay en una foto; SAM recorta el objeto elegido; Muse Image lo dibuja en
 	// tres poses (normal, inclinado y brillante para cuando se recoge). Queda guardado en el dispositivo.
@@ -272,7 +274,7 @@
 		aria-labelledby="item-title"
 	>
 		<div class="flex items-center justify-between">
-			<h3 id="item-title" class="text-lg font-bold"><Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('item.title')}</h3>
+			<h3 id="item-title" class="text-lg font-bold"><Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('item.title')}<TicketCost spend="item" /></h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2 disabled:opacity-40"
 				aria-label={t('range.close')}
@@ -399,6 +401,7 @@
 					onclick={create}>{t('item.create')}</button
 				>
 			</div>
+			<CreditBadge spend="item" />
 		{:else if phase === 'working'}
 			<p class="mt-1 text-sm text-muted">{t('item.working')}</p>
 			<ul class="mt-4 space-y-2" aria-live="polite">

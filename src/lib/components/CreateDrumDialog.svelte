@@ -5,6 +5,7 @@
 	import { t } from '$lib/i18n';
 	import type { MeterId } from '$lib/music/meter';
 	import CreateDrumPanel from './CreateDrumPanel.svelte';
+	import TicketCost from './TicketCost.svelte';
 
 	let {
 		meter,
@@ -30,7 +31,7 @@
 		aria-labelledby="create-drums-title"
 	>
 		<div class="ribbon flex items-center justify-between px-4 py-2.5">
-			<h3 id="create-drums-title" class="text-xl leading-tight"><Icon name="sparkles" class="mr-1 inline h-6 w-6 align-text-bottom" />{t('drums.title')}</h3>
+			<h3 id="create-drums-title" class="text-xl leading-tight"><Icon name="sparkles" class="mr-1 inline h-6 w-6 align-text-bottom" />{t('drums.title')}<TicketCost spend="exercise" /></h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-lg hover:bg-white/20"
 				aria-label={t('range.close')}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	// Perfil al estilo juego de celular: avatar redondo (columna derecha del escenario) que abre un popup
-	// de configuración: idioma, dificultad, sonidos, código de acceso y calibraciones.
+	// de configuración: la cuenta (o el código de acceso), idioma, dificultad, sonidos y calibraciones.
 	import { resolve } from '$app/paths';
 	import type { PitchDetector } from '$lib/audio/pitch';
 	import { age, ageStatus, changeAge } from '$lib/age.svelte';
@@ -15,21 +15,23 @@
 	import MicCalibration from './MicCalibration.svelte';
 	import SyncCalibration from './SyncCalibration.svelte';
 
-	/** `highlight`: señala el menú (se detectó un desfase de voz); se apaga al abrirlo. */
+	/** `open`: el popup abierto (también lo abre el ticket de créditos). `highlight`: señala el menú (se detectó un
+	 * desfase de voz); se apaga al abrirlo. */
 	let {
 		getDetector,
+		open = $bindable(false),
 		highlight = $bindable(false),
 		onGuide,
 		onLevelTest
 	}: {
 		getDetector: () => Promise<PitchDetector | null>;
+		open?: boolean;
 		highlight?: boolean;
 		onGuide: () => void;
 		/** Abre el test de nivel (o pregunta si se retoma el empezado). */
 		onLevelTest: () => void;
 	} = $props();
 
-	let open = $state(false);
 	let calibrating = $state(false);
 	let syncing = $state(false);
 	/** Pasos manuales cuando el navegador no ofrece el aviso de instalación. */
@@ -96,6 +98,9 @@
 					>
 				</div>
 				<div class="p-2">
+					<!-- La cuenta va primero, en su propio recuadro -->
+					<AccessCode />
+
 					<!-- Ajustes con varias opciones: el mismo encabezado (icono y nombre) y un selector debajo -->
 					<div class="menu-row-static">
 						{@render head('globe', t('header.language'))}
@@ -166,8 +171,6 @@
 						</div>
 						{#if age.status === 'minor'}<p class="text-xs text-muted">{t('age.minorNote')}</p>{/if}
 					</div>
-
-					<AccessCode />
 
 					<div class="my-1.5 h-px bg-border"></div>
 

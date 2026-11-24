@@ -10,7 +10,7 @@ export interface AuthEnv {
 	DB?: D1Like;
 	/** Clave de Resend para mandar los emails. */
 	RESEND_API_KEY?: string;
-	/** Remitente verificado en Resend, p. ej. «Vocal Quest <hola@vocal.quest>». */
+	/** Remitente verificado en Resend: «hola@vocal.quest» o con nombre (el que se muestra es SENDER_NAME). */
 	AUTH_EMAIL_FROM?: string;
 	/** Solo desarrollo: «1» devuelve el enlace en la respuesta en vez de mandarlo por email. */
 	AUTH_DEV_LINKS?: string;
@@ -64,6 +64,15 @@ function cookie(request: Request, value: string, maxAge: number): string {
 
 export type AuthError = { ok: false; status: number; error: string };
 
+/** Nombre con el que llegan los emails. */
+const SENDER_NAME = 'Vocal Quest';
+
+/** «hola@vocal.quest» u «Otro nombre <hola@vocal.quest>» → «Vocal Quest <hola@vocal.quest>». */
+export function senderFrom(raw: string): string {
+	const address = /<([^<>]+)>/.exec(raw)?.[1] ?? raw;
+	return `${SENDER_NAME} <${address.trim()}>`;
+}
+
 /** Pide un enlace de inicio de sesión para ese email. */
 export async function startLogin(
 	env: AuthEnv,
@@ -100,7 +109,7 @@ export async function startLogin(
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				from: env.AUTH_EMAIL_FROM,
+				from: senderFrom(env.AUTH_EMAIL_FROM),
 				to: email,
 				...loginEmail(link, input.lang)
 			})

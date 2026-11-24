@@ -14,6 +14,7 @@
 	import { addMine, loadMine, mine, removeMine } from '$lib/exercises/mine.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import PlaybackOptions from '$lib/components/PlaybackOptions.svelte';
+	import CreditTicket from '$lib/components/CreditTicket.svelte';
 	import ProfileMenu from '$lib/components/ProfileMenu.svelte';
 	import { byLevel, exercises, exerciseText, shortName } from '$lib/exercises/catalog';
 	import {
@@ -95,6 +96,8 @@
 	let customizing = $state(false);
 	let creating = $state(false);
 	/** Selector de rango: se abre al tocar las notas a los lados de la barra de repeticiones. */
+	/** Popup del perfil abierto. */
+	let profileOpen = $state(false);
 	let rangeOpen = $state(false);
 
 	/** Descripción sugerida por el entrenador de IA para abrir el creador con el texto escrito. */
@@ -561,9 +564,20 @@
 {#snippet side()}
 	<ProfileMenu
 		getDetector={micForCalibration}
+		bind:open={profileOpen}
 		bind:highlight={desync}
 		onGuide={() => openOnboarding()}
 		onLevelTest={openLevelTest}
+	/>
+{/snippet}
+
+<!-- Créditos de IA: abren el perfil, donde «Tu cuenta» es lo primero -->
+{#snippet credits()}
+	<CreditTicket
+		onOpen={() => {
+			markSeen('profile');
+			profileOpen = true;
+		}}
 	/>
 {/snippet}
 
@@ -717,6 +731,7 @@
 					menu={placement ? placementMenu : menu}
 					testProgress={placement ? { stage: placement.stage, total: STAGES } : undefined}
 					{side}
+					credits={placement ? undefined : credits}
 					onTryHarder={tryHarder}
 					onFinish={(pct) => {
 						// Solo cuenta lo cantado de verdad: ni la demostración ni la prueba de nivel

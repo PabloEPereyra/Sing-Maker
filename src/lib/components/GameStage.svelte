@@ -53,6 +53,8 @@
 		menu?: Snippet;
 		/** Columna de arriba a la derecha (micrófono, perfil): también solo fuera del juego. */
 		side?: Snippet;
+		/** Créditos de IA, a la izquierda del diamante: también solo fuera del juego. */
+		credits?: Snippet;
 		/** Repetir el ejercicio en un nivel de afinación más estricto. */
 		onTryHarder?: (level: Difficulty) => void;
 		/** Tocar las notas del rango (a los lados de la barra de repeticiones): abre el selector de rango. */
@@ -80,6 +82,7 @@
 		controls,
 		menu,
 		side,
+		credits,
 		onTryHarder,
 		onRange,
 		onFinish,
@@ -423,29 +426,34 @@
 				{/if}
 			</div>
 			<!-- Fuera del juego el perfil ocupa la esquina (4 rem más la inclinación): el puntaje se corre a su izquierda -->
+			<!-- Si no entra todo en una fila, los créditos pasan debajo del puntaje (wrap-reverse) -->
 			<div
-				class="flex items-center justify-end gap-3 pt-0.5 {side && !playing
+				class="flex min-w-0 flex-wrap-reverse items-center justify-end gap-x-3 gap-y-1 pt-0.5 {side &&
+				!playing
 					? 'pr-[6.25rem] short:pr-[4.5rem]'
 					: ''}"
 			>
-				<span
-					class="hud-3d pointer-events-auto inline-flex"
-					data-tip="difficulty"
-					role="img"
-					title={diffLabel}
-					aria-label={diffLabel}
-				>
-					<DifficultyBadge level={diff} class="h-9 w-9 short:h-6 short:w-6" />
-				</span>
-				<div class="hud-score flex items-center gap-1.5">
-					<span class="hud-3d text-3xl leading-none text-star short:text-xl"
-						>{#if notesIcon}<Icon
-								name="note"
-								class="h-7 w-7 short:h-5 short:w-5"
-							/>{:else}{icon}{/if}</span
+				{#if credits && !playing}{@render credits()}{/if}
+				<div class="flex items-center gap-3">
+					<span
+						class="hud-3d pointer-events-auto inline-flex"
+						data-tip="difficulty"
+						role="img"
+						title={diffLabel}
+						aria-label={diffLabel}
 					>
-					<span class="text-3xl tabular-nums short:text-xl">{status.collected}</span>
-					<span class="text-base opacity-80 short:text-xs">/ {status.total}</span>
+						<DifficultyBadge level={diff} class="h-9 w-9 short:h-6 short:w-6" />
+					</span>
+					<div class="hud-score flex items-center gap-1.5">
+						<span class="hud-3d text-3xl leading-none text-star short:text-xl"
+							>{#if notesIcon}<Icon
+									name="note"
+									class="h-7 w-7 short:h-5 short:w-5"
+								/>{:else}{icon}{/if}</span
+						>
+						<span class="text-3xl tabular-nums short:text-xl">{status.collected}</span>
+						<span class="text-base opacity-80 short:text-xs">/ {status.total}</span>
+					</div>
 				</div>
 			</div>
 		</div>

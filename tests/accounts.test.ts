@@ -4,6 +4,7 @@ import { sqliteD1 } from '../scripts/d1-sqlite';
 import {
 	authEnabled,
 	logout,
+	senderFrom,
 	sessionAccount,
 	sha256,
 	startLogin,
@@ -128,7 +129,7 @@ describe('inicio de sesión por enlace', () => {
 			RESEND_API_KEY: 'k',
 			AUTH_EMAIL_FROM: 'VQ <h@vq.test>'
 		});
-		const sent: { url: string; body: { to: string; text: string } }[] = [];
+		const sent: { url: string; body: { from: string; to: string; text: string } }[] = [];
 		const fake = (async (url: string, init: RequestInit) => {
 			sent.push({ url, body: JSON.parse(String(init.body)) });
 			return new Response('{}', { status: 200 });
@@ -141,7 +142,15 @@ describe('inicio de sesión por enlace', () => {
 		expect(r).toEqual({ ok: true });
 		expect(sent[0].url).toBe('https://api.resend.com/emails');
 		expect(sent[0].body.to).toBe('a@b.co');
+		expect(sent[0].body.from).toBe('Vocal Quest <h@vq.test>');
 		expect(sent[0].body.text).toMatch(/https:\/\/vq\.test\/\?login=/);
+	});
+});
+
+describe('remitente', () => {
+	it('siempre se muestra como Vocal Quest', () => {
+		for (const raw of ['hola@vq.test', ' hola@vq.test ', 'hola <hola@vq.test>', '<hola@vq.test>'])
+			expect(senderFrom(raw)).toBe('Vocal Quest <hola@vq.test>');
 	});
 });
 
