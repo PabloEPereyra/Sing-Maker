@@ -31,6 +31,7 @@ export function accessMessage(status: number, data: ApiBody): string | null {
 		return t(`access.quota.${data.bucket ?? 'other'}`);
 	if (status === 402 && data.error === 'login_required')
 		return t('account.loginRequired', { n: wallet.report?.welcome ?? WELCOME_CREDITS });
+	if (status === 409 && data.error === 'job_closed') return t('wallet.jobClosed');
 	if (status === 402 && data.error === 'credits_required') return t('account.creditsRequired');
 	return null;
 }
@@ -42,12 +43,13 @@ export function accessMessage(status: number, data: ApiBody): string | null {
 export async function postJson<T = unknown>(
 	path: string,
 	body: unknown,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	extraHeaders: Record<string, string> = {}
 ): Promise<{ res: Response; data: ApiBody & Partial<T> }> {
 	if (!(await ensureAdult())) throw new GenerateRequestError(t('age.declined'));
 	const res = await fetch(path, {
 		method: 'POST',
-		headers: headers(),
+		headers: { ...headers(), ...extraHeaders },
 		body: JSON.stringify(body),
 		signal
 	});

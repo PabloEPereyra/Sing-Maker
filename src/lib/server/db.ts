@@ -6,6 +6,7 @@
 //   login_tokens   enlaces de inicio de sesión mandados por email (hash, vencen y se usan una sola vez)
 //   credit_ledger  cada movimiento de créditos: compras, usos y devoluciones (`ref` único evita duplicados)
 //   age_confirmations  cuándo cada persona (dispositivo, cuenta o código) declaró tener 18 años o más
+//   character_jobs creaciones y retoques de precio fijo (ver jobs.ts); sus pedidos se cuentan en usage como «job:<id>»
 //   payment_reversals  por compra, cuántos créditos hay que quitar por reembolsos o disputas y cuántos se quitaron
 //   welcome_grants cuándo se dio el regalo de bienvenida y desde qué red (hash de la IP), para el tope por IP
 
@@ -35,6 +36,8 @@ const SCHEMA = [
 	'CREATE TABLE IF NOT EXISTS credit_ledger (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, delta INTEGER NOT NULL, reason TEXT NOT NULL, ref TEXT UNIQUE, created_at INTEGER NOT NULL)',
 	'CREATE INDEX IF NOT EXISTS credit_ledger_user ON credit_ledger (user_id, created_at)',
 	'CREATE TABLE IF NOT EXISTS age_confirmations (name TEXT PRIMARY KEY, confirmed_at INTEGER NOT NULL)',
+	"CREATE TABLE IF NOT EXISTS character_jobs (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, kind TEXT NOT NULL, price INTEGER NOT NULL, state TEXT NOT NULL, outcome TEXT NOT NULL DEFAULT '', refunded INTEGER NOT NULL DEFAULT 0, op TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL)",
+	'CREATE INDEX IF NOT EXISTS character_jobs_user ON character_jobs (user_id, created_at)',
 	'CREATE TABLE IF NOT EXISTS payment_reversals (payment_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, due INTEGER NOT NULL DEFAULT 0, taken INTEGER NOT NULL DEFAULT 0, op TEXT NOT NULL)',
 	'CREATE TABLE IF NOT EXISTS welcome_grants (ip_hash TEXT NOT NULL, created_at INTEGER NOT NULL)',
 	'CREATE INDEX IF NOT EXISTS welcome_grants_ip ON welcome_grants (ip_hash, created_at)'

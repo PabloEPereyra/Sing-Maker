@@ -12,14 +12,33 @@
 // - Con cuentas, quien no inició sesión tiene un cupo chico por navegador (ANON_LIMIT_*: unos ejercicios, sin
 //   personajes ni imágenes) y después se le pide entrar. Quien entra recibe créditos de regalo una vez
 //   (src/lib/server/welcome.ts) y cada llamada descuenta créditos de su saldo según CREDIT_COST_*. Un costo 0
-//   (lo normal en «other»: entrenador, dictado, revisiones) no cobra, pero solo pasa si le queda saldo.
+//   (lo normal en «other»: entrenador, dictado, revisiones) no cobra, pero solo pasa si le queda saldo o si acaba
+//   de pagar algo (las llamadas auxiliares de lo que está creando).
+//   Crear o retocar personajes y objetos tiene precio fijo (jobs.ts): sus imágenes llegan con X-Job-Id y no se
+//   cobran aparte.
 //
 // Edad: los términos de Meta Model API (sección 10.1) piden que quien usa la IA tenga 18 años o más. El navegador
 // manda X-Adult: 1 cuando la persona lo declaró; la primera vez queda registrado (con la fecha) en
 // age_confirmations, y sin el encabezado se acepta solo si ya había una declaración guardada para esa persona.
 import { authEnabled, sessionAccount, type Account, type AuthEnv } from './auth';
 import { ensureSchema, inBatch, type D1Like } from './db';
-import { ANON_LIMITS, CREDIT_COSTS, FREE_LIMITS, WELCOME_CREDITS } from '../pricing';
+import {
+	ANON_LIMITS,
+	CREDIT_COSTS,
+	FREE_LIMITS,
+	jobPrice,
+	WELCOME_CREDITS,
+	type JobKind
+} from '../pricing';
+import {
+	JOB_HEADER,
+	noteFailure,
+	settleJob,
+	settleStale,
+	startJob,
+	takeJob,
+	type Outcome
+} from './jobs';
 
 export type { D1Like } from './db';
 
@@ -107,7 +126,10 @@ export function welcomeCredits(env: { WELCOME_CREDITS?: string }): number {
 }
 
 /** El cupo gratis que le toca a quien no tiene cuenta: el chico si hay cuentas, el de siempre si no. */
-const freeLimitsFor = (env: QuotaEnv, mode: 'code' | 'device' | 'account'): Record<Bucket, number> =>
+const freeLimitsFor = (
+	env: QuotaEnv,
+	mode: 'code' | 'device' | 'account'
+): Record<Bucket, number> =>
 	mode === 'account'
 		? { exercises: 0, characters: 0, images: 0, other: 0 }
 		: mode === 'device' && authEnabled(env)
@@ -152,6 +174,8 @@ export type Gate =
 			paid?: number;
 			/** La cuenta que pagó, si pagó con créditos. */
 			account?: string;
+			/** El trabajo de precio fijo del que salió, y con qué nombre se contó. */
+			job?: { id: string; slot: string };
 	  }
 	| { ok: false; status: number; error: string; bucket?: Bucket };
 
@@ -232,11 +256,30 @@ async function takeFree(db: D1Like, user: string, bucket: Bucket, limit: number)
 	return r.meta.changes >= 1;
 }
 
+/** Cuánto dura el permiso de las llamadas sin costo después de pagar algo, aunque el saldo quede en 0. */
+const GRACE_MS = 30 * 60_000;
+
+async function paidRecently(db: D1Like, userId: string): Promise<boolean> {
+	const row = await db
+		.prepare(
+			"SELECT 1 AS x FROM credit_ledger WHERE user_id = ?1 AND created_at > ?2 AND reason LIKE 'use:%' LIMIT 1"
+		)
+		.bind(userId, Date.now() - GRACE_MS)
+		.first<{ x: number }>();
+	return !!row;
+}
+
 /**
  * Revisa quién es y cobra la llamada: sin sesión, del cupo gratis; con sesión, en créditos de su cuenta.
+ * `image` es qué imagen se pide («hero», «move»…): si viene con X-Job-Id sale del precio fijo de ese trabajo.
  * `ok: false` trae el estado y el mensaje para responder.
  */
-export async function charge(request: Request, env: QuotaEnv, bucket: Bucket): Promise<Gate> {
+export async function charge(
+	request: Request,
+	env: QuotaEnv,
+	bucket: Bucket,
+	image?: string
+): Promise<Gate> {
 	const who = await identify(request, env);
 	if (who.open) return { ok: true, user: null };
 	if (who.user === null) return unknownUser(who);
@@ -255,9 +298,15 @@ export async function charge(request: Request, env: QuotaEnv, bucket: Bucket): P
 		}
 		const cost = costsFromEnv(env)[bucket];
 		const id = who.account.id;
+		const job = request.headers.get(JOB_HEADER)?.trim();
+		if (job && image) {
+			const slot = await takeJob(db, id, job, image);
+			if (!slot) return { ok: false, status: 409, error: 'job_closed', bucket };
+			return { ok: true, user: who.user, paid: 0, job: { id: job, slot } };
+		}
 		if (cost === 0) {
-			// Sin costo, pero solo para quien compró créditos (y le queda saldo).
-			if (who.account.credits > 0) return { ok: true, user: who.user, paid: 0 };
+			if (who.account.credits > 0 || (await paidRecently(db, id)))
+				return { ok: true, user: who.user, paid: 0 };
 			return { ok: false, status: 402, error: 'credits_required', bucket };
 		}
 		const r = await db
@@ -289,6 +338,7 @@ export async function refund(
 	if (!gate.user || !env.DB) return;
 	const db = env.DB;
 	try {
+		if (gate.job) return await noteFailure(db, gate.job.id, gate.job.slot, 'error');
 		if (gate.paid && gate.account) {
 			await inBatch(db, [
 				db
@@ -308,6 +358,70 @@ export async function refund(
 			.run();
 	} catch {
 		// sin devolución: el cupo queda como estaba
+	}
+}
+
+/** La IA frenó la imagen por su contenido: en un trabajo de precio fijo cuenta como intento, pero no se cobra. */
+export async function blocked(env: QuotaEnv, gate: Extract<Gate, { ok: true }>): Promise<void> {
+	if (!gate.job || !env.DB) return;
+	await noteFailure(env.DB, gate.job.id, gate.job.slot, 'blocked').catch(() => null);
+}
+
+const JOB_BUCKET: Record<JobKind, Bucket> = {
+	character: 'characters',
+	'character-photo': 'images',
+	retouch: 'characters',
+	'retouch-sheet': 'images',
+	item: 'characters',
+	'item-photo': 'images'
+};
+
+/** Cobra y abre un trabajo de precio fijo. `job: null` = sin cuentas: cada imagen se cuenta aparte. */
+export async function openJob(
+	request: Request,
+	env: QuotaEnv,
+	kind: JobKind
+): Promise<{ ok: true; job: string | null; price: number } | Extract<Gate, { ok: false }>> {
+	const who = await identify(request, env);
+	if (who.open) return { ok: true, job: null, price: 0 };
+	if (who.user === null) return unknownUser(who);
+	const db = env.DB;
+	if (!db) return { ok: false, status: 500, error: 'quota_unavailable' };
+	const bucket = JOB_BUCKET[kind];
+	try {
+		await ensureSchema(db);
+		if (!(await confirmedAdult(request, db, who.user)))
+			return { ok: false, status: 403, error: 'age_confirmation_required' };
+		if (!who.account) {
+			if (who.mode === 'device' && authEnabled(env) && freeLimitsFor(env, who.mode)[bucket] <= 0)
+				return { ok: false, status: 402, error: 'login_required', bucket };
+			return { ok: true, job: null, price: 0 };
+		}
+		const costs = costsFromEnv(env);
+		await settleStale(db, who.account.id, costs);
+		const price = jobPrice(kind, costs);
+		const job = await startJob(db, who.account.id, kind, price);
+		if (!job) return { ok: false, status: 402, error: 'credits_required', bucket };
+		return { ok: true, job, price };
+	} catch {
+		return { ok: false, status: 500, error: 'quota_unavailable' };
+	}
+}
+
+/** Cierra un trabajo de la cuenta con sesión y devuelve lo que corresponda. */
+export async function closeJob(
+	request: Request,
+	env: QuotaEnv,
+	job: string,
+	outcome: Outcome
+): Promise<{ ok: true; refunded: number } | Extract<Gate, { ok: false }>> {
+	const who = await identify(request, env);
+	if (who.open || !who.account || !env.DB) return { ok: true, refunded: 0 };
+	try {
+		const refunded = await settleJob(env.DB, who.account.id, job, outcome, costsFromEnv(env));
+		return { ok: true, refunded };
+	} catch {
+		return { ok: false, status: 500, error: 'quota_unavailable' };
 	}
 }
 
@@ -374,6 +488,13 @@ export async function usageFor(
 	if (env.DB) {
 		try {
 			await ensureSchema(env.DB);
+			if (who.account) {
+				await settleStale(env.DB, who.account.id, costsFromEnv(env));
+				const row = await env.DB.prepare('SELECT credits FROM users WHERE id = ?1')
+					.bind(who.account.id)
+					.first<{ credits: number }>();
+				if (row) who.account.credits = row.credits;
+			}
 			const rows = await env.DB.prepare('SELECT bucket, n FROM usage WHERE name = ?1')
 				.bind(who.user)
 				.all<{ bucket: Bucket; n: number }>();

@@ -2,6 +2,7 @@
 	import Icon from './Icon.svelte';
 	import CreditBadge from './CreditBadge.svelte';
 	import TicketCost from './TicketCost.svelte';
+	import { withJob } from '$lib/character/job';
 	// "Crear objeto para recoger con IA": lo que se junta al cantar (una moneda, una fruta, una gema…).
 	// Spark interpreta el pedido y reconoce qué hay en una foto; SAM recorta el objeto elegido; Muse Image lo dibuja en
 	// tres poses (normal, inclinado y brillante para cuando se recoge). Queda guardado en el dispositivo.
@@ -52,6 +53,8 @@
 	let thread = $state<BriefTurn[]>([]);
 	let strip = $state.raw<Strip | null>(null);
 	let saving = $state(false);
+	/** Créditos devueltos por el último intento fallido. */
+	let refunded = $state(0);
 	let disposed = false;
 	onDestroy(() => (disposed = true));
 
@@ -147,6 +150,7 @@
 	async function create() {
 		if (!canCreate) return;
 		error = '';
+		refunded = 0;
 		note = null;
 		steps = { hero: { state: 'working' } };
 		phase = 'working';
@@ -169,11 +173,16 @@
 			let ref = reference;
 			if (photo && !ref) ref = (await cutSubject(photo, brief.noun, false, false)).reference;
 			name = brief.name;
-			const made = await createItem(
-				{ visual: brief.visual, noun: chosen?.noun ?? brief.noun, style, reference: ref },
-				(step: StepId, state: StepState, message?: string) => {
-					if (!disposed) steps = { ...steps, [step]: { state, message } };
-				}
+			const made = await withJob(
+				{ kind: ref ? 'item-photo' : 'item', onRefund: (n) => (refunded = n) },
+				(job) =>
+					createItem(
+						{ visual: brief.visual, noun: chosen?.noun ?? brief.noun, style, reference: ref },
+						(step: StepId, state: StepState, message?: string) => {
+							if (!disposed) steps = { ...steps, [step]: { state, message } };
+						},
+						job
+					)
 			);
 			if (disposed) return;
 			strip = made;
@@ -274,7 +283,7 @@
 		aria-labelledby="item-title"
 	>
 		<div class="flex items-center justify-between">
-			<h3 id="item-title" class="text-lg font-bold"><Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('item.title')}<TicketCost spend="item" /></h3>
+			<h3 id="item-title" class="text-lg font-bold"><Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('item.title')}<TicketCost spend={photo ? 'item-photo' : 'item'} /></h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2 disabled:opacity-40"
 				aria-label={t('range.close')}
@@ -391,6 +400,11 @@
 					{error}
 				</p>
 			{/if}
+			{#if refunded}
+				<p class="mt-3 text-sm text-muted" role="status">
+					{t('wallet.refunded', { n: refunded })}
+				</p>
+			{/if}
 			{#if full}<p class="mt-3 text-sm text-red-700">{t('item.full', { n: MAX_ITEMS })}</p>{/if}
 
 			<div class="mt-4 flex items-center justify-between gap-3">
@@ -401,7 +415,7 @@
 					onclick={create}>{t('item.create')}</button
 				>
 			</div>
-			<CreditBadge spend="item" />
+			<CreditBadge spend={photo ? 'item-photo' : 'item'} />
 		{:else if phase === 'working'}
 			<p class="mt-1 text-sm text-muted">{t('item.working')}</p>
 			<ul class="mt-4 space-y-2" aria-live="polite">

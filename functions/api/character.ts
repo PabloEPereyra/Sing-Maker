@@ -21,7 +21,7 @@ import {
 	stripPrompt
 } from '../../src/lib/ai/character';
 import { configFromEnv, GenerateError } from '../../src/lib/ai/generate';
-import { charge, refund, type Bucket, type FunctionEnv } from '../../src/lib/server/quota';
+import { blocked, charge, refund, type Bucket, type FunctionEnv } from '../../src/lib/server/quota';
 
 type Env = FunctionEnv;
 
@@ -52,7 +52,10 @@ export async function onRequestPost({
 			: input.action === 'strip' || input.action === 'scene'
 				? 'images'
 				: 'other';
-	const gate = await charge(request, env, bucket);
+	// Crear o retocar personajes y objetos tiene precio fijo: estas imágenes llegan con X-Job-Id (ver jobs.ts).
+	const image =
+		input.action === 'hero' ? 'hero' : input.action === 'strip' ? input.kind : undefined;
+	const gate = await charge(request, env, bucket, image);
 	if (!gate.ok) return json({ error: gate.error, bucket: gate.bucket }, gate.status);
 	const config = configFromEnv(env);
 	const media = mediaConfigFromEnv(env, config);
@@ -115,8 +118,10 @@ export async function onRequestPost({
 				return json({ text: await segmentImage(input.image, input.noun, media) });
 		}
 	} catch (e) {
-		if (e instanceof GenerateError && e.status < 500)
+		if (e instanceof GenerateError && e.status < 500) {
+			await blocked(env, gate);
 			return json({ error: e.message, details: e.details }, e.status);
+		}
 		await refund(env, gate, bucket);
 		if (e instanceof GenerateError) return json({ error: e.message, details: e.details }, e.status);
 		return json({ error: 'Unexpected error.' }, 500);

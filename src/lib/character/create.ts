@@ -263,7 +263,8 @@ async function makeStrip(
 	kind: StripKind,
 	input: CreateInput,
 	reference: string,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	job?: string
 ): Promise<Strip> {
 	let lastError: unknown;
 	let visual = input.visual;
@@ -278,7 +279,8 @@ async function makeStrip(
 				reference,
 				input.flight,
 				fix,
-				signal
+				signal,
+				job
 			);
 			throwIfAborted(signal);
 			const raster = await dataUrlToRaster(image);
@@ -336,7 +338,9 @@ async function makeStrip(
 export async function createCharacter(
 	input: CreateInput,
 	onProgress: Progress,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	/** Trabajo de precio fijo (ver job.ts): sus imágenes no se cobran aparte. */
+	job?: string
 ): Promise<CreatedStrips> {
 	let reference = input.reference;
 	if (!reference) {
@@ -344,10 +348,10 @@ export async function createCharacter(
 		try {
 			let image: string;
 			try {
-				image = await characterApi.hero(input.visual, input.style, input.movement, {}, signal);
+				image = await characterApi.hero(input.visual, input.style, input.movement, {}, signal, job);
 			} catch (e) {
 				if (!(e instanceof ContentBlockedError)) throw e;
-				image = await characterApi.hero(input.noun, input.style, input.movement, {}, signal);
+				image = await characterApi.hero(input.noun, input.style, input.movement, {}, signal, job);
 			}
 			const hero = await dataUrlToRaster(image, 1024);
 			reference = (await cutSubject(hero, input.noun, true, true, signal)).reference;
@@ -364,7 +368,7 @@ export async function createCharacter(
 	const results = await Promise.all(
 		kinds.map(async (kind) => {
 			try {
-				const strip = await makeStrip(kind, input, reference!, signal);
+				const strip = await makeStrip(kind, input, reference!, signal, job);
 				onProgress(kind, 'done');
 				return strip;
 			} catch (e) {
@@ -401,7 +405,8 @@ export async function refineCharacter(
 	onProgress: Progress,
 	/** Estilo nuevo (solo con alcance 'all'); si cambia, se redibuja el mismo personaje en ese estilo. */
 	newStyle?: StyleId,
-	signal?: AbortSignal
+	signal?: AbortSignal,
+	job?: string
 ): Promise<Creation> {
 	const { input, created } = prev;
 	const restyle = scope === 'all' && !!newStyle && newStyle !== input.style;
@@ -441,7 +446,8 @@ export async function refineCharacter(
 					next.style,
 					next.movement,
 					{ reference: created.reference, change: instruction.trim(), restyle },
-					signal
+					signal,
+					job
 				),
 				1024
 			);
@@ -453,13 +459,13 @@ export async function refineCharacter(
 		}
 		return {
 			input: next,
-			created: await createCharacter({ ...next, reference }, onProgress, signal)
+			created: await createCharacter({ ...next, reference }, onProgress, signal, job)
 		};
 	}
 
 	onProgress(scope, 'working');
 	try {
-		const strip = await makeStrip(scope, next, created.reference, signal);
+		const strip = await makeStrip(scope, next, created.reference, signal, job);
 		onProgress(scope, 'done');
 		return { input: next, created: { ...created, [scope]: strip } };
 	} catch (e) {
@@ -477,13 +483,24 @@ export interface ItemInput {
 }
 
 /** Crea un objeto para recoger: diseño (o foto recortada) -> hoja de 3 poses (normal, inclinado, brillante). */
-export async function createItem(input: ItemInput, onProgress: Progress): Promise<Strip> {
+export async function createItem(
+	input: ItemInput,
+	onProgress: Progress,
+	job?: string
+): Promise<Strip> {
 	let reference = input.reference;
 	if (!reference) {
 		onProgress('hero', 'working');
 		try {
 			const design = await dataUrlToRaster(
-				await characterApi.hero(input.visual, input.style, 'walk', { asset: 'item' }),
+				await characterApi.hero(
+					input.visual,
+					input.style,
+					'walk',
+					{ asset: 'item' },
+					undefined,
+					job
+				),
 				1024
 			);
 			reference = (await cutSubject(design, input.noun, true, false)).reference;
@@ -498,7 +515,9 @@ export async function createItem(input: ItemInput, onProgress: Progress): Promis
 		const strip = await makeStrip(
 			'item',
 			{ movement: 'fly', visual: input.visual, noun: input.noun, style: input.style },
-			reference
+			reference,
+			undefined,
+			job
 		);
 		onProgress('item', 'done');
 		return strip;

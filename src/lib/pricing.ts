@@ -47,8 +47,8 @@ export const WELCOME_PER_IP = 10;
 export const WELCOME_IP_DAYS = 30;
 
 /**
- * Créditos por llamada una vez agotado el cupo gratis. Un personaje completo es la imagen principal más unas 4
- * tiras (~13 créditos); con 1 crédito ≈ US$ 0,01 de costo de IA y el paquete a 4–5×, deja margen.
+ * Créditos por llamada suelta (ejercicios, ritmos, fondos) y base de los precios fijos de jobPrice. Con
+ * 1 crédito ≈ US$ 0,01 de costo de IA y el paquete a 4–5×, deja margen.
  */
 export const CREDIT_COSTS: Record<Bucket, number> = {
 	exercises: 1,
@@ -57,8 +57,39 @@ export const CREDIT_COSTS: Record<Bucket, number> = {
 	other: 0
 };
 
-/** Tiras de animación que lleva un personaje completo (para estimar su costo en la página de precios). */
+/** Tiras que se cobran en el precio fijo de un personaje: las 2 o 3 que lleva más algún reintento. */
 export const STRIPS_PER_CHARACTER = 4;
+
+/**
+ * Lo que se cobra a precio fijo, con los reintentos incluidos (src/lib/server/jobs.ts). Desde una foto no hace falta
+ * dibujar la imagen principal. `retouch` rehace todo el personaje; `retouch-sheet`, una sola animación.
+ */
+export const JOB_KINDS = [
+	'character',
+	'character-photo',
+	'retouch',
+	'retouch-sheet',
+	'item',
+	'item-photo'
+] as const;
+export type JobKind = (typeof JOB_KINDS)[number];
+
+/** Precio fijo, en créditos. */
+export function jobPrice(kind: JobKind, costs: Record<Bucket, number> = CREDIT_COSTS): number {
+	const strips = costs.images * STRIPS_PER_CHARACTER;
+	switch (kind) {
+		case 'character':
+		case 'retouch':
+			return costs.characters + strips;
+		case 'character-photo':
+			return strips;
+		case 'retouch-sheet':
+		case 'item-photo':
+			return costs.images;
+		case 'item':
+			return costs.characters + costs.images;
+	}
+}
 
 /**
  * Paquetes que se muestran en /pricing. Los que se venden de verdad son los de DODO_PACKS (variable del proyecto

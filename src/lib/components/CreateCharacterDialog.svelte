@@ -2,6 +2,7 @@
 	import Icon from './Icon.svelte';
 	import CreditBadge from './CreditBadge.svelte';
 	import TicketCost from './TicketCost.svelte';
+	import { withJob } from '$lib/character/job';
 	// "Crear personaje con IA". Reparto de modelos (de barato a caro): Spark 1.3 interpreta el pedido y
 	// reconoce qué hay en una foto; SAM 3.1 recorta (un objeto de la foto y cada pose de las tiras);
 	// Muse Image dibuja las poses. Después se anima en vivo para aprobarlo y queda guardado en el dispositivo.
@@ -76,6 +77,9 @@
 	let thread = $state<BriefTurn[]>([]);
 	let result = $state.raw<CreatedStrips | null>(null);
 	let saving = $state(false);
+	/** Créditos devueltos por el último intento (falló o se canceló). */
+	let refunded = $state(0);
+	const onRefund = (n: number) => (refunded = n);
 	let disposed = false;
 	/** Corta los pedidos en curso: "Cancelar creación" y cerrar la ventana mientras trabaja. */
 	let abort: AbortController | null = null;
@@ -213,6 +217,7 @@
 		if (!canCreate) return;
 		error = '';
 		details = [];
+		refunded = 0;
 		note = null;
 		steps = { hero: { state: 'working' } };
 		workingScope = 'all';
@@ -247,7 +252,10 @@
 				flight: movement === 'fly' ? brief.flight : undefined,
 				reference: ref
 			};
-			const created = await createCharacter(input, progress, signal);
+			const created = await withJob(
+				{ kind: ref ? 'character-photo' : 'character', signal, onRefund },
+				(job) => createCharacter(input, progress, signal, job)
+			);
 			if (disposed) return;
 			if (signal.aborted) {
 				phase = 'form';
@@ -292,20 +300,27 @@
 		if (!result || !lastInput || !canTweak || saving) return;
 		error = '';
 		details = [];
+		refunded = 0;
 		const before = { input: lastInput, created: result };
 		workingScope = tweakScope;
 		steps = { [tweakScope === 'all' ? 'hero' : tweakScope]: { state: 'working' } };
 		phase = 'working';
 		const { signal } = (abort = new AbortController());
 		try {
-			const next = await refineCharacter(
-				before,
-				tweak.trim(),
-				tweakScope,
-				settings.lang,
-				progress,
-				tweakScope === 'all' ? tweakStyle : undefined,
-				signal
+			const scope = tweakScope;
+			const next = await withJob(
+				{ kind: scope === 'all' ? 'retouch' : 'retouch-sheet', signal, onRefund },
+				(job) =>
+					refineCharacter(
+						before,
+						tweak.trim(),
+						scope,
+						settings.lang,
+						progress,
+						scope === 'all' ? tweakStyle : undefined,
+						signal,
+						job
+					)
 			);
 			if (disposed) return;
 			// Cancelado: se queda la versión que ya había.
@@ -547,7 +562,7 @@
 	>
 		<div class="flex items-center justify-between">
 			<h3 id="char-title" class="text-lg font-bold">
-				{#if editing}<Icon name="pencil" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('char.editTitle')}{:else}<Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('char.title')}<TicketCost spend="character" />{/if}
+				{#if editing}<Icon name="pencil" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('char.editTitle')}{:else}<Icon name="sparkles" class="mr-1 inline h-5 w-5 align-text-bottom" />{t('char.title')}<TicketCost spend={photo ? 'character-photo' : 'character'} />{/if}
 			</h3>
 			<button
 				class="grid h-8 w-8 place-items-center rounded-lg text-muted hover:bg-surface-2 disabled:opacity-40"
@@ -671,6 +686,11 @@
 					{/if}
 				</div>
 			{/if}
+			{#if refunded}
+				<p class="mt-3 text-sm text-muted" role="status">
+					{t('wallet.refunded', { n: refunded })}
+				</p>
+			{/if}
 			{#if full}
 				<p class="mt-3 text-sm text-red-700">{t('char.full', { n: MAX_CHARACTERS })}</p>
 			{/if}
@@ -683,7 +703,7 @@
 					onclick={askType}>{t('char.create')}</button
 				>
 			</div>
-			<CreditBadge spend="character" />
+			<CreditBadge spend={photo ? 'character-photo' : 'character'} />
 		{:else if phase === 'type'}
 			<p class="mt-3 text-lg font-semibold">{t('char.pickType')}</p>
 			<p class="mt-1 text-sm text-muted">{t('char.pickTypeHelp')}</p>
@@ -761,6 +781,11 @@
 			</div>
 		{:else}
 			<p class="mt-1 text-sm text-muted">{t('char.review')}</p>
+			{#if refunded}
+				<p class="mt-2 text-sm text-muted" role="status">
+					{t('wallet.refunded', { n: refunded })}
+				</p>
+			{/if}
 			<div
 				class="mt-3 grid gap-2"
 				style:grid-template-columns="repeat({result?.jump ? 3 : 2}, minmax(0, 1fr))"
@@ -836,7 +861,10 @@
 					<button
 						class="ml-auto rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
 						disabled={!canTweak || saving}
-						onclick={retouch}>{t('char.tweakGo')}</button
+						onclick={retouch}
+						>{t('char.tweakGo')}<TicketCost
+							spend={tweakScope === 'all' ? 'retouch' : 'retouch-sheet'}
+						/></button
 					>
 				</div>
 			</div>

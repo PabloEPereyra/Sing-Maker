@@ -2,6 +2,7 @@
 import type { Movement, StripKind, StyleId } from '../character/spec';
 import type { Brief, BriefTurn, GroundInfo, Refined } from './character';
 import { t } from '../i18n';
+import type { JobKind } from '../pricing';
 import { GenerateRequestError } from './client';
 import { postJson } from './http';
 
@@ -9,8 +10,18 @@ import { postJson } from './http';
 export class ContentBlockedError extends GenerateRequestError {}
 
 /** `signal` cancela el pedido en curso (el botón "Cancelar" del creador). */
-async function call<T>(body: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
-	const { res, data } = await postJson<T>('/api/character', body, signal);
+async function call<T>(
+	body: Record<string, unknown>,
+	signal?: AbortSignal,
+	/** Trabajo de precio fijo al que pertenece la imagen (ver character/job.ts). */
+	job?: string
+): Promise<T> {
+	const { res, data } = await postJson<T>(
+		'/api/character',
+		body,
+		signal,
+		job ? { 'X-Job-Id': job } : {}
+	);
 	// 422: el filtro de contenido de la IA bloqueó la imagen (también tras reintentar)
 	if (res.status === 422) throw new ContentBlockedError(t('char.blocked'));
 	if (!res.ok)
@@ -18,7 +29,19 @@ async function call<T>(body: Record<string, unknown>, signal?: AbortSignal): Pro
 	return data as T;
 }
 
+async function jobCall<T>(body: Record<string, unknown>): Promise<T> {
+	const { res, data } = await postJson<T>('/api/character-job', body);
+	if (!res.ok) throw new GenerateRequestError(data.error ?? `HTTP ${res.status}`);
+	return data as T;
+}
+
 export const characterApi = {
+	/** Cobra el precio fijo y abre el trabajo; `null` si el sitio no cobra así. */
+	startJob: (kind: JobKind) =>
+		jobCall<{ job: string | null }>({ action: 'start', kind }).then((r) => r.job),
+	/** Cierra el trabajo y dice cuántos créditos se devolvieron. */
+	settleJob: (job: string, outcome: 'done' | 'cancelled' | 'failed') =>
+		jobCall<{ refunded: number }>({ action: 'settle', job, outcome }).then((r) => r.refunded),
 	brief: (
 		prompt: string,
 		lang: 'es' | 'en',
@@ -53,9 +76,10 @@ export const characterApi = {
 			restyle?: boolean;
 			asset?: 'character' | 'item';
 		} = {},
-		signal?: AbortSignal
+		signal?: AbortSignal,
+		job?: string
 	) =>
-		call<{ image: string }>({ action: 'hero', visual, style, movement, ...opts }, signal).then(
+		call<{ image: string }>({ action: 'hero', visual, style, movement, ...opts }, signal, job).then(
 			(r) => r.image
 		),
 	refine: (
@@ -74,11 +98,13 @@ export const characterApi = {
 		reference: string,
 		flight?: string,
 		fix?: string,
-		signal?: AbortSignal
+		signal?: AbortSignal,
+		job?: string
 	) =>
 		call<{ image: string }>(
 			{ action: 'strip', kind, visual, style, movement, reference, flight, fix },
-			signal
+			signal,
+			job
 		).then((r) => r.image),
 	/** Muse Wonder revisa la hoja de poses; `ok: false` trae qué corregir al volver a dibujarla. */
 	review: (

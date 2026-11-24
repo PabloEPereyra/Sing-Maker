@@ -34,8 +34,9 @@ describe('precios', () => {
 		expect(es).toContain(`${WELCOME_CREDITS} créditos de regalo`);
 		expect(text('en')).toContain(`${WELCOME_CREDITS} free credits`);
 		for (const p of PUBLIC_PACKS) expect(es).toContain(`${p.credits} créditos: US$ ${p.price}`);
-		expect(es).toContain('alrededor de 13 créditos');
-		expect(text('en')).toContain('around 13 credits');
+		expect(es).toContain('Crear un personaje: 13 créditos');
+		expect(es).toContain('Crear un objeto para recoger: 7 créditos');
+		expect(text('en')).toContain('Create a character: 13 credits');
 	});
 
 	it('el regalo equivale más o menos al viejo cupo gratis (ejercicios y personajes)', () => {

@@ -4,7 +4,7 @@
 	// regalo (con el campo del email ahí mismo). Sin servidor de cupos no muestra nada.
 	import { onMount } from 'svelte';
 	import { t } from '$lib/i18n';
-	import { allowanceFor, isEstimate, refreshWallet, wallet, type Spend } from '$lib/wallet.svelte';
+	import { allowanceFor, refreshWallet, wallet, type Spend } from '$lib/wallet.svelte';
 	import LoginForm from './LoginForm.svelte';
 	import Ticket from './Ticket.svelte';
 
@@ -12,6 +12,16 @@
 
 	const info = $derived(allowanceFor(wallet.report, spend));
 	let open = $state(false);
+	/** El texto del cupo gratis, que solo distingue por tipo de llamada. */
+	const freeKey = $derived(
+		spend === 'exercise'
+			? 'exercise'
+			: spend === 'character' || spend === 'retouch'
+				? 'character'
+				: spend === 'item'
+					? 'item'
+					: 'scene'
+	);
 
 	onMount(() => {
 		void refreshWallet();
@@ -30,12 +40,10 @@
 			{#if info.kind === 'credits'}
 				<span>{t('wallet.balance', { n: info.credits })}</span>
 				{#if info.credits < info.cost}
-					<span class="font-semibold text-red-600"
-						>{t(isEstimate(spend) ? 'wallet.mayNotBeEnough' : 'wallet.notEnough')}</span
-					>
+					<span class="font-semibold text-red-600">{t('wallet.notEnough')}</span>
 				{/if}
 			{:else if info.kind === 'free'}
-				<span>{t(`wallet.free.${spend}`, { left: info.left, limit: info.limit })}</span>
+				<span>{t(`wallet.free.${freeKey}`, { left: info.left, limit: info.limit })}</span>
 				{#if info.welcome > 0}
 					<button
 						class="font-semibold text-accent underline hover:brightness-110"
@@ -47,7 +55,7 @@
 			{:else}
 				<span class="font-semibold"
 					>{t(
-						`access.quota.${spend === 'exercise' ? 'exercises' : spend === 'scene' ? 'images' : 'characters'}`
+						`access.quota.${freeKey === 'exercise' ? 'exercises' : freeKey === 'scene' ? 'images' : 'characters'}`
 					)}</span
 				>
 			{/if}

@@ -1,13 +1,7 @@
 // Lo que muestran el ticket de la pantalla, el costo junto a los títulos y el recuadro de los creadores.
 import { describe, expect, it } from 'vitest';
 import { CREDIT_COSTS } from '../src/lib/pricing';
-import {
-	allowanceFor,
-	creditCost,
-	isEstimate,
-	ticketFor,
-	type QuotaReport
-} from '../src/lib/wallet.svelte';
+import { allowanceFor, creditCost, ticketFor, type QuotaReport } from '../src/lib/wallet.svelte';
 
 const none = { exercises: 0, characters: 0, images: 0, other: 0 };
 const report = (extra: Partial<QuotaReport> = {}): QuotaReport => ({
@@ -49,21 +43,13 @@ describe('ticket de la pantalla', () => {
 });
 
 describe('costo de crear', () => {
-	it('usa los costos del servidor; un objeto es su diseño más una hoja', () => {
+	it('usa los costos del servidor; personajes y objetos tienen precio fijo', () => {
 		expect(creditCost('exercise')).toBe(1);
 		expect(creditCost('scene')).toBe(2);
 		expect(creditCost('item')).toBe(7);
 		expect(creditCost('character')).toBe(13);
+		expect(creditCost('character-photo')).toBe(8);
 		expect(creditCost('exercise', { ...CREDIT_COSTS, exercises: 3 })).toBe(3);
-	});
-
-	it('personajes y objetos son estimados (dependen del tipo y los reintentos)', () => {
-		expect((['exercise', 'scene', 'item', 'character'] as const).map(isEstimate)).toEqual([
-			false,
-			false,
-			true,
-			true
-		]);
 	});
 
 	it('los objetos piden cuenta igual que los personajes', () => {

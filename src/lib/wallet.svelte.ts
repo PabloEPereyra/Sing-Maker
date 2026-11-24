@@ -3,8 +3,7 @@
 // pedir después de cada llamada a la IA (src/lib/ai/http.ts) y al entrar o salir de la cuenta.
 import { identityHeaders } from './access.svelte';
 import type { AgeStatus } from './age.svelte';
-import type { Bucket } from './pricing';
-import { CREDIT_COSTS, STRIPS_PER_CHARACTER } from './pricing';
+import { CREDIT_COSTS, jobPrice, type Bucket, type JobKind } from './pricing';
 
 export interface QuotaReport {
 	open: boolean;
@@ -70,28 +69,25 @@ export function refreshWallet(): Promise<void> {
 	return pending;
 }
 
-/**
- * Lo que gasta crear algo: un personaje completo es la imagen principal más sus tiras; un objeto, su diseño (que
- * cuenta como una imagen principal) más una hoja.
- */
-export type Spend = 'exercise' | 'character' | 'scene' | 'item';
+/** Lo que se puede crear: lo que se cobra por llamada y lo que tiene precio fijo (ver jobPrice). */
+export type Spend = 'exercise' | 'scene' | JobKind;
 
 const BUCKET_OF: Record<Spend, Bucket> = {
 	exercise: 'exercises',
-	character: 'characters',
 	scene: 'images',
-	item: 'characters'
+	character: 'characters',
+	'character-photo': 'images',
+	retouch: 'characters',
+	'retouch-sheet': 'images',
+	item: 'characters',
+	'item-photo': 'images'
 };
 
 /** Créditos que cuesta, con los costos del servidor (o los de pricing.ts si todavía no llegaron). */
 export function creditCost(spend: Spend, costs: Record<Bucket, number> = CREDIT_COSTS): number {
-	if (spend === 'character') return costs.characters + STRIPS_PER_CHARACTER * costs.images;
-	if (spend === 'item') return costs.characters + costs.images;
-	return costs[BUCKET_OF[spend]];
+	if (spend === 'exercise' || spend === 'scene') return costs[BUCKET_OF[spend]];
+	return jobPrice(spend, costs);
 }
-
-/** Es un estimado: cambia según el tipo de personaje, si parte de una foto y las hojas que haya que repetir. */
-export const isEstimate = (spend: Spend): boolean => spend === 'character' || spend === 'item';
 
 /**
  * Qué muestra el ticket de la pantalla: el saldo (`low` = no alcanza para un personaje) o, sin sesión, el regalo

@@ -6,8 +6,8 @@ import {
 	CREDIT_COSTS,
 	PUBLIC_PACKS,
 	REFUND_DAYS,
-	STRIPS_PER_CHARACTER,
-	WELCOME_CREDITS
+	WELCOME_CREDITS,
+	jobPrice
 } from './pricing';
 import type { Lang } from './settings.svelte';
 
@@ -19,8 +19,8 @@ export const OWNER_COUNTRY: Record<Lang, string> = {
 };
 export const CONTACT_EMAIL = 'hola@vocal.quest';
 export const UPDATED: Record<Lang, string> = {
-	es: '23 de noviembre de 2026',
-	en: 'November 23, 2026'
+	es: '24 de noviembre de 2026',
+	en: 'November 24, 2026'
 };
 
 export interface LegalSection {
@@ -366,7 +366,7 @@ export function pricingDoc(lang: Lang): LegalDoc {
 	const a = ANON_LIMITS;
 	const w = WELCOME_CREDITS;
 	const c = CREDIT_COSTS;
-	const character = c.characters + c.images * STRIPS_PER_CHARACTER;
+	const character = jobPrice('character');
 	const money = (n: number) => `US$ ${n}`;
 	if (lang === 'en')
 		return {
@@ -394,8 +394,11 @@ export function pricingDoc(lang: Lang): LegalDoc {
 					body: [
 						'Paid with your free or purchased credits:',
 						`• Create an exercise or a drum pattern with AI: ${c.exercises} credit`,
-						`• Create a character: ${c.characters} credits for the main image, plus ${c.images} for each animation image (about ${STRIPS_PER_CHARACTER}), around ${character} credits in total`,
-						`• Each extra animation image or background: ${c.images} credits`,
+						`• Create a character: ${character} credits, with its animations and any image the AI has to repeat included (${jobPrice('character-photo')} from a photo)`,
+						`• Create an object to collect: ${jobPrice('item')} credits (${jobPrice('item-photo')} from a photo)`,
+						`• Retouch a character: ${jobPrice('retouch')} credits for all of it, or ${jobPrice('retouch-sheet')} for a single animation`,
+						`• Create or retouch a background: ${c.images} credits`,
+						'If you cancel a character or an object, you get back the credits of the images that were not requested. If it fails, you get them all back (up to 2 times a day; after that, the same as when cancelling).',
 						'• AI coach, dictation and helper steps: no cost for people who have credits',
 						'If an AI request fails because of an error on our side, its credits are returned automatically. The profile menu shows your balance.'
 					]
@@ -439,8 +442,11 @@ export function pricingDoc(lang: Lang): LegalDoc {
 				body: [
 					'Se paga con tus créditos de regalo o comprados:',
 					`• Crear un ejercicio o un ritmo con IA: ${c.exercises} crédito`,
-					`• Crear un personaje: ${c.characters} créditos por la imagen principal, más ${c.images} por cada imagen de animación (unas ${STRIPS_PER_CHARACTER}), alrededor de ${character} créditos en total`,
-					`• Cada imagen de animación o fondo adicional: ${c.images} créditos`,
+					`• Crear un personaje: ${character} créditos, con sus animaciones y las imágenes que la IA tenga que repetir incluidas (${jobPrice('character-photo')} desde una foto)`,
+					`• Crear un objeto para recoger: ${jobPrice('item')} créditos (${jobPrice('item-photo')} desde una foto)`,
+					`• Retocar un personaje: ${jobPrice('retouch')} créditos todo, o ${jobPrice('retouch-sheet')} una sola animación`,
+					`• Crear o retocar un fondo: ${c.images} créditos`,
+					'Si cancelas un personaje o un objeto, se devuelven los créditos de las imágenes que no se llegaron a pedir. Si falla, se devuelven todos (hasta 2 veces por día; después, igual que al cancelar).',
 					'• Entrenador con IA, dictado y pasos auxiliares: sin costo para quien tiene créditos',
 					'Si un pedido a la IA falla por un error nuestro, sus créditos se devuelven solos. El menú de tu perfil muestra tu saldo.'
 				]
