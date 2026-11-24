@@ -1,4 +1,4 @@
-// POST /api/dodo-webhook — avisos de Dodo Payments (pago confirmado, reembolso). Se verifica la firma con el
+// POST /api/dodo-webhook — avisos de Dodo Payments (pago confirmado, reembolso, disputa). Se verifica la firma con el
 // cuerpo crudo antes de leerlo. Responde 2xx cuando el aviso quedó procesado (o no hace falta procesarlo);
 // un 500 hace que Dodo lo reintente más tarde.
 import { handleWebhook, verifyWebhook } from '../../src/lib/server/payments';

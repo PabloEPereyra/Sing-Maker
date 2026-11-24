@@ -4,6 +4,8 @@
 //      el pago se vuelve a pedir a la API de Dodo, que es la fuente de verdad (estado, productos y metadata).
 //   3. Con el pago confirmado se suman los créditos del paquete; el id del pago es la referencia única del
 //      registro, así que si el aviso llega varias veces se suma una sola.
+//   4. Un reembolso (entero o parcial) o una disputa (contracargo) quita los créditos de esa compra; si la disputa
+//      se gana o se cancela, vuelven. También acá manda el estado del pago en la API de Dodo, no el aviso.
 // Variables: DODO_API_KEY, DODO_WEBHOOK_SECRET (whsec_…), DODO_MODE (test | live; por defecto test) y
 // DODO_PACKS con los paquetes: «id_producto:créditos:precio», separados por coma (p. ej. «pdt_A:250:10»).
 import { ensureSchema, inBatch, type D1Like } from './db';
@@ -163,7 +165,26 @@ interface DodoPayment {
 	metadata?: Record<string, unknown> | null;
 	product_cart?: { product_id?: string; quantity?: number }[] | null;
 	customer?: { email?: string } | null;
+	/** Lo que pagó la persona, con impuestos, en la unidad mínima de `currency` (centavos). */
+	total_amount?: number;
+	currency?: string;
+	settlement_amount?: number;
+	settlement_currency?: string;
+	refund_status?: 'partial' | 'full' | null;
+	refunds?: DodoRefund[] | null;
+	disputes?: { dispute_id?: string; dispute_status?: string }[] | null;
 }
+
+interface DodoRefund {
+	refund_id?: string;
+	status?: string;
+	is_partial?: boolean;
+	amount?: number | null;
+	currency?: string | null;
+}
+
+/** Disputas que ya no retienen la plata: con cualquier otro estado, la persona (o su banco) la tiene o la reclama. */
+const CLEARED_DISPUTES = new Set(['dispute_won', 'dispute_cancelled']);
 
 /** Créditos que corresponden a los productos del pago, según los paquetes configurados. */
 export function creditsFor(payment: DodoPayment, packs: Pack[]): number {
@@ -175,76 +196,200 @@ export function creditsFor(payment: DodoPayment, packs: Pack[]): number {
 	return total;
 }
 
+/** Parte del pago que se devolvió, de 0 a 1 (`null` si un reembolso parcial no se puede medir). */
+export function refundedShare(payment: DodoPayment): number | null {
+	const done = (payment.refunds ?? []).filter((r) => r.status === 'succeeded');
+	if (payment.refund_status === 'full' || done.some((r) => r.is_partial === false)) return 1;
+	let share = 0;
+	for (const r of done) {
+		// El monto viene en la moneda del pago o, si no, en la de liquidación.
+		const currency = r.currency ?? payment.currency;
+		const total =
+			currency === payment.currency
+				? payment.total_amount
+				: currency === payment.settlement_currency
+					? payment.settlement_amount
+					: undefined;
+		if (typeof r.amount !== 'number' || !total || total <= 0) return null;
+		share += r.amount / total;
+	}
+	return Math.min(Math.max(share, 0), 1);
+}
+
+/** Intentos de ajustar el saldo si otro pedido lo cambia justo en el medio. */
+const RECONCILE_TRIES = 4;
+
+/**
+ * Deja los créditos quitados de una compra como corresponde al estado del pago. Es idempotente: se calcula lo que
+ * hay que quitar en total (`due`) y solo se aplica la diferencia con lo anterior. El saldo no baja de 0, así que se
+ * guarda aparte lo que de verdad se quitó (`taken`): lo que faltó no se cobra de compras futuras, y si la disputa
+ * se gana vuelve exactamente lo quitado. Devuelve el cambio en el saldo.
+ */
+async function reconcile(
+	db: D1Like,
+	paymentId: string,
+	payment: DodoPayment
+): Promise<{ known: boolean; delta: number }> {
+	const bought = await db
+		.prepare("SELECT user_id, delta FROM credit_ledger WHERE ref = ?1 AND reason = 'purchase'")
+		.bind(paymentId)
+		.first<{ user_id: string; delta: number }>();
+	if (!bought) return { known: false, delta: 0 };
+
+	const share = refundedShare(payment);
+	if (share === null) throw new Error(`No se pudo medir el reembolso parcial de ${paymentId}`);
+	const refunded = Math.round(bought.delta * share);
+	const disputed = (payment.disputes ?? []).some(
+		(d) => !CLEARED_DISPUTES.has(d.dispute_status ?? '')
+	);
+	const due = disputed ? bought.delta : refunded;
+
+	// Reembolso hecho con la versión anterior (sin payment_reversals): ya se quitó el paquete entero.
+	const legacy = await db
+		.prepare('SELECT delta FROM credit_ledger WHERE ref = ?1')
+		.bind(`refund:${paymentId}`)
+		.first<{ delta: number }>();
+	const before = legacy ? -legacy.delta : 0;
+	if (due === 0 && before === 0) {
+		const row = await db
+			.prepare('SELECT 1 AS x FROM payment_reversals WHERE payment_id = ?1')
+			.bind(paymentId)
+			.first<{ x: number }>();
+		if (!row) return { known: true, delta: 0 };
+	}
+	await db
+		.prepare(
+			"INSERT OR IGNORE INTO payment_reversals (payment_id, user_id, due, taken, op) VALUES (?1, ?2, ?3, ?3, '')"
+		)
+		.bind(paymentId, bought.user_id, before)
+		.run();
+
+	for (let i = 0; i < RECONCILE_TRIES; i++) {
+		const row = await db
+			.prepare(
+				'SELECT r.due AS due, r.taken AS taken, r.op AS op, u.credits AS credits FROM payment_reversals r JOIN users u ON u.id = r.user_id WHERE r.payment_id = ?1'
+			)
+			.bind(paymentId)
+			.first<{ due: number; taken: number; op: string; credits: number }>();
+		if (!row) return { known: false, delta: 0 };
+		if (row.due === due) return { known: true, delta: 0 };
+		const delta =
+			due > row.due
+				? -Math.min(Math.max(row.credits, 0), due - row.due)
+				: row.taken - Math.min(row.taken, due);
+		const reason = delta > 0 ? 'restored' : disputed ? 'dispute' : 'refund';
+		const op = crypto.randomUUID();
+		// La primera consulta solo se aplica si nadie tocó la fila ni el saldo desde que se leyeron; las otras dos,
+		// solo si se aplicó la primera (queda su `op`).
+		const statements = [
+			db
+				.prepare(
+					'UPDATE payment_reversals SET due = ?2, taken = taken - ?3, op = ?4 WHERE payment_id = ?1 AND op = ?5 AND (SELECT credits FROM users WHERE id = payment_reversals.user_id) = ?6'
+				)
+				.bind(paymentId, due, delta, op, row.op, row.credits)
+		];
+		if (delta !== 0)
+			statements.push(
+				db
+					.prepare(
+						'UPDATE users SET credits = credits + ?2 WHERE id = ?1 AND EXISTS (SELECT 1 FROM payment_reversals WHERE payment_id = ?3 AND op = ?4)'
+					)
+					.bind(bought.user_id, delta, paymentId, op),
+				db
+					.prepare(
+						'INSERT INTO credit_ledger (user_id, delta, reason, ref, created_at) SELECT ?1, ?2, ?3, ?4, ?5 WHERE EXISTS (SELECT 1 FROM payment_reversals WHERE payment_id = ?6 AND op = ?7)'
+					)
+					.bind(
+						bought.user_id,
+						delta,
+						reason,
+						`reversal:${paymentId}:${op}`,
+						Date.now(),
+						paymentId,
+						op
+					)
+			);
+		await inBatch(db, statements);
+		const applied = await db
+			.prepare('SELECT 1 AS x FROM payment_reversals WHERE payment_id = ?1 AND op = ?2')
+			.bind(paymentId, op)
+			.first<{ x: number }>();
+		if (applied) return { known: true, delta };
+	}
+	throw new Error(`No se pudo ajustar el saldo por ${paymentId}`);
+}
+
 export type WebhookResult =
 	{ handled: true; credits?: number; duplicate?: boolean } | { handled: false; reason: string };
 
+interface WebhookEvent {
+	type?: string;
+	data?: { payment_id?: string; refund_id?: string; dispute_id?: string };
+}
+
 /**
- * Procesa un aviso ya verificado. Un pago confirmado suma los créditos a la cuenta de su metadata (o, si
- * faltara, a la del email del pago); un reembolso los descuenta (sin bajar el saldo de 0).
+ * Procesa un aviso ya verificado. Un pago confirmado suma los créditos a la cuenta de su metadata (o, si faltara,
+ * a la del email del pago); un reembolso o una disputa ajusta los créditos de esa compra (ver `reconcile`). Si algo
+ * no se puede resolver todavía, lanza para que Dodo reintente el aviso.
  */
 export async function handleWebhook(
 	env: PaymentsEnv,
-	event: { type?: string; data?: { payment_id?: string } },
+	event: WebhookEvent,
 	fetchImpl: typeof fetch = fetch
 ): Promise<WebhookResult> {
 	const db = env.DB;
 	if (!db) return { handled: false, reason: 'no_db' };
+	const paid = event.type === 'payment.succeeded';
+	const refunded = event.type === 'refund.succeeded';
+	const disputed = !!event.type?.startsWith('dispute.');
+	if (!paid && !refunded && !disputed) return { handled: false, reason: 'ignored' };
 	const paymentId = event.data?.payment_id;
-	if (event.type === 'payment.succeeded') {
-		if (!paymentId) return { handled: false, reason: 'no_payment_id' };
-		const res = await dodo(env, `/payments/${encodeURIComponent(paymentId)}`, {}, fetchImpl);
-		if (!res.ok) throw new Error(`Dodo respondió ${res.status} al pedir el pago`);
-		const payment = (await res.json()) as DodoPayment;
-		if (payment.status !== 'succeeded') return { handled: false, reason: 'not_succeeded' };
-		const credits = creditsFor(payment, parsePacks(env.DODO_PACKS));
-		if (credits <= 0) return { handled: false, reason: 'no_pack' };
-		await ensureSchema(db);
-		let userId = typeof payment.metadata?.user_id === 'string' ? payment.metadata.user_id : '';
-		if (userId) {
-			const exists = await db
-				.prepare('SELECT id FROM users WHERE id = ?1')
-				.bind(userId)
-				.first<{ id: string }>();
-			if (!exists) userId = '';
-		}
-		if (!userId && payment.customer?.email) {
-			const byEmail = await db
-				.prepare('SELECT id FROM users WHERE email = ?1')
-				.bind(payment.customer.email.trim().toLowerCase())
-				.first<{ id: string }>();
-			userId = byEmail?.id ?? '';
-		}
-		if (!userId) return { handled: false, reason: 'unknown_user' };
-		const added = await addCredits(db, userId, credits, 'purchase', paymentId);
-		return { handled: true, credits, duplicate: !added };
-	}
-	if (event.type === 'refund.succeeded') {
-		if (!paymentId) return { handled: false, reason: 'no_payment_id' };
-		await ensureSchema(db);
-		const bought = await db
-			.prepare('SELECT user_id, delta FROM credit_ledger WHERE ref = ?1')
-			.bind(paymentId)
-			.first<{ user_id: string; delta: number }>();
-		if (!bought) return { handled: false, reason: 'unknown_payment' };
-		const ref = `refund:${paymentId}`;
-		const done = await db
-			.prepare('SELECT 1 AS x FROM credit_ledger WHERE ref = ?1')
-			.bind(ref)
-			.first<{ x: number }>();
-		if (done) return { handled: true, duplicate: true };
-		await inBatch(db, [
-			db
-				.prepare(
-					'UPDATE users SET credits = MAX(credits - ?2, 0) WHERE id = ?1 AND NOT EXISTS (SELECT 1 FROM credit_ledger WHERE ref = ?3)'
+	if (!paymentId) return { handled: false, reason: 'no_payment_id' };
+
+	const res = await dodo(env, `/payments/${encodeURIComponent(paymentId)}`, {}, fetchImpl);
+	if (!res.ok) throw new Error(`Dodo respondió ${res.status} al pedir el pago`);
+	const payment = (await res.json()) as DodoPayment;
+	await ensureSchema(db);
+
+	if (!paid) {
+		// Si el pago todavía no muestra lo que dice el aviso, se reintenta más tarde.
+		const listed = refunded
+			? payment.refund_status === 'full' ||
+				(payment.refunds ?? []).some(
+					(r) =>
+						r.status === 'succeeded' &&
+						(!event.data?.refund_id || r.refund_id === event.data.refund_id)
 				)
-				.bind(bought.user_id, bought.delta, ref),
-			db
-				.prepare(
-					'INSERT OR IGNORE INTO credit_ledger (user_id, delta, reason, ref, created_at) VALUES (?1, ?2, ?3, ?4, ?5)'
-				)
-				.bind(bought.user_id, -bought.delta, 'refund', ref, Date.now())
-		]);
-		return { handled: true, credits: -bought.delta };
+			: (payment.disputes ?? []).some(
+					(d) => !event.data?.dispute_id || d.dispute_id === event.data.dispute_id
+				);
+		if (!listed) throw new Error(`El pago ${paymentId} todavía no muestra ${event.type}`);
+		const r = await reconcile(db, paymentId, payment);
+		if (!r.known) return { handled: false, reason: 'unknown_payment' };
+		return r.delta === 0 ? { handled: true, duplicate: true } : { handled: true, credits: r.delta };
 	}
-	return { handled: false, reason: 'ignored' };
+
+	if (payment.status !== 'succeeded') return { handled: false, reason: 'not_succeeded' };
+	const credits = creditsFor(payment, parsePacks(env.DODO_PACKS));
+	if (credits <= 0) return { handled: false, reason: 'no_pack' };
+	let userId = typeof payment.metadata?.user_id === 'string' ? payment.metadata.user_id : '';
+	if (userId) {
+		const exists = await db
+			.prepare('SELECT id FROM users WHERE id = ?1')
+			.bind(userId)
+			.first<{ id: string }>();
+		if (!exists) userId = '';
+	}
+	if (!userId && payment.customer?.email) {
+		const byEmail = await db
+			.prepare('SELECT id FROM users WHERE email = ?1')
+			.bind(payment.customer.email.trim().toLowerCase())
+			.first<{ id: string }>();
+		userId = byEmail?.id ?? '';
+	}
+	if (!userId) return { handled: false, reason: 'unknown_user' };
+	const added = await addCredits(db, userId, credits, 'purchase', paymentId);
+	// El aviso del reembolso o de la disputa pudo llegar antes que este.
+	await reconcile(db, paymentId, payment);
+	return { handled: true, credits, duplicate: !added };
 }

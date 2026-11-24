@@ -14,23 +14,30 @@ export function sqliteD1(path = ':memory:'): D1Like & { raw: DatabaseSync } {
 			first: async <T>() => (raw.prepare(sql).get(...params) as T | undefined) ?? null
 		};
 	};
+	// Una sola conexión no admite dos transacciones a la vez: van en fila (D1 también las aísla).
+	let queue: Promise<unknown> = Promise.resolve();
 	return {
 		raw,
 		prepare: (sql: string) => ({
 			bind: (...values: unknown[]) => bound(sql, values),
 			run: async () => raw.prepare(sql).run()
 		}),
-		async batch(statements: D1Bound[]) {
-			raw.exec('BEGIN');
-			try {
-				const out = [];
-				for (const s of statements) out.push(await s.run());
-				raw.exec('COMMIT');
-				return out;
-			} catch (e) {
-				raw.exec('ROLLBACK');
-				throw e;
-			}
+		batch(statements: D1Bound[]) {
+			const run = async () => {
+				raw.exec('BEGIN');
+				try {
+					const out = [];
+					for (const s of statements) out.push(await s.run());
+					raw.exec('COMMIT');
+					return out;
+				} catch (e) {
+					raw.exec('ROLLBACK');
+					throw e;
+				}
+			};
+			const result = queue.then(run);
+			queue = result.catch(() => null);
+			return result;
 		}
 	};
 }

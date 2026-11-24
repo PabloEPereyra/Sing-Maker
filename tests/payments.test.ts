@@ -8,6 +8,7 @@ import {
 	handleWebhook,
 	parsePacks,
 	paymentsEnabled,
+	refundedShare,
 	signWebhook,
 	verifyWebhook,
 	type PaymentsEnv
@@ -204,19 +205,208 @@ describe('avisos de pago y reembolso', () => {
 		expect(credits(db)).toBe(250);
 	});
 
-	it('un reembolso descuenta los créditos de esa compra, sin bajar de 0 ni repetir', async () => {
-		const { db, env } = setup();
-		await handleWebhook(env, succeeded, paid().impl);
-		db.raw.prepare("UPDATE users SET credits = 100 WHERE id = 'u1'").run(); // ya gastó 150
-		const refund = { type: 'refund.succeeded', data: { payment_id: 'pay_1' } };
-		expect(await handleWebhook(env, refund)).toEqual({ handled: true, credits: -250 });
-		expect(credits(db)).toBe(0);
-		expect(await handleWebhook(env, refund)).toEqual({ handled: true, duplicate: true });
-	});
-
 	it('si Dodo falla al devolver el pago, lanza para que el aviso se reintente', async () => {
 		const { env } = setup();
 		const { impl } = fakeFetch(() => ({ status: 500, body: {} }));
 		await expect(handleWebhook(env, succeeded, impl)).rejects.toThrow();
+	});
+});
+
+describe('reembolsos y disputas', () => {
+	const money = { total_amount: 1000, currency: 'USD' };
+	/** El pago tal como lo devuelve Dodo, con lo que haga falta cambiado. */
+	const api = (extra: Record<string, unknown> = {}) =>
+		fakeFetch(() => ({
+			body: {
+				payment_id: 'pay_1',
+				status: 'succeeded',
+				metadata: { user_id: 'u1' },
+				product_cart: [{ product_id: 'pdt_small', quantity: 1 }],
+				refunds: [],
+				disputes: [],
+				...money,
+				...extra
+			}
+		})).impl;
+	const succeeded = { type: 'payment.succeeded', data: { payment_id: 'pay_1' } };
+	const refundEvent = (id = 'ref_1') => ({
+		type: 'refund.succeeded',
+		data: { payment_id: 'pay_1', refund_id: id }
+	});
+	const disputeEvent = (type: string) => ({
+		type: `dispute.${type}`,
+		data: { payment_id: 'pay_1', dispute_id: 'dis_1' }
+	});
+	const refund = (amount: number, id = 'ref_1', extra: Record<string, unknown> = {}) => ({
+		refund_id: id,
+		status: 'succeeded',
+		is_partial: true,
+		amount,
+		currency: 'USD',
+		...extra
+	});
+	const full = { refund_status: 'full', refunds: [refund(1000, 'ref_1', { is_partial: false })] };
+	const dispute = (status: string) => ({
+		disputes: [{ dispute_id: 'dis_1', dispute_status: `dispute_${status}` }]
+	});
+	const setCredits = (db: ReturnType<typeof sqliteD1>, n: number) =>
+		db.raw.prepare("UPDATE users SET credits = ? WHERE id = 'u1'").run(n);
+	const ledger = (db: ReturnType<typeof sqliteD1>) =>
+		db.raw.prepare('SELECT delta, reason FROM credit_ledger ORDER BY id').all();
+
+	async function bought() {
+		const s = setup();
+		await handleWebhook(s.env, succeeded, api());
+		return s;
+	}
+
+	it('un reembolso entero quita el paquete una sola vez', async () => {
+		const { db, env } = await bought();
+		expect(await handleWebhook(env, refundEvent(), api(full))).toEqual({
+			handled: true,
+			credits: -250
+		});
+		expect(await handleWebhook(env, refundEvent(), api(full))).toEqual({
+			handled: true,
+			duplicate: true
+		});
+		expect(credits(db)).toBe(0);
+	});
+
+	it('un reembolso parcial quita solo su parte, y varios se acumulan', async () => {
+		const { db, env } = await bought();
+		const one = { refund_status: 'partial', refunds: [refund(400)] };
+		expect(await handleWebhook(env, refundEvent(), api(one))).toEqual({
+			handled: true,
+			credits: -100
+		});
+		const two = { refund_status: 'partial', refunds: [refund(400), refund(200, 'ref_2')] };
+		await handleWebhook(env, refundEvent('ref_2'), api(two));
+		expect(credits(db)).toBe(100);
+		// un reembolso fallido o pendiente no cuenta
+		const three = { refunds: [...two.refunds, refund(400, 'ref_3', { status: 'failed' })] };
+		await handleWebhook(env, refundEvent('ref_2'), api(three));
+		expect(credits(db)).toBe(100);
+	});
+
+	it('mide el reembolso en la moneda del pago o en la de liquidación', () => {
+		const eur = { currency: 'EUR', total_amount: 900, settlement_currency: 'USD' };
+		expect(refundedShare({ ...eur, refunds: [refund(450, 'r', { currency: 'EUR' })] })).toBe(0.5);
+		expect(refundedShare({ ...eur, settlement_amount: 1000, refunds: [refund(250)] })).toBe(0.25);
+		expect(refundedShare({ ...eur, refunds: [refund(450, 'r', { currency: 'JPY' })] })).toBeNull();
+		expect(refundedShare({ ...money, refunds: [refund(9999)] })).toBe(1);
+		expect(refundedShare(money)).toBe(0);
+	});
+
+	it('lo que ya se gastó no deja deuda ni se cobra de una compra posterior', async () => {
+		const { db, env } = await bought();
+		setCredits(db, 100);
+		expect(await handleWebhook(env, refundEvent(), api(full))).toEqual({
+			handled: true,
+			credits: -100
+		});
+		expect(credits(db)).toBe(0);
+		setCredits(db, 600);
+		await handleWebhook(env, refundEvent(), api(full));
+		expect(credits(db)).toBe(600);
+	});
+
+	it('una disputa quita los créditos al abrirse y no otra vez al perderse', async () => {
+		const { db, env } = await bought();
+		await handleWebhook(env, disputeEvent('opened'), api(dispute('opened')));
+		expect(credits(db)).toBe(0);
+		setCredits(db, 40);
+		for (const s of ['challenged', 'expired', 'accepted', 'lost'])
+			expect(await handleWebhook(env, disputeEvent(s), api(dispute(s)))).toEqual({
+				handled: true,
+				duplicate: true
+			});
+		expect(credits(db)).toBe(40);
+		expect(ledger(db)).toEqual([
+			{ delta: 250, reason: 'purchase' },
+			{ delta: -250, reason: 'dispute' }
+		]);
+	});
+
+	it.each(['won', 'cancelled'])(
+		'si la disputa termina en %s vuelve justo lo quitado',
+		async (end) => {
+			const { db, env } = await bought();
+			setCredits(db, 100); // ya gastó 150
+			await handleWebhook(env, disputeEvent('opened'), api(dispute('opened')));
+			expect(credits(db)).toBe(0);
+			expect(await handleWebhook(env, disputeEvent(end), api(dispute(end)))).toEqual({
+				handled: true,
+				credits: 100
+			});
+			await handleWebhook(env, disputeEvent(end), api(dispute(end)));
+			expect(credits(db)).toBe(100);
+		}
+	);
+
+	it('un aviso viejo de «abierta» no vuelve a quitar los créditos de una disputa ganada', async () => {
+		const { db, env } = await bought();
+		await handleWebhook(env, disputeEvent('opened'), api(dispute('opened')));
+		await handleWebhook(env, disputeEvent('won'), api(dispute('won')));
+		await handleWebhook(env, disputeEvent('opened'), api(dispute('won')));
+		expect(credits(db)).toBe(250);
+	});
+
+	it('disputa sobre un pago ya reembolsado en parte: al ganarse queda solo el reembolso', async () => {
+		const { db, env } = await bought();
+		const part = { refund_status: 'partial', refunds: [refund(400)] };
+		await handleWebhook(env, refundEvent(), api(part));
+		await handleWebhook(env, disputeEvent('opened'), api({ ...part, ...dispute('opened') }));
+		expect(credits(db)).toBe(0);
+		await handleWebhook(env, disputeEvent('won'), api({ ...part, ...dispute('won') }));
+		expect(credits(db)).toBe(150);
+	});
+
+	it('si el reembolso llegó antes que el pago, la compra no deja créditos', async () => {
+		const { db, env } = setup();
+		expect(await handleWebhook(env, refundEvent(), api(full))).toEqual({
+			handled: false,
+			reason: 'unknown_payment'
+		});
+		await handleWebhook(env, succeeded, api(full));
+		expect(credits(db)).toBe(0);
+	});
+
+	it('respeta un reembolso hecho con la versión anterior', async () => {
+		const { db, env } = await bought();
+		db.raw.exec(
+			"INSERT INTO credit_ledger (user_id, delta, reason, ref, created_at) VALUES ('u1', -250, 'refund', 'refund:pay_1', 0)"
+		);
+		setCredits(db, 40);
+		expect(await handleWebhook(env, refundEvent(), api(full))).toMatchObject({ duplicate: true });
+		expect(credits(db)).toBe(40);
+	});
+
+	it('avisos simultáneos ajustan el saldo una sola vez', async () => {
+		const { db, env } = await bought();
+		setCredits(db, 600);
+		await Promise.all(
+			Array.from({ length: 5 }, () => handleWebhook(env, refundEvent(), api(full)))
+		);
+		expect(credits(db)).toBe(350);
+		expect(ledger(db)).toHaveLength(2);
+	});
+
+	it('si el pago todavía no muestra el aviso, o el parcial no se puede medir, se reintenta', async () => {
+		const { db, env } = await bought();
+		await expect(handleWebhook(env, refundEvent(), api())).rejects.toThrow();
+		await expect(handleWebhook(env, disputeEvent('opened'), api())).rejects.toThrow();
+		const odd = { refunds: [refund(100, 'ref_1', { amount: null })] };
+		await expect(handleWebhook(env, refundEvent(), api(odd))).rejects.toThrow();
+		expect(credits(db)).toBe(250);
+	});
+
+	it('ignora los demás avisos sin consultar a Dodo', async () => {
+		const { env } = setup();
+		const { impl, calls } = fakeFetch(() => ({ body: {} }));
+		expect(
+			await handleWebhook(env, { type: 'refund.failed', data: { payment_id: 'pay_1' } }, impl)
+		).toEqual({ handled: false, reason: 'ignored' });
+		expect(calls).toHaveLength(0);
 	});
 });
